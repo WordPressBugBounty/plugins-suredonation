@@ -1,0 +1,96 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "suredonation/dropdown",
+	"title": "Dropdown",
+	"description": "Displays a SureDonation Dropdown (select) field",
+	"category": "suredonation",
+	"keywords": [ "dropdown", "select", "field", "choice", "option" ],
+	"textdomain": "suredonation",
+	"supports": {
+		"reusable": false,
+		"html": false
+	},
+	"example": {
+		"attributes": {
+			"preview": true
+		}
+	},
+	"attributes": {
+		"preview": {
+			"type": "boolean",
+			"default": false
+		},
+		"block_id": {
+			"type": "string"
+		},
+		"required": {
+			"type": "boolean",
+			"default": false
+		},
+		"multiSelect": {
+			"type": "boolean",
+			"default": false
+		},
+		"searchable": {
+			"type": "boolean",
+			"default": true
+		},
+		"options": {
+			"type": "array",
+			"default": [
+				{ "label": "Option 1" },
+				{ "label": "Option 2" },
+				{ "label": "Option 3" }
+			]
+		},
+		"preselectedOptions": {
+			"type": "array",
+			"default": []
+		},
+		"minSelection": {
+			"type": "number",
+			"default": 0
+		},
+		"maxSelection": {
+			"type": "number",
+			"default": 0
+		},
+		"fieldWidth": {
+			"type": "number",
+			"default": 100
+		},
+		"label": {
+			"type": "string",
+			"default": "Dropdown"
+		},
+		"help": {
+			"type": "string",
+			"default": ""
+		},
+		"placeholder": {
+			"type": "string",
+			"default": "Select an option"
+		},
+		"errorMsg": {
+			"type": "string",
+			"default": ""
+		},
+		"formId": {
+			"type": "number",
+			"default": 0
+		},
+		"slug": {
+			"type": "string",
+			"default": ""
+		},
+		"className": {
+			"type": "string",
+			"default": ""
+		},
+		"customClasses": {
+			"type": "string",
+			"default": ""
+		}
+	}
+}

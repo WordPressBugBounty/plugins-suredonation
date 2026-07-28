@@ -1,0 +1,92 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "suredonation/phone",
+	"title": "Phone Number",
+	"description": "Displays a SureDonation Phone Number field",
+	"category": "suredonation",
+	"keywords": [ "telephone", "phone", "mobile", "field" ],
+	"textdomain": "suredonation",
+	"supports": {
+		"reusable": false,
+		"html": false
+	},
+	"example": {
+		"attributes": {
+			"preview": true
+		}
+	},
+	"attributes": {
+		"preview": {
+			"type": "boolean",
+			"default": false
+		},
+		"block_id": {
+			"type": "string"
+		},
+		"required": {
+			"type": "boolean",
+			"default": false
+		},
+		"fieldWidth": {
+			"type": "number",
+			"default": 100
+		},
+		"label": {
+			"type": "string",
+			"default": "Phone Number"
+		},
+		"placeholder": {
+			"type": "string",
+			"default": ""
+		},
+		"help": {
+			"type": "string",
+			"default": ""
+		},
+		"errorMsg": {
+			"type": "string",
+			"default": ""
+		},
+		"formId": {
+			"type": "number",
+			"default": 0
+		},
+		"slug": {
+			"type": "string",
+			"default": ""
+		},
+		"autoCountry": {
+			"type": "boolean",
+			"default": true
+		},
+		"defaultCountry": {
+			"type": "string",
+			"default": ""
+		},
+		"enableCountryFilter": {
+			"type": "boolean",
+			"default": false
+		},
+		"countryFilterType": {
+			"type": "string",
+			"default": "include"
+		},
+		"includeCountries": {
+			"type": "array",
+			"default": []
+		},
+		"excludeCountries": {
+			"type": "array",
+			"default": []
+		},
+		"className": {
+			"type": "string",
+			"default": ""
+		},
+		"customClasses": {
+			"type": "string",
+			"default": ""
+		}
+	}
+}

@@ -1,0 +1,44 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "suredonation/campaign-social-sharing",
+	"title": "Campaign Social Sharing",
+	"description": "Lets visitors share the campaign on social networks.",
+	"category": "suredonation-campaign",
+	"keywords": [ "campaign", "social", "share", "sharing" ],
+	"textdomain": "suredonation",
+	"supports": {
+		"html": false,
+		"reusable": false
+	},
+	"example": {
+		"attributes": {
+			"preview": true
+		}
+	},
+	"attributes": {
+		"campaignId": {
+			"type": "number",
+			"default": 0
+		},
+		"headline": {
+			"type": "string"
+		},
+		"networks": {
+			"type": "array",
+			"default": [ "twitter", "facebook", "linkedin", "pinterest", "bluesky" ]
+		},
+		"openInNewTab": {
+			"type": "boolean",
+			"default": true
+		},
+		"contentAlign": {
+			"type": "string",
+			"default": "left"
+		},
+		"preview": {
+			"type": "boolean",
+			"default": false
+		}
+	}
+}

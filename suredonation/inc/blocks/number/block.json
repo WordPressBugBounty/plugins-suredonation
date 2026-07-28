@@ -1,0 +1,88 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "suredonation/number",
+	"title": "Number",
+	"description": "Displays a SureDonation Number Field for donation amounts",
+	"category": "suredonation",
+	"keywords": [ "number", "amount", "donation", "currency" ],
+	"textdomain": "suredonation",
+	"supports": {
+		"reusable": false,
+		"html": false
+	},
+	"example": {
+		"attributes": {
+			"preview": true
+		}
+	},
+	"attributes": {
+		"preview": {
+			"type": "boolean",
+			"default": false
+		},
+		"block_id": {
+			"type": "string"
+		},
+		"defaultValue": {
+			"type": "string",
+			"default": ""
+		},
+		"required": {
+			"type": "boolean",
+			"default": true
+		},
+		"placeholder": {
+			"type": "string",
+			"default": ""
+		},
+		"fieldWidth": {
+			"type": "number",
+			"default": 100
+		},
+		"label": {
+			"type": "string",
+			"default": "Donation Amount"
+		},
+		"help": {
+			"type": "string",
+			"default": ""
+		},
+		"errorMsg": {
+			"type": "string",
+			"default": ""
+		},
+		"minValue": {
+			"type": "number",
+			"default": 1
+		},
+		"maxValue": {
+			"type": "number",
+			"default": 0
+		},
+		"step": {
+			"type": "number",
+			"default": 1
+		},
+		"showCurrency": {
+			"type": "boolean",
+			"default": true
+		},
+		"formId": {
+			"type": "number",
+			"default": 0
+		},
+		"slug": {
+			"type": "string",
+			"default": ""
+		},
+		"className": {
+			"type": "string",
+			"default": ""
+		},
+		"customClasses": {
+			"type": "string",
+			"default": ""
+		}
+	}
+}

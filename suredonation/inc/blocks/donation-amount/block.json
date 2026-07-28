@@ -1,0 +1,105 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "suredonation/donation-amount",
+	"title": "Donation Amount",
+	"description": "Preset donation amount options plus an optional custom amount field.",
+	"category": "suredonation",
+	"keywords": [ "donation", "amount", "radio", "choice", "preset", "custom" ],
+	"textdomain": "suredonation",
+	"supports": {
+		"reusable": false,
+		"html": false,
+		"multiple": false
+	},
+	"style": "suredonation-donation-form",
+	"example": {
+		"attributes": {
+			"preview": true
+		}
+	},
+	"attributes": {
+		"preview": {
+			"type": "boolean",
+			"default": false
+		},
+		"block_id": {
+			"type": "string"
+		},
+		"required": {
+			"type": "boolean",
+			"default": true
+		},
+		"fieldWidth": {
+			"type": "number",
+			"default": 100
+		},
+		"label": {
+			"type": "string",
+			"default": "Select Amount"
+		},
+		"help": {
+			"type": "string",
+			"default": ""
+		},
+		"errorMsg": {
+			"type": "string",
+			"default": ""
+		},
+		"options": {
+			"type": "array",
+			"default": [
+				{ "label": "25", "value": "25" },
+				{ "label": "50", "value": "50" },
+				{ "label": "100", "value": "100" },
+				{ "label": "250", "value": "250" }
+			]
+		},
+		"defaultValue": {
+			"type": "string",
+			"default": ""
+		},
+		"showValues": {
+			"type": "boolean",
+			"default": false
+		},
+		"layout": {
+			"type": "string",
+			"default": "horizontal",
+			"enum": [ "horizontal", "vertical" ]
+		},
+		"choiceWidth": {
+			"type": "string",
+			"default": "50",
+			"enum": [ "100", "75", "66.66", "50", "33.33", "25" ]
+		},
+		"formId": {
+			"type": "number",
+			"default": 0
+		},
+		"slug": {
+			"type": "string",
+			"default": ""
+		},
+		"className": {
+			"type": "string",
+			"default": ""
+		},
+		"customClasses": {
+			"type": "string",
+			"default": ""
+		},
+		"allowCustomAmount": {
+			"type": "boolean",
+			"default": true
+		},
+		"customAmountMin": {
+			"type": "number",
+			"default": 0
+		},
+		"customAmountMax": {
+			"type": "number",
+			"default": 0
+		}
+	}
+}

@@ -1,0 +1,67 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "suredonation/donation-form",
+	"version": "1.0.0",
+	"title": "Donation Form",
+	"category": "suredonation-campaign",
+	"description": "Display a donation form linked to a campaign",
+	"supports": {
+		"html": false,
+		"align": ["wide", "full"]
+	},
+	"attributes": {
+		"campaignId": {
+			"type": "number",
+			"default": 0
+		},
+		"formId": {
+			"type": "number",
+			"default": 0
+		},
+		"formTitle": {
+			"type": "string",
+			"default": "Support Us"
+		},
+		"showProgress": {
+			"type": "boolean",
+			"default": true
+		},
+		"showGoal": {
+			"type": "boolean",
+			"default": true
+		},
+		"showAnonymous": {
+			"type": "boolean",
+			"default": true
+		},
+		"showFeesCoverage": {
+			"type": "boolean",
+			"default": true
+		},
+		"amountType": {
+			"type": "string",
+			"default": "preset"
+		},
+		"presetAmounts": {
+			"type": "array",
+			"default": [25, 50, 100, 250, 500]
+		},
+		"allowCustomAmount": {
+			"type": "boolean",
+			"default": true
+		},
+		"minimumAmount": {
+			"type": "number",
+			"default": 1
+		},
+		"defaultAmount": {
+			"type": "number",
+			"default": 50
+		}
+	},
+	"textdomain": "suredonation",
+	"editorScript": "suredonation-donation-form-editor",
+	"editorStyle": "suredonation-donation-form-editor",
+	"style": "suredonation-donation-form"
+}

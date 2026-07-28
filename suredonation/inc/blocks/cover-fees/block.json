@@ -1,0 +1,81 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "suredonation/cover-fees",
+	"title": "Cover Processing Fees",
+	"description": "Allow donors to cover payment processing fees",
+	"category": "suredonation",
+	"keywords": [ "cover", "fees", "processing", "stripe", "payment" ],
+	"textdomain": "suredonation",
+	"supports": {
+		"reusable": false,
+		"html": false,
+		"multiple": false
+	},
+	"example": {
+		"attributes": {
+			"preview": true
+		}
+	},
+	"attributes": {
+		"preview": {
+			"type": "boolean",
+			"default": false
+		},
+		"block_id": {
+			"type": "string"
+		},
+		"checked": {
+			"type": "boolean",
+			"default": false
+		},
+		"fieldWidth": {
+			"type": "number",
+			"default": 100
+		},
+		"label": {
+			"type": "string",
+			"default": "I'd like to cover the processing fees"
+		},
+		"help": {
+			"type": "string",
+			"default": ""
+		},
+		"useGlobalDefaults": {
+			"type": "boolean",
+			"default": true
+		},
+		"feePercentage": {
+			"type": "number",
+			"default": 2.9
+		},
+		"feeFixed": {
+			"type": "number",
+			"default": 0.30
+		},
+		"feeMode": {
+			"type": "string",
+			"default": "all_gateways"
+		},
+		"gatewayFees": {
+			"type": "object",
+			"default": {}
+		},
+		"formId": {
+			"type": "number",
+			"default": 0
+		},
+		"slug": {
+			"type": "string",
+			"default": "cover-fees"
+		},
+		"className": {
+			"type": "string",
+			"default": ""
+		},
+		"customClasses": {
+			"type": "string",
+			"default": ""
+		}
+	}
+}

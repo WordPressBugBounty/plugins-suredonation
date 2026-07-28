@@ -1,0 +1,33 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "suredonation/campaign-stats",
+	"title": "Campaign Statistic",
+	"description": "Displays a single campaign statistic such as the average or top donation.",
+	"category": "suredonation-campaign",
+	"keywords": [ "campaign", "stats", "statistic", "donation" ],
+	"textdomain": "suredonation",
+	"supports": {
+		"html": false,
+		"reusable": false
+	},
+	"example": {
+		"attributes": {
+			"preview": true
+		}
+	},
+	"attributes": {
+		"campaignId": {
+			"type": "number",
+			"default": 0
+		},
+		"statistic": {
+			"type": "string",
+			"default": "average-donation"
+		},
+		"preview": {
+			"type": "boolean",
+			"default": false
+		}
+	}
+}

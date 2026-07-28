@@ -1,0 +1,106 @@
+/**
+ * Styles for the SureDonation "configure a payment gateway" setup notice.
+ *
+ * Every rule is scoped under #sd-setup-gateway (the notice wrapper rendered by
+ * the BSF admin notices library). The id prefix is required, not cosmetic:
+ * WordPress core styles the notice body with `.notice p` (specificity 0,1,1),
+ * which would otherwise override plain single-class selectors here.
+ */
+
+#sd-setup-gateway {
+	padding: 0;
+	border-left: 4px solid #148cb2;
+	background: #fff;
+}
+
+#sd-setup-gateway .astra-notice-container {
+	display: block;
+	padding: 0;
+}
+
+/* The notice height is driven by the text content. Right padding reserves
+   space for the illustration, which is positioned absolutely so it never
+   adds vertical space around the text. */
+#sd-setup-gateway .sd-setup-notice {
+	position: relative;
+	padding: 22px 280px 22px 24px;
+	box-sizing: border-box;
+}
+
+#sd-setup-gateway .sd-setup-notice__main {
+	display: flex;
+	align-items: flex-start;
+	gap: 14px;
+}
+
+#sd-setup-gateway .sd-setup-notice__icon {
+	flex: 0 0 auto;
+	width: 28px;
+	height: 28px;
+	margin-top: 1px;
+}
+
+#sd-setup-gateway .sd-setup-notice__body {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+#sd-setup-gateway .sd-setup-notice__title {
+	margin: 0 0 6px;
+	padding: 0;
+	font-size: 1.25rem;
+	font-weight: 600;
+	line-height: 32px;
+	color: #1d2327;
+}
+
+#sd-setup-gateway .sd-setup-notice__text {
+	margin: 0 0 16px;
+	padding: 0;
+	font-size: 1rem;
+	line-height: 24px;
+	color: #3c434a;
+}
+
+#sd-setup-gateway .sd-setup-notice__button.button.button-primary,
+#sd-setup-gateway .sd-setup-notice__button.button.button-primary:focus {
+	display: inline-flex;
+	align-items: center;
+	height: auto;
+	min-height: 0;
+	padding: 8px 18px;
+	font-size: 14px;
+	line-height: 1.2;
+	background: #148cb2;
+	border-color: #148cb2;
+	color: #fff;
+	box-shadow: none;
+	text-shadow: none;
+}
+
+#sd-setup-gateway .sd-setup-notice__button.button.button-primary:hover {
+	background: #0b5468;
+	border-color: #0b5468;
+	color: #fff;
+}
+
+#sd-setup-gateway .sd-setup-notice__art {
+	position: absolute;
+	top: 50%;
+	right: 24px;
+	transform: translateY(-50%);
+	width: auto;
+	height: auto;
+	max-height: 128px;
+	max-width: 240px;
+}
+
+@media screen and (max-width: 782px) {
+	#sd-setup-gateway .sd-setup-notice {
+		padding: 20px 44px 20px 20px;
+	}
+
+	#sd-setup-gateway .sd-setup-notice__art {
+		display: none;
+	}
+}

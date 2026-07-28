@@ -1,0 +1,80 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "suredonation/heading",
+	"title": "Heading",
+	"description": "Displays a section heading within the donation form",
+	"category": "suredonation",
+	"keywords": [ "heading", "title", "section", "text" ],
+	"textdomain": "suredonation",
+	"supports": {
+		"reusable": false,
+		"html": false
+	},
+	"example": {
+		"attributes": {
+			"preview": true
+		}
+	},
+	"attributes": {
+		"preview": {
+			"type": "boolean",
+			"default": false
+		},
+		"block_id": {
+			"type": "string"
+		},
+		"headingText": {
+			"type": "string",
+			"default": "Section Heading"
+		},
+		"headingTag": {
+			"type": "string",
+			"default": "h2"
+		},
+		"enableSubHeading": {
+			"type": "boolean",
+			"default": false
+		},
+		"subHeadingText": {
+			"type": "string",
+			"default": "Sub heading"
+		},
+		"subHeadingPosition": {
+			"type": "string",
+			"default": "below"
+		},
+		"separatorStyle": {
+			"type": "string",
+			"default": "none"
+		},
+		"separatorPosition": {
+			"type": "string",
+			"default": "below-heading"
+		},
+		"textAlign": {
+			"type": "string",
+			"default": "left"
+		},
+		"fieldWidth": {
+			"type": "number",
+			"default": 100
+		},
+		"formId": {
+			"type": "number",
+			"default": 0
+		},
+		"slug": {
+			"type": "string",
+			"default": ""
+		},
+		"className": {
+			"type": "string",
+			"default": ""
+		},
+		"customClasses": {
+			"type": "string",
+			"default": ""
+		}
+	}
+}

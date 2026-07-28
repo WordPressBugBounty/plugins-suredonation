@@ -1,0 +1,33 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "suredonation/campaign-goal",
+	"title": "Campaign Goal",
+	"description": "Displays the campaign's fundraising goal and live progress.",
+	"category": "suredonation-campaign",
+	"keywords": [ "campaign", "goal", "progress", "donation" ],
+	"textdomain": "suredonation",
+	"supports": {
+		"html": false,
+		"reusable": false
+	},
+	"example": {
+		"attributes": {
+			"preview": true
+		}
+	},
+	"attributes": {
+		"campaignId": {
+			"type": "number",
+			"default": 0
+		},
+		"showProgressBar": {
+			"type": "boolean",
+			"default": true
+		},
+		"preview": {
+			"type": "boolean",
+			"default": false
+		}
+	}
+}
