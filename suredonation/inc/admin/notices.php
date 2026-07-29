@@ -6,14 +6,18 @@
  *
  *  - Review notice (donation)  : shown once the site has at least one live
  *                                donation, after the 3-day install grace.
- *  - Review notice (gateway)   : shown when a payment gateway is connected but
- *                                no live donation exists yet, after the 3-day
- *                                install grace.
+ *  - Test mode notice          : shown when a payment gateway is connected but
+ *                                the site is still in test mode, nudging the
+ *                                admin to switch to live mode.
+ *  - Review notice (gateway)   : shown when a payment gateway is connected in
+ *                                live mode but no live donation exists yet,
+ *                                after the 3-day install grace.
  *  - Setup gateway notice      : shown instantly (no grace) when no payment
  *                                gateway is connected at all.
  *
- * The three notices are mutually exclusive by construction. Priority is:
- * live donation > gateway configured > no gateway.
+ * The four notices are mutually exclusive by construction. Priority is:
+ * live donation > gateway configured (test mode) > gateway configured (live
+ * mode) > no gateway.
  *
  * @package SureDonation
  */
@@ -22,7 +26,7 @@ namespace SureDonation\Inc\Admin;
 
 use SureDonation\Inc\Database\Tables\Donations;
 use SureDonation\Inc\Helper;
-use SureDonation\Inc\Payments\PayPal\PayPal_Helper;
+use SureDonation\Inc\Payments\Payment_Helper;
 use SureDonation\Inc\Payments\Stripe\Stripe_Helper;
 
 // Exit if accessed directly.
@@ -90,12 +94,14 @@ class Notices {
 		}
 
 		add_action( 'admin_notices', [ $this, 'display_review_notice_donation' ] );
+		add_action( 'admin_notices', [ $this, 'display_test_mode_notice' ] );
 		add_action( 'admin_notices', [ $this, 'display_review_notice_gateway' ] );
 		add_action( 'admin_notices', [ $this, 'display_setup_gateway_notice' ] );
+		add_action( 'admin_notices', [ $this, 'display_webhook_notice' ] );
 
-		// Load the setup-notice styles from the admin <head> (not the late
+		// Load the banner-notice styles from the admin <head> (not the late
 		// after-markup hook) so the banner never renders unstyled first.
-		add_action( 'admin_enqueue_scripts', [ $this, 'maybe_enqueue_setup_notice_style' ] );
+		add_action( 'admin_enqueue_scripts', [ $this, 'maybe_enqueue_banner_notice_style' ] );
 
 		add_action( 'wp_ajax_suredonation_notice_response', [ $this, 'handle_notice_response' ] );
 	}
@@ -147,12 +153,98 @@ class Notices {
 					true
 				),
 				'repeat-notice-after'        => WEEK_IN_SECONDS,
-				'show_if'                    => $this->is_three_days_elapsed() && $this->has_live_donation(),
+				// Test-mode takes priority: while the site is in test mode the
+				// "switch to live" warning is more useful than a review ask.
+				'show_if'                    => $this->is_three_days_elapsed() && $this->has_live_donation() && ! $this->should_show_test_mode_notice(),
 				'display-with-other-notices' => true,
 			]
 		);
 
 		add_action( 'astra_notice_after_markup_sd-review-donation', [ $this, 'enqueue_notice_response_script' ] );
+	}
+
+	/**
+	 * Test-mode notice shown when a gateway is connected but the site is still
+	 * in test mode (notice A2).
+	 *
+	 * Nudges the admin to switch to live mode so real donations can be
+	 * accepted. Takes priority over the gateway review notice: there is no
+	 * point asking for a review while the site cannot yet take real money.
+	 *
+	 * @return void
+	 * @since 1.3.0
+	 */
+	public function display_test_mode_notice() {
+		if ( ! Helper::current_user_can() ) {
+			return;
+		}
+
+		if ( ! apply_filters( 'suredonation_show_test_mode_notice', true ) ) {
+			return;
+		}
+
+		if ( ! class_exists( 'BSF_Admin_Notices' ) ) {
+			return;
+		}
+
+		\BSF_Admin_Notices::add_notice(
+			[
+				'id'                         => 'sd-test-mode',
+				'type'                       => '',
+				'message'                    => $this->build_test_mode_notice_markup(),
+				'repeat-notice-after'        => WEEK_IN_SECONDS,
+				'show_if'                    => $this->should_show_test_mode_notice() && ! $this->should_show_webhook_notice(),
+				'display-with-other-notices' => true,
+			]
+		);
+
+		add_action( 'astra_notice_after_markup_sd-test-mode', [ $this, 'enqueue_notice_response_script' ] );
+	}
+
+	/**
+	 * Stripe webhook-not-configured notice.
+	 *
+	 * Shown on wp-admin pages when Stripe is connected but its webhook is not
+	 * configured for the current mode, so donation/subscription statuses may not
+	 * sync. Mirrors the SureForms webhook notice: a standard dismissible core
+	 * notice (dismissal is per-page-load and reappears until the webhook is set).
+	 * Takes priority over the test-mode banner, which is suppressed while this
+	 * shows (matching the React dashboard notice chain).
+	 *
+	 * Hooked - admin_notices
+	 *
+	 * @return void
+	 * @since 1.3.0
+	 */
+	public function display_webhook_notice() {
+		if ( ! Helper::current_user_can() ) {
+			return;
+		}
+
+		if ( ! $this->should_show_webhook_notice() ) {
+			return;
+		}
+
+		// Load the analytics tracker so the configure-click and dismiss are
+		// recorded, matching the other notices (see handle_notice_response()).
+		$this->enqueue_notice_response_script();
+		?>
+		<div id="sd-webhook-not-configured" class="notice notice-error is-dismissible">
+			<p>
+				<?php
+				printf(
+					/* translators: %1$s: link to configure the Stripe webhook */
+					esc_html__( 'Webhooks keep SureDonation in sync with Stripe by automatically updating donation and subscription data. Please %1$s the webhook.', 'suredonation' ),
+					sprintf(
+						'<a class="sd-notice-cta" href="%1$s">%2$s</a>',
+						esc_url( Payment_Helper::get_settings_url( 'stripe' ) ),
+						esc_html__( 'configure', 'suredonation' )
+					)
+				);
+				?>
+			</p>
+		</div>
+		<?php
 	}
 
 	/**
@@ -190,7 +282,9 @@ class Notices {
 					true
 				),
 				'repeat-notice-after'        => WEEK_IN_SECONDS,
-				'show_if'                    => $this->is_three_days_elapsed() && ! $this->has_live_donation() && $this->is_gateway_configured(),
+				// In test mode the test-mode notice takes this slot instead,
+				// keeping the notice chain mutually exclusive.
+				'show_if'                    => $this->is_three_days_elapsed() && ! $this->has_live_donation() && $this->is_gateway_configured() && ! $this->should_show_test_mode_notice(),
 				'display-with-other-notices' => true,
 			]
 		);
@@ -224,7 +318,7 @@ class Notices {
 				'type'                       => '',
 				'message'                    => $this->build_setup_notice_markup(),
 				'repeat-notice-after'        => WEEK_IN_SECONDS,
-				'show_if'                    => ! $this->has_live_donation() && ! $this->is_gateway_configured(),
+				'show_if'                    => $this->should_show_setup_gateway_notice(),
 				'display-with-other-notices' => true,
 			]
 		);
@@ -286,20 +380,29 @@ class Notices {
 		$button    = isset( $_POST['button'] ) ? sanitize_text_field( wp_unslash( $_POST['button'] ) ) : '';
 
 		$valid = [
-			'sd-review-donation' => [
+			'sd-review-donation'        => [
 				'rate_suredonation' => 'review_notice_donation_cta',
 				'maybe_later'       => 'review_notice_donation_snooze',
 				'dismissed'         => 'review_notice_donation_dismiss',
 			],
-			'sd-review-gateway'  => [
+			'sd-test-mode'              => [
+				'switch_to_live' => 'test_mode_notice_cta',
+				'maybe_later'    => 'test_mode_notice_snooze',
+				'dismissed'      => 'test_mode_notice_dismiss',
+			],
+			'sd-review-gateway'         => [
 				'rate_suredonation' => 'review_notice_gateway_cta',
 				'maybe_later'       => 'review_notice_gateway_snooze',
 				'dismissed'         => 'review_notice_gateway_dismiss',
 			],
-			'sd-setup-gateway'   => [
+			'sd-setup-gateway'          => [
 				'configure_gateway' => 'setup_gateway_notice_cta',
 				'maybe_later'       => 'setup_gateway_notice_snooze',
 				'dismissed'         => 'setup_gateway_notice_dismiss',
+			],
+			'sd-webhook-not-configured' => [
+				'configure_webhook' => 'webhook_notice_cta',
+				'dismissed'         => 'webhook_notice_dismiss',
 			],
 		];
 
@@ -380,37 +483,87 @@ class Notices {
 	 * Build the markup for the "configure a payment gateway" setup notice
 	 * (notice C).
 	 *
-	 * This notice uses a dedicated banner layout (accent bar, icon, heading,
-	 * body, primary CTA and a right-side illustration) styled via
-	 * setup-gateway-notice.css, rather than the shared review-notice markup.
-	 *
 	 * @return string The notice HTML markup.
 	 * @since 1.2.0
 	 */
 	private function build_setup_notice_markup() {
-		return sprintf(
-			'<div class="sd-setup-notice">
-				<div class="sd-setup-notice__main">
-					<img class="sd-setup-notice__icon" src="%5$s" alt="" width="28" height="28" />
-					<div class="sd-setup-notice__body">
-						<h2 class="sd-setup-notice__title">%1$s</h2>
-						<p class="sd-setup-notice__text">%2$s</p>
-						<a href="%3$s" class="button button-primary sd-setup-notice__button">%4$s</a>
-					</div>
-				</div>
-				<img class="sd-setup-notice__art" src="%6$s" alt="" width="187" height="128" />
-			</div>',
+		return $this->build_banner_notice_markup(
 			esc_html__( 'Your donation site is almost ready!', 'suredonation' ),
 			esc_html__( 'Connect a payment gateway to start accepting donations. Set up Stripe or PayPal in just a few clicks to go live.', 'suredonation' ),
-			esc_url( admin_url( 'admin.php?page=suredonation#/settings?tab=payments&subpage=stripe' ) ),
+			Payment_Helper::get_settings_url( 'stripe' ),
 			esc_html__( 'Configure Payment Gateway', 'suredonation' ),
-			esc_url( SUREDONATION_URL . 'images/suredonation-icon.svg' ),
-			esc_url( SUREDONATION_URL . 'images/payment-gateway-notice.png' )
+			SUREDONATION_URL . 'images/payment-gateway-notice.png'
 		);
 	}
 
 	/**
-	 * Enqueue the setup-notice stylesheet.
+	 * Build the markup for the "switch to live mode" test-mode notice
+	 * (notice A2).
+	 *
+	 * @return string The notice HTML markup.
+	 * @since 1.3.0
+	 */
+	private function build_test_mode_notice_markup() {
+		return $this->build_banner_notice_markup(
+			esc_html__( 'SureDonation is in test mode', 'suredonation' ),
+			esc_html__( 'No real payments are being accepted right now. Switch to live mode to start collecting real donations.', 'suredonation' ),
+			Payment_Helper::get_settings_url(),
+			esc_html__( 'Switch to Live Mode', 'suredonation' )
+		);
+	}
+
+	/**
+	 * Build the shared banner-notice markup (accent bar, icon, heading, body and
+	 * a primary CTA, with an optional right-side illustration).
+	 *
+	 * Shared by the setup-gateway and test-mode notices; each is scoped by its
+	 * wrapper id (#sd-setup-gateway / #sd-test-mode) in setup-gateway-notice.css
+	 * so they can carry different accent colors from the same template.
+	 *
+	 * The text parameters must be pre-escaped by the caller (e.g. via
+	 * esc_html__()); the URL and art path are escaped here.
+	 *
+	 * @param string $title    The notice heading (pre-escaped).
+	 * @param string $text     The notice body text (pre-escaped).
+	 * @param string $cta_url  The primary CTA URL (raw; escaped here).
+	 * @param string $cta_text The primary CTA button text (pre-escaped).
+	 * @param string $art      Optional right-side illustration URL (raw; escaped
+	 *                         here). When empty, the banner drops the reserved
+	 *                         art space via the --no-art modifier.
+	 * @return string The notice HTML markup.
+	 * @since 1.3.0
+	 */
+	private function build_banner_notice_markup( $title, $text, $cta_url, $cta_text, $art = '' ) {
+		$has_art      = '' !== $art;
+		$notice_class = $has_art ? 'sd-setup-notice' : 'sd-setup-notice sd-setup-notice--no-art';
+		$art_markup   = $has_art
+			? sprintf( '<img class="sd-setup-notice__art" src="%s" alt="" width="187" height="128" />', esc_url( $art ) )
+			: '';
+
+		return sprintf(
+			'<div class="%1$s">
+				<div class="sd-setup-notice__main">
+					<img class="sd-setup-notice__icon" src="%2$s" alt="" width="28" height="28" />
+					<div class="sd-setup-notice__body">
+						<h2 class="sd-setup-notice__title">%3$s</h2>
+						<p class="sd-setup-notice__text">%4$s</p>
+						<a href="%5$s" class="button button-primary sd-setup-notice__button">%6$s</a>
+					</div>
+				</div>
+				%7$s
+			</div>',
+			esc_attr( $notice_class ),
+			esc_url( SUREDONATION_URL . 'images/suredonation-icon.svg' ),
+			$title,
+			$text,
+			esc_url( $cta_url ),
+			$cta_text,
+			$art_markup
+		);
+	}
+
+	/**
+	 * Enqueue the banner-notice stylesheet.
 	 *
 	 * @return void
 	 * @since 1.2.0
@@ -429,12 +582,12 @@ class Notices {
 	}
 
 	/**
-	 * Enqueue the setup-notice stylesheet from the admin <head> when the setup
-	 * notice is eligible to show.
+	 * Enqueue the banner-notice stylesheet from the admin <head> when either
+	 * banner notice (setup-gateway or test-mode) is eligible to show.
 	 *
 	 * Hooked on admin_enqueue_scripts (which runs before admin_head) and gated
-	 * by the same conditions as the notice itself, so the stylesheet is in the
-	 * page head before the banner paints. This avoids the flash of unstyled
+	 * by the same conditions as the notices themselves, so the stylesheet is in
+	 * the page head before the banner paints. This avoids the flash of unstyled
 	 * content that occurred when the CSS was enqueued on the notice's
 	 * after-markup hook (which fires at admin_notices priority 30, after styles
 	 * have already been printed).
@@ -442,20 +595,57 @@ class Notices {
 	 * @return void
 	 * @since 1.2.0
 	 */
-	public function maybe_enqueue_setup_notice_style() {
+	public function maybe_enqueue_banner_notice_style() {
 		if ( ! Helper::current_user_can() ) {
 			return;
 		}
 
-		if ( ! apply_filters( 'suredonation_show_setup_gateway_notice', true ) ) {
-			return;
-		}
+		$setup_eligible = apply_filters( 'suredonation_show_setup_gateway_notice', true ) && $this->should_show_setup_gateway_notice();
+		$test_eligible  = apply_filters( 'suredonation_show_test_mode_notice', true ) && $this->should_show_test_mode_notice();
 
-		if ( $this->has_live_donation() || $this->is_gateway_configured() ) {
+		if ( ! $setup_eligible && ! $test_eligible ) {
 			return;
 		}
 
 		$this->enqueue_setup_notice_style();
+	}
+
+	/**
+	 * Whether the test-mode notice is eligible to show: a gateway is connected
+	 * (in any mode) but the site is currently running in test mode. This fires
+	 * regardless of past donations — a site switched back to test mode still
+	 * needs the "switch to live" nudge — and takes priority over the review
+	 * notices, which are suppressed while it is showing.
+	 *
+	 * @return bool
+	 * @since 1.3.0
+	 */
+	private function should_show_test_mode_notice() {
+		return $this->is_gateway_configured()
+			&& 'test' === Payment_Helper::get_payment_mode();
+	}
+
+	/**
+	 * Whether the webhook-not-configured notice is eligible to show: Stripe is
+	 * connected but its webhook is not configured for the current mode.
+	 *
+	 * @return bool
+	 * @since 1.3.0
+	 */
+	private function should_show_webhook_notice() {
+		return Stripe_Helper::is_stripe_connected()
+			&& ! Stripe_Helper::is_webhook_configured();
+	}
+
+	/**
+	 * Whether the setup-gateway notice is eligible to show: no gateway is
+	 * connected and no live donation has been recorded.
+	 *
+	 * @return bool
+	 * @since 1.3.0
+	 */
+	private function should_show_setup_gateway_notice() {
+		return ! $this->has_live_donation() && ! $this->is_gateway_configured();
 	}
 
 	/**
@@ -522,11 +712,10 @@ class Notices {
 	 */
 	private function is_gateway_configured() {
 		if ( null === $this->gateway_configured ) {
-			// "Configured" means connected in any mode. Stripe's check is
-			// mode-agnostic; PayPal's is per-mode, so check both explicitly.
-			$this->gateway_configured = Stripe_Helper::is_stripe_connected()
-				|| PayPal_Helper::is_paypal_connected( 'live' )
-				|| PayPal_Helper::is_paypal_connected( 'test' );
+			// "Configured" means connected in any mode; delegated to the shared
+			// Payment_Helper check (memoized here so repeated notice-chain reads
+			// only resolve it once per request).
+			$this->gateway_configured = Payment_Helper::is_any_gateway_connected();
 		}
 
 		return $this->gateway_configured;

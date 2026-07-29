@@ -39,6 +39,8 @@ class Register {
 				// Only execute below methods if DB is upgradable.
 				$instance->create( $instance->get_columns_definition() );
 				$instance->maybe_add_new_columns( $instance->get_new_columns_definition() );
+				// One-time data migrations (backfills) after the columns exist.
+				$instance->run_data_migrations();
 			}
 
 			// Stop the upgrade process of current table and move to next.

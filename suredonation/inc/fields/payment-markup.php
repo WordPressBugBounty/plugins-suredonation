@@ -172,8 +172,11 @@ class Payment_Markup extends Base {
 			$this->currency = Payment_Helper::get_currency();
 		}
 
-		// Get appropriate Stripe publishable key based on mode.
-		$this->stripe_publishable_key = Stripe_Helper::get_stripe_publishable_key();
+		// Get the publishable key for this form's selected account (mode-aware).
+		$this->stripe_publishable_key = Stripe_Helper::get_stripe_publishable_key(
+			'',
+			Stripe_Helper::resolve_account_for_form( $this->form_id )
+		);
 
 		// Fall back to one-time if subscription is configured but pro is not active.
 		$configured_type         = $attributes['paymentType'] ?? 'one-time';
@@ -610,15 +613,9 @@ class Payment_Markup extends Base {
 	 * @since 0.0.1
 	 */
 	private function format_currency( $amount, $currency ) {
-		$symbol = Payment_Helper::get_currency_symbol( $currency );
-
-		// Format based on currency.
-		if ( in_array( $currency, [ 'JPY', 'KRW' ], true ) ) {
-			// No decimal places for these currencies.
-			return $symbol . number_format( $amount, 0 );
-		}
-
-		return $symbol . number_format( $amount, 2 );
+		// Delegate to the single source of truth so decimal handling and the
+		// currency sign position stay consistent with every other surface.
+		return Payment_Helper::format_amount( $amount, $currency );
 	}
 
 	/**
@@ -653,8 +650,8 @@ class Payment_Markup extends Base {
 			return '';
 		}
 
-		// Build dynamic link to payment settings.
-		$settings_url = admin_url( 'admin.php?page=suredonation_settings&tab=payments' );
+		// Build dynamic link to payment settings (shared, hash-routed URL).
+		$settings_url = Payment_Helper::get_settings_url();
 
 		ob_start();
 		?>
@@ -683,6 +680,32 @@ class Payment_Markup extends Base {
 	private function render_gateway_unavailable_notice() {
 		$field_classes = $this->get_field_classes( [ 'sd-payment-unavailable' ] );
 
+		// The notice text is shown to everyone (admins and donors). Admins
+		// additionally get an actionable button; donors see the notice without
+		// it. Mirrors the capability + settings-URL pattern used by
+		// get_test_mode_notice().
+		$is_admin       = current_user_can( 'manage_options' );
+		$configure_url  = '';
+		$configure_text = '';
+
+		if ( $is_admin ) {
+			// Route the admin to the right place. If a gateway is already usable
+			// on the site, the block simply hasn't selected it — send them to
+			// this form's editor to fix the payment block. Otherwise no gateway
+			// is set up at all — send them to global payment settings.
+			$edit_link = $this->form_id > 0 ? get_edit_post_link( (int) $this->form_id ) : '';
+
+			if ( Payment_Helper::has_usable_gateway() && $edit_link ) {
+				$configure_url  = $edit_link;
+				$configure_text = __( 'Edit this form’s payment settings', 'suredonation' );
+			} else {
+				// No gateway connected — send the admin straight to the gateway
+				// connect screen (Stripe) rather than the currency/mode page.
+				$configure_url  = Payment_Helper::get_settings_url( 'stripe' );
+				$configure_text = __( 'Configure payment gateway', 'suredonation' );
+			}
+		}
+
 		ob_start();
 		?>
 		<div
@@ -695,6 +718,16 @@ class Payment_Markup extends Base {
 			<div class="sd-payment-field-wrapper">
 				<div class="sd-payment-notice" role="status">
 					<p><?php esc_html_e( 'Payment gateways are not configured. Please contact the site administrator.', 'suredonation' ); ?></p>
+					<?php if ( $is_admin && '' !== $configure_url ) { ?>
+						<a
+							class="sd-payment-notice__configure"
+							href="<?php echo esc_url( $configure_url ); ?>"
+							target="_blank"
+							rel="noopener noreferrer"
+						>
+							<?php echo esc_html( $configure_text ); ?>
+						</a>
+					<?php } ?>
 				</div>
 			</div>
 		</div>

@@ -592,7 +592,7 @@ class Helper {
 		];
 
 		$allowed = [
-			'div'      => array_merge(
+			'div'        => array_merge(
 				[
 					'id'              => true,
 					'class'           => true,
@@ -606,7 +606,7 @@ class Helper {
 				],
 				$common_data_attrs
 			),
-			'form'     => array_merge(
+			'form'       => array_merge(
 				[
 					'id'     => true,
 					'class'  => true,
@@ -615,20 +615,20 @@ class Helper {
 				],
 				$common_data_attrs
 			),
-			'fieldset' => [
+			'fieldset'   => [
 				'id'    => true,
 				'class' => true,
 			],
-			'legend'   => [
+			'legend'     => [
 				'id'    => true,
 				'class' => true,
 			],
-			'label'    => [
+			'label'      => [
 				'id'    => true,
 				'class' => true,
 				'for'   => true,
 			],
-			'input'    => array_merge(
+			'input'      => array_merge(
 				[
 					'id'               => true,
 					'class'            => true,
@@ -653,7 +653,7 @@ class Helper {
 				],
 				$common_data_attrs
 			),
-			'button'   => array_merge(
+			'button'     => array_merge(
 				[
 					'id'       => true,
 					'class'    => true,
@@ -662,7 +662,7 @@ class Helper {
 				],
 				$common_data_attrs
 			),
-			'select'   => array_merge(
+			'select'     => array_merge(
 				[
 					'id'               => true,
 					'class'            => true,
@@ -677,13 +677,13 @@ class Helper {
 				],
 				$common_data_attrs
 			),
-			'option'   => [
+			'option'     => [
 				'value'    => true,
 				'class'    => true,
 				'selected' => true,
 				'disabled' => true,
 			],
-			'textarea' => array_merge(
+			'textarea'   => array_merge(
 				[
 					'id'               => true,
 					'class'            => true,
@@ -700,7 +700,7 @@ class Helper {
 				],
 				$common_data_attrs
 			),
-			'span'     => array_merge(
+			'span'       => array_merge(
 				[
 					'id'          => true,
 					'class'       => true,
@@ -709,37 +709,37 @@ class Helper {
 				],
 				$common_data_attrs
 			),
-			'p'        => [
+			'p'          => [
 				'id'    => true,
 				'class' => true,
 				'style' => true,
 				'role'  => true,
 			],
-			'h1'       => [
+			'h1'         => [
 				'id'    => true,
 				'class' => true,
 			],
-			'h2'       => [
+			'h2'         => [
 				'id'    => true,
 				'class' => true,
 			],
-			'h3'       => [
+			'h3'         => [
 				'id'    => true,
 				'class' => true,
 			],
-			'h4'       => [
+			'h4'         => [
 				'id'    => true,
 				'class' => true,
 			],
-			'h5'       => [
+			'h5'         => [
 				'id'    => true,
 				'class' => true,
 			],
-			'h6'       => [
+			'h6'         => [
 				'id'    => true,
 				'class' => true,
 			],
-			'a'        => [
+			'a'          => [
 				'id'     => true,
 				'class'  => true,
 				'href'   => true,
@@ -747,26 +747,58 @@ class Helper {
 				'rel'    => true,
 				'style'  => true,
 			],
-			'strong'   => [
+			'strong'     => [
 				'class' => true,
 			],
-			'em'       => [
+			'em'         => [
 				'class' => true,
 			],
-			'ol'       => [
+			'ol'         => [
 				'class' => true,
 			],
-			'ul'       => [
+			'ul'         => [
 				'class' => true,
 			],
-			'li'       => [
+			'li'         => [
 				'class' => true,
 			],
-			'br'       => [],
-			'hr'       => [
+			'br'         => [],
+			'hr'         => [
 				'class' => true,
 			],
-			'svg'      => [
+			// img/figure/figcaption back the Image block (inc/blocks/image) — the
+			// render depends on these entries, so don't drop them in a cleanup.
+			'img'        => [
+				'src'              => true,
+				'fetchpriority'    => true,
+				'srcset'           => true,
+				'sizes'            => true,
+				'alt'              => true,
+				'class'            => true,
+				'style'            => true,
+				'width'            => true,
+				'height'           => true,
+				'loading'          => true,
+				'decoding'         => true,
+				'title'            => true,
+				// Lazy-load optimizers (WP Rocket, Perfmatters, Optimole, the
+				// Bricks theme, …) rewrite wp_get_attachment_image() output into
+				// these data-* attributes with a data: placeholder in src; allow
+				// them so kses doesn't strip the real URLs the lazy JS swaps back.
+				'data-src'         => true,
+				'data-srcset'      => true,
+				'data-sizes'       => true,
+				'data-lazy-src'    => true,
+				'data-lazy-srcset' => true,
+				'data-lazy-sizes'  => true,
+			],
+			'figure'     => [
+				'class' => true,
+			],
+			'figcaption' => [
+				'class' => true,
+			],
+			'svg'        => [
 				'class'       => true,
 				'width'       => true,
 				'height'      => true,
@@ -775,7 +807,7 @@ class Helper {
 				'xmlns'       => true,
 				'aria-hidden' => true,
 			],
-			'circle'   => [
+			'circle'     => [
 				'cx'           => true,
 				'cy'           => true,
 				'r'            => true,
@@ -783,7 +815,7 @@ class Helper {
 				'stroke-width' => true,
 				'fill'         => true,
 			],
-			'rect'     => [
+			'rect'       => [
 				'x'            => true,
 				'y'            => true,
 				'width'        => true,
@@ -792,7 +824,7 @@ class Helper {
 				'stroke'       => true,
 				'stroke-width' => true,
 			],
-			'path'     => [
+			'path'       => [
 				'class'           => true,
 				'd'               => true,
 				'stroke'          => true,
@@ -862,19 +894,21 @@ class Helper {
 			: esc_html__( 'Thank you for your donation!', 'suredonation' );
 
 		return [
-			'ajaxUrl'           => admin_url( 'admin-ajax.php' ),
-			'confirmationType'  => $confirmation_type,
-			'successTitle'      => esc_html__( 'Thank You!', 'suredonation' ),
-			'successMessage'    => wp_kses_post( self::get_string_value( $success_message ) ),
+			'ajaxUrl'              => admin_url( 'admin-ajax.php' ),
+			'confirmationType'     => $confirmation_type,
+			'successTitle'         => esc_html__( 'Thank You!', 'suredonation' ),
+			'successMessage'       => wp_kses_post( self::get_string_value( $success_message ) ),
 			// Shown when payment succeeded at the gateway but our server-side
 			// finalize did not complete; the webhook will finalize it, so the
 			// donor must not be prompted to pay again.
-			'processingMessage' => esc_html__( 'Payment received. We are finalizing your donation and will email you a confirmation shortly. Please do not pay again.', 'suredonation' ),
-			'redirectUrl'       => ! empty( $redirect_url ) ? esc_url( self::get_string_value( $redirect_url ) ) : '',
-			'submissionAction'  => $data['submission_action'],
+			'processingMessage'    => esc_html__( 'Payment received. We are finalizing your donation and will email you a confirmation shortly. Please do not pay again.', 'suredonation' ),
+			'redirectUrl'          => ! empty( $redirect_url ) ? esc_url( self::get_string_value( $redirect_url ) ) : '',
+			'submissionAction'     => $data['submission_action'],
 			// translators: %s: formatted fee amount with currency symbol.
-			'feeIncludesText'   => __( '(includes %s processing fee)', 'suredonation' ),
-			'amountPlaceholder' => __( 'Complete the form to view the amount.', 'suredonation' ),
+			'feeIncludesText'      => __( '(includes %s processing fee)', 'suredonation' ),
+			'amountPlaceholder'    => __( 'Complete the form to view the amount.', 'suredonation' ),
+			// Currency symbol placement for client-side amount/fee formatting.
+			'currencySignPosition' => Payment_Helper::get_currency_sign_position(),
 		];
 	}
 

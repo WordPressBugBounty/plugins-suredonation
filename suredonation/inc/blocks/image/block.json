@@ -1,0 +1,92 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "suredonation/image",
+	"title": "Image",
+	"description": "Displays an image within the donation form",
+	"category": "suredonation",
+	"keywords": [ "image", "picture", "photo", "logo", "media" ],
+	"textdomain": "suredonation",
+	"supports": {
+		"reusable": false,
+		"html": false
+	},
+	"example": {
+		"attributes": {
+			"preview": true
+		}
+	},
+	"attributes": {
+		"preview": {
+			"type": "boolean",
+			"default": false
+		},
+		"block_id": {
+			"type": "string"
+		},
+		"imageId": {
+			"type": "number",
+			"default": 0
+		},
+		"imageUrl": {
+			"type": "string",
+			"default": ""
+		},
+		"imageAlt": {
+			"type": "string",
+			"default": ""
+		},
+		"sizeSlug": {
+			"type": "string",
+			"default": "full"
+		},
+		"objectFit": {
+			"type": "string",
+			"default": ""
+		},
+		"width": {
+			"type": "number",
+			"default": 0
+		},
+		"height": {
+			"type": "number",
+			"default": 0
+		},
+		"enableCaption": {
+			"type": "boolean",
+			"default": false
+		},
+		"caption": {
+			"type": "string",
+			"default": ""
+		},
+		"captionAlign": {
+			"type": "string",
+			"default": ""
+		},
+		"textAlign": {
+			"type": "string",
+			"default": "left"
+		},
+		"fieldWidth": {
+			"type": "number",
+			"default": 100
+		},
+		"formId": {
+			"type": "number",
+			"default": 0
+		},
+		"slug": {
+			"type": "string",
+			"default": ""
+		},
+		"className": {
+			"type": "string",
+			"default": ""
+		},
+		"customClasses": {
+			"type": "string",
+			"default": ""
+		}
+	}
+}

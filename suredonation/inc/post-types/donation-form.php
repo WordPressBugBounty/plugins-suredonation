@@ -191,6 +191,22 @@ class Donation_Form {
 				},
 			]
 		);
+
+		register_post_meta(
+			self::POST_TYPE,
+			\SureDonation\Inc\Payments\Stripe\Stripe_Helper::FORM_ACCOUNT_META_KEY,
+			[
+				'type'              => 'string',
+				'description'       => __( 'Selected Stripe account for this form (account id, or empty/"default" to use the site default).', 'suredonation' ),
+				'single'            => true,
+				'default'           => '',
+				'show_in_rest'      => true,
+				'sanitize_callback' => 'sanitize_text_field',
+				'auth_callback'     => static function () {
+					return current_user_can( 'manage_options' );
+				},
+			]
+		);
 	}
 
 	/**
@@ -217,6 +233,7 @@ class Donation_Form {
 			'suredonation/url',
 			'suredonation/heading',
 			'suredonation/html',
+			'suredonation/image',
 			'suredonation/donation-amount',
 			'suredonation/anonymous-donation',
 			'suredonation/payment',
@@ -714,6 +731,10 @@ class Donation_Form {
 				'suredonation/payment',
 				[
 					'gateway'             => 'stripe',
+					// Set explicitly so it is serialized into the form markup: the block
+					// default stays ['stripe'] so existing forms keep their saved
+					// behavior, and only newly created forms offer both gateways.
+					'paymentMethods'      => [ 'stripe', 'paypal' ],
 					'paymentType'         => 'one-time',
 					'amountType'          => 'variable',
 					'minimumAmount'       => 0,
@@ -806,6 +827,10 @@ class Donation_Form {
 			[
 				'block_id'            => \SureDonation\Inc\Helper::generate_block_id(),
 				'gateway'             => 'stripe',
+				// Set explicitly so it is serialized into the form markup: the block
+				// default stays ['stripe'] so existing forms keep their saved
+				// behavior, and only newly created forms offer both gateways.
+				'paymentMethods'      => [ 'stripe', 'paypal' ],
 				'paymentType'         => 'one-time',
 				'amountType'          => 'variable',
 				'minimumAmount'       => 0,

@@ -1,19 +1,30 @@
 /**
- * Styles for the SureDonation "configure a payment gateway" setup notice.
+ * Styles for SureDonation's banner-style admin notices.
  *
- * Every rule is scoped under #sd-setup-gateway (the notice wrapper rendered by
- * the BSF admin notices library). The id prefix is required, not cosmetic:
- * WordPress core styles the notice body with `.notice p` (specificity 0,1,1),
- * which would otherwise override plain single-class selectors here.
+ * Shared by two notices that use the same banner layout:
+ *   - #sd-setup-gateway : "configure a payment gateway" (teal accent, artwork)
+ *   - #sd-test-mode     : "switch to live mode"         (amber accent, no art)
+ *
+ * Every rule is scoped under the notice wrapper id (rendered by the BSF admin
+ * notices library). The id prefix is required, not cosmetic: WordPress core
+ * styles the notice body with `.notice p` (specificity 0,1,1), which would
+ * otherwise override plain single-class selectors here.
  */
 
-#sd-setup-gateway {
+#sd-setup-gateway,
+#sd-test-mode {
 	padding: 0;
 	border-left: 4px solid #148cb2;
 	background: #fff;
 }
 
-#sd-setup-gateway .astra-notice-container {
+/* Test-mode uses an amber accent to signal "no real payments are being taken". */
+#sd-test-mode {
+	border-left-color: #dba617;
+}
+
+#sd-setup-gateway .astra-notice-container,
+#sd-test-mode .astra-notice-container {
 	display: block;
 	padding: 0;
 }
@@ -21,31 +32,42 @@
 /* The notice height is driven by the text content. Right padding reserves
    space for the illustration, which is positioned absolutely so it never
    adds vertical space around the text. */
-#sd-setup-gateway .sd-setup-notice {
+#sd-setup-gateway .sd-setup-notice,
+#sd-test-mode .sd-setup-notice {
 	position: relative;
 	padding: 22px 280px 22px 24px;
 	box-sizing: border-box;
 }
 
-#sd-setup-gateway .sd-setup-notice__main {
+/* No illustration (e.g. the test-mode notice) — reclaim the reserved space. */
+#sd-setup-gateway .sd-setup-notice--no-art,
+#sd-test-mode .sd-setup-notice--no-art {
+	padding-right: 24px;
+}
+
+#sd-setup-gateway .sd-setup-notice__main,
+#sd-test-mode .sd-setup-notice__main {
 	display: flex;
 	align-items: flex-start;
 	gap: 14px;
 }
 
-#sd-setup-gateway .sd-setup-notice__icon {
+#sd-setup-gateway .sd-setup-notice__icon,
+#sd-test-mode .sd-setup-notice__icon {
 	flex: 0 0 auto;
 	width: 28px;
 	height: 28px;
 	margin-top: 1px;
 }
 
-#sd-setup-gateway .sd-setup-notice__body {
+#sd-setup-gateway .sd-setup-notice__body,
+#sd-test-mode .sd-setup-notice__body {
 	flex: 1 1 auto;
 	min-width: 0;
 }
 
-#sd-setup-gateway .sd-setup-notice__title {
+#sd-setup-gateway .sd-setup-notice__title,
+#sd-test-mode .sd-setup-notice__title {
 	margin: 0 0 6px;
 	padding: 0;
 	font-size: 1.25rem;
@@ -54,7 +76,8 @@
 	color: #1d2327;
 }
 
-#sd-setup-gateway .sd-setup-notice__text {
+#sd-setup-gateway .sd-setup-notice__text,
+#sd-test-mode .sd-setup-notice__text {
 	margin: 0 0 16px;
 	padding: 0;
 	font-size: 1rem;
@@ -63,7 +86,9 @@
 }
 
 #sd-setup-gateway .sd-setup-notice__button.button.button-primary,
-#sd-setup-gateway .sd-setup-notice__button.button.button-primary:focus {
+#sd-setup-gateway .sd-setup-notice__button.button.button-primary:focus,
+#sd-test-mode .sd-setup-notice__button.button.button-primary,
+#sd-test-mode .sd-setup-notice__button.button.button-primary:focus {
 	display: inline-flex;
 	align-items: center;
 	height: auto;
@@ -78,13 +103,15 @@
 	text-shadow: none;
 }
 
-#sd-setup-gateway .sd-setup-notice__button.button.button-primary:hover {
+#sd-setup-gateway .sd-setup-notice__button.button.button-primary:hover,
+#sd-test-mode .sd-setup-notice__button.button.button-primary:hover {
 	background: #0b5468;
 	border-color: #0b5468;
 	color: #fff;
 }
 
-#sd-setup-gateway .sd-setup-notice__art {
+#sd-setup-gateway .sd-setup-notice__art,
+#sd-test-mode .sd-setup-notice__art {
 	position: absolute;
 	top: 50%;
 	right: 24px;
@@ -96,11 +123,18 @@
 }
 
 @media screen and (max-width: 782px) {
-	#sd-setup-gateway .sd-setup-notice {
+	#sd-setup-gateway .sd-setup-notice,
+	#sd-test-mode .sd-setup-notice {
 		padding: 20px 44px 20px 20px;
 	}
 
-	#sd-setup-gateway .sd-setup-notice__art {
+	#sd-setup-gateway .sd-setup-notice--no-art,
+	#sd-test-mode .sd-setup-notice--no-art {
+		padding-right: 20px;
+	}
+
+	#sd-setup-gateway .sd-setup-notice__art,
+	#sd-test-mode .sd-setup-notice__art {
 		display: none;
 	}
 }

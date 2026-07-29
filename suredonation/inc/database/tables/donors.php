@@ -169,7 +169,7 @@ class Donors extends Base {
 			'donor_data LONGTEXT',
 			'stripe_customer_id VARCHAR(255) DEFAULT NULL',
 			'import_source_id BIGINT(20) UNSIGNED NOT NULL DEFAULT 0',
-			'import_source VARCHAR(20) NOT NULL DEFAULT ""',
+			'import_source VARCHAR(20) NOT NULL DEFAULT \'\'',
 			'created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP',
 			'updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP',
 			'INDEX idx_email (email)',
@@ -199,10 +199,10 @@ class Donors extends Base {
 		// `WHERE address = ''` filter would miss legacy rows that landed as
 		// NULL from the migration.
 		return [
-			'company VARCHAR(255) NOT NULL DEFAULT "" AFTER phone',
-			'address TEXT NOT NULL DEFAULT "" AFTER company',
+			'company VARCHAR(255) NOT NULL DEFAULT \'\' AFTER phone',
+			'address TEXT NOT NULL DEFAULT \'\' AFTER company',
 			'import_source_id BIGINT(20) UNSIGNED NOT NULL DEFAULT 0 AFTER stripe_customer_id',
-			'import_source VARCHAR(20) NOT NULL DEFAULT "" AFTER import_source_id',
+			'import_source VARCHAR(20) NOT NULL DEFAULT \'\' AFTER import_source_id',
 			'INDEX idx_import_source (import_source_id, import_source)',
 		];
 	}
@@ -799,6 +799,129 @@ class Donors extends Base {
 		}
 
 		$result = self::update( $donor_id, [ 'stripe_customer_id' => '' ] );
+
+		return false !== $result;
+	}
+
+	/**
+	 * Get the Stripe customer ID for a donor on a specific connected account.
+	 *
+	 * Reads the per-account map stored in `donor_data['stripe_customers']`.
+	 * Falls back to the legacy single `stripe_customer_id` column when the
+	 * account is the site default, so pre-multi-account donors keep working.
+	 *
+	 * @param string $email      Donor email.
+	 * @param string $account_id Stripe account id (`acct_…`).
+	 * @param bool   $is_default Whether this is the site default account.
+	 * @return string Customer ID, or '' when none is stored.
+	 * @since 1.3.0
+	 */
+	public static function get_stripe_customer_id_for_account( $email, $account_id, $is_default = false ) {
+		if ( empty( $email ) || empty( $account_id ) ) {
+			return '';
+		}
+
+		$donor = self::get_by_email( $email );
+		if ( ! $donor ) {
+			return '';
+		}
+
+		$donor_data = isset( $donor['donor_data'] ) && is_array( $donor['donor_data'] ) ? $donor['donor_data'] : [];
+		$map        = isset( $donor_data['stripe_customers'] ) && is_array( $donor_data['stripe_customers'] ) ? $donor_data['stripe_customers'] : [];
+
+		if ( isset( $map[ $account_id ] ) && is_string( $map[ $account_id ] ) && '' !== $map[ $account_id ] ) {
+			return $map[ $account_id ];
+		}
+
+		// Legacy fallback: the single column holds the default account's customer.
+		if ( $is_default && ! empty( $donor['stripe_customer_id'] ) && is_string( $donor['stripe_customer_id'] ) ) {
+			return $donor['stripe_customer_id'];
+		}
+
+		return '';
+	}
+
+	/**
+	 * Store the Stripe customer ID for a donor on a specific connected account.
+	 *
+	 * Writes the per-account map in `donor_data['stripe_customers']` and mirrors
+	 * the default account's customer into the legacy `stripe_customer_id` column
+	 * so back-compat readers keep working.
+	 *
+	 * @param string $email       Donor email.
+	 * @param string $account_id  Stripe account id (`acct_…`).
+	 * @param string $customer_id Stripe customer ID.
+	 * @param bool   $is_default  Whether this is the site default account.
+	 * @return bool True on success, false on failure.
+	 * @since 1.3.0
+	 */
+	public static function set_stripe_customer_id_for_account( $email, $account_id, $customer_id, $is_default = false ) {
+		if ( empty( $email ) || empty( $account_id ) || empty( $customer_id ) ) {
+			return false;
+		}
+
+		$donor = self::get_by_email( $email );
+		if ( ! $donor || empty( $donor['id'] ) ) {
+			return false;
+		}
+		$donor_id = is_numeric( $donor['id'] ) ? (int) $donor['id'] : 0;
+		if ( $donor_id <= 0 ) {
+			return false;
+		}
+
+		$donor_data = isset( $donor['donor_data'] ) && is_array( $donor['donor_data'] ) ? $donor['donor_data'] : [];
+		$map        = isset( $donor_data['stripe_customers'] ) && is_array( $donor_data['stripe_customers'] ) ? $donor_data['stripe_customers'] : [];
+
+		$map[ $account_id ]             = sanitize_text_field( $customer_id );
+		$donor_data['stripe_customers'] = $map;
+
+		$update = [ 'donor_data' => $donor_data ];
+		if ( $is_default ) {
+			$update['stripe_customer_id'] = sanitize_text_field( $customer_id );
+		}
+
+		$result = self::update( $donor_id, $update );
+
+		return false !== $result;
+	}
+
+	/**
+	 * Clear the stored Stripe customer ID for a donor on a specific account.
+	 *
+	 * Used when a cached customer id is no longer valid on that account
+	 * (deleted in Stripe, or a test/live mismatch).
+	 *
+	 * @param string $email      Donor email.
+	 * @param string $account_id Stripe account id (`acct_…`).
+	 * @param bool   $is_default Whether this is the site default account.
+	 * @return bool True on success, false on failure.
+	 * @since 1.3.0
+	 */
+	public static function clear_stripe_customer_id_for_account( $email, $account_id, $is_default = false ) {
+		if ( empty( $email ) || empty( $account_id ) ) {
+			return false;
+		}
+
+		$donor = self::get_by_email( $email );
+		if ( ! $donor || empty( $donor['id'] ) ) {
+			return false;
+		}
+		$donor_id = is_numeric( $donor['id'] ) ? (int) $donor['id'] : 0;
+		if ( $donor_id <= 0 ) {
+			return false;
+		}
+
+		$donor_data = isset( $donor['donor_data'] ) && is_array( $donor['donor_data'] ) ? $donor['donor_data'] : [];
+		$map        = isset( $donor_data['stripe_customers'] ) && is_array( $donor_data['stripe_customers'] ) ? $donor_data['stripe_customers'] : [];
+		unset( $map[ $account_id ] );
+		$donor_data['stripe_customers'] = $map;
+
+		$update = [ 'donor_data' => $donor_data ];
+		if ( $is_default ) {
+			$update['stripe_customer_id'] = '';
+		}
+
+		$result = self::update( $donor_id, $update );
 
 		return false !== $result;
 	}

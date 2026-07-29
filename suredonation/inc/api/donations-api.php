@@ -323,7 +323,7 @@ class Donations_API {
 	 * @since 0.0.1
 	 */
 	public function get_donations( $request ) {
-		$page     = $request->get_param( 'page' ) ?? 1;
+		$page = $request->get_param( 'page' ) ?? 1;
 		// Clamp to a minimum of 1 so the total_pages calculation below can never
 		// divide by zero (per_page=0 would otherwise trigger a DivisionByZeroError).
 		$per_page = max( 1, absint( $request->get_param( 'per_page' ) ?? 20 ) );
@@ -778,7 +778,8 @@ class Donations_API {
 					[ 'status' => 400 ]
 				);
 			}
-			$refund_result = Stripe_Helper::create_refund( $transaction_id, $refund_amount, 'requested_by_customer' );
+			$refund_account_id = isset( $donation['stripe_account_id'] ) && is_string( $donation['stripe_account_id'] ) ? $donation['stripe_account_id'] : '';
+			$refund_result     = Stripe_Helper::create_refund( $transaction_id, $refund_amount, 'requested_by_customer', $refund_account_id );
 		}
 
 		if ( is_wp_error( $refund_result ) ) {

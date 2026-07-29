@@ -12,6 +12,7 @@ use SureDonation\Inc\Onboarding;
 use SureDonation\Inc\Pdf\Pdf_Utils;
 use SureDonation\Inc\Payments\Payment_Helper;
 use SureDonation\Inc\Payments\PayPal\PayPal_Helper;
+use SureDonation\Inc\Payments\Stripe\Stripe_Helper;
 use SureDonation\Inc\Traits\Get_Instance;
 
 // Exit if accessed directly.
@@ -38,6 +39,86 @@ class Admin {
 		add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_admin_scripts' ] );
 		add_action( 'admin_init', [ $this, 'redirect_cpt_listings' ] );
 		add_action( 'admin_init', [ $this, 'register_privacy_policy_content' ] );
+		add_action( 'admin_init', [ $this, 'register_react_notices' ], 5 );
+	}
+
+	/**
+	 * Register the payment-gateway React admin notice.
+	 *
+	 * Bridges the payment/test-mode nudges into the React admin app via
+	 * Notice_Manager. Runs on admin_init (priority 5) so the notice is
+	 * registered before admin_enqueue_scripts localizes the data for React.
+	 *
+	 * Two mutually-exclusive states, mirroring the existing PHP/front-end
+	 * notice chain:
+	 * - No gateway connected           -> prompt to configure a gateway.
+	 * - Connected, but site in test mode -> prompt to switch to live mode.
+	 * When a gateway is connected and the site is live, no notice shows.
+	 *
+	 * Capability-gated to manage_options; the data is only consumed on the
+	 * SureDonation admin pages, where the React app is enqueued.
+	 *
+	 * Hooked - admin_init (priority 5)
+	 *
+	 * @since 1.3.0
+	 * @return void
+	 */
+	public function register_react_notices() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+
+		if ( ! Payment_Helper::is_any_gateway_connected() ) {
+			Notice_Manager::register_notice(
+				[
+					'id'          => 'sd-configure-gateway',
+					'variant'     => 'error',
+					// translators: the <a></a> tags wrap the inline link text and must be kept intact.
+					'message'     => __( 'No payment gateway is connected, so your forms cannot accept donations yet. <a>Set up a payment gateway</a> to get started.', 'suredonation' ),
+					'link'        => [
+						// Deep-link to the gateway connect screen, matching the dashboard Quick Access entry.
+						'url' => Payment_Helper::get_settings_url( 'stripe' ),
+					],
+					'event'       => Analytics::TRACKED_EVENTS['configure_gateway'],
+					'dismissible' => false,
+				]
+			);
+			return;
+		}
+
+		if ( Stripe_Helper::is_stripe_connected() && ! Stripe_Helper::is_webhook_configured() ) {
+			Notice_Manager::register_notice(
+				[
+					'id'          => 'sd-webhook-not-configured',
+					'variant'     => 'error',
+					// translators: the <a></a> tags wrap the inline link text and must be kept intact.
+					'message'     => __( 'Webhooks keep SureDonation in sync with Stripe by automatically updating donation and subscription data. Please <a>configure</a> the webhook.', 'suredonation' ),
+					'link'        => [
+						'url' => Payment_Helper::get_settings_url( 'stripe' ),
+					],
+					'event'       => Analytics::TRACKED_EVENTS['webhook'],
+					'dismissible' => false,
+				]
+			);
+			return;
+		}
+
+		if ( 'test' === Payment_Helper::get_payment_mode() ) {
+			$settings_url = Payment_Helper::get_settings_url();
+			Notice_Manager::register_notice(
+				[
+					'id'          => 'sd-test-mode-react',
+					'variant'     => 'error',
+					// translators: the <a></a> tags wrap the inline link text and must be kept intact.
+					'message'     => __( 'SureDonation is in test mode, so no real donations are being processed. <a>Switch to live mode</a> to start accepting them.', 'suredonation' ),
+					'link'        => [
+						'url' => $settings_url,
+					],
+					'event'       => Analytics::TRACKED_EVENTS['test_mode'],
+					'dismissible' => false,
+				]
+			);
+		}
 	}
 
 	/**
@@ -202,9 +283,16 @@ class Admin {
 		wp_set_script_translations( 'suredonation-admin', 'suredonation' );
 
 		// Localize script with plugin data.
-		wp_localize_script(
-			'suredonation-admin',
-			'suredonation_admin',
+		/**
+		 * Filters the bootstrap data localized to the SureDonation admin React app
+		 * (exposed as window.suredonation_admin). Lets features inject additional
+		 * data before it reaches React.
+		 *
+		 * @since 1.3.0
+		 * @param array<string, mixed> $localized_data The admin app bootstrap data.
+		 */
+		$localized_data = apply_filters(
+			'suredonation_admin_app_data',
 			[
 				'version'                   => SUREDONATION_VER,
 				'apiUrl'                    => rest_url( 'suredonation/v1' ),
@@ -236,11 +324,16 @@ class Admin {
 				// PayPal connection state render synchronously (no post-mount
 				// fetch flicker). PayPal data is the non-sensitive subset only.
 				'payments'                  => [
-					'currencies' => Payment_Helper::get_currencies_list(),
-					'paypal'     => PayPal_Helper::get_connection_state(),
+					'currencies'               => Payment_Helper::get_currencies_list(),
+					'paypal'                   => PayPal_Helper::get_connection_state(),
+					'currency_sign_position'   => Payment_Helper::get_currency_sign_position(),
+					'is_any_gateway_connected' => Payment_Helper::is_any_gateway_connected(),
+					'gateway_config_url'       => Payment_Helper::get_settings_url( 'stripe' ),
 				],
 			]
 		);
+
+		wp_localize_script( 'suredonation-admin', 'suredonation_admin', $localized_data );
 	}
 
 	/**
@@ -500,7 +593,7 @@ class Admin {
 				'pluginUrl'     => SUREDONATION_URL,
 				'adminUrl'      => admin_url(),
 				'dashboardUrl'  => admin_url( 'admin.php?page=suredonation' ),
-				'paymentsUrl'   => admin_url( 'admin.php?page=suredonation#/settings?tab=payments' ),
+				'paymentsUrl'   => Payment_Helper::get_settings_url( 'stripe' ),
 				'campaignsUrl'  => admin_url( 'admin.php?page=suredonation#/campaigns' ),
 				'docsUrl'       => 'https://suredonation.com/docs/',
 				'isProActive'   => $is_pro,

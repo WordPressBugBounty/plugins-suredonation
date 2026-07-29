@@ -277,15 +277,36 @@ class Privacy_Data {
 			$donor_id = absint( Helper::get_string_value( $donor['id'] ?? 0 ) );
 			if ( $donor_id > 0 ) {
 				Donors::clear_stripe_customer_id_by_email( $email );
+
+				// Clear the per-account Stripe customer identifiers added with
+				// multi-account support: the donor_data map (folded into the
+				// anonymization write below) and the per-account user-meta cache.
+				$donor_data = isset( $donor['donor_data'] ) && is_array( $donor['donor_data'] ) ? $donor['donor_data'] : [];
+				unset( $donor_data['stripe_customers'] );
+
+				$wp_user = get_user_by( 'email', $email );
+				if ( $wp_user instanceof \WP_User ) {
+					delete_user_meta( $wp_user->ID, '_stripe_customer_id' );
+					global $wpdb;
+					// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- One-off GDPR erase of prefixed per-account customer-id meta; $wpdb->usermeta is trusted.
+					$meta_keys = $wpdb->get_col( $wpdb->prepare( "SELECT meta_key FROM {$wpdb->usermeta} WHERE user_id = %d AND meta_key LIKE %s", $wp_user->ID, $wpdb->esc_like( '_suredonation_stripe_customer_id_' ) . '%' ) );
+					if ( is_array( $meta_keys ) ) {
+						foreach ( $meta_keys as $meta_key ) {
+							delete_user_meta( $wp_user->ID, (string) $meta_key );
+						}
+					}
+				}
+
 				$updated = Donors::update(
 					$donor_id,
 					[
 						// Keep the email unique per donor to respect the UNIQUE column.
-						'email'   => 'deleted-' . $donor_id . '@site.invalid',
-						'name'    => wp_privacy_anonymize_data( 'text', Helper::get_string_value( $donor['name'] ?? '' ) ),
-						'phone'   => '',
-						'company' => '',
-						'address' => '',
+						'email'      => 'deleted-' . $donor_id . '@site.invalid',
+						'name'       => wp_privacy_anonymize_data( 'text', Helper::get_string_value( $donor['name'] ?? '' ) ),
+						'phone'      => '',
+						'company'    => '',
+						'address'    => '',
+						'donor_data' => $donor_data,
 					]
 				);
 

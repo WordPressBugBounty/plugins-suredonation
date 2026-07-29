@@ -37,7 +37,7 @@ class Donations extends Base {
 	 * @var int
 	 * @since 0.0.1
 	 */
-	protected $table_version = 4;
+	protected $table_version = 5;
 
 	/**
 	 * Valid payment statuses.
@@ -115,6 +115,10 @@ class Donations extends Base {
 				'default' => '',
 			],
 			'customer_id'            => [
+				'type'    => 'string',
+				'default' => '',
+			],
+			'stripe_account_id'      => [
 				'type'    => 'string',
 				'default' => '',
 			],
@@ -226,6 +230,7 @@ class Donations extends Base {
 			'currency VARCHAR(10) NOT NULL',
 			'transaction_id VARCHAR(255) NOT NULL',
 			'customer_id VARCHAR(50) NOT NULL',
+			'stripe_account_id VARCHAR(50) NOT NULL DEFAULT \'\'',
 			'gateway VARCHAR(20) NOT NULL',
 			'payment_status VARCHAR(50) NOT NULL',
 			'payment_mode VARCHAR(20) NOT NULL',
@@ -246,7 +251,7 @@ class Donations extends Base {
 			'user_agent TEXT',
 			'referer_url TEXT',
 			'import_source_id BIGINT(20) UNSIGNED NOT NULL DEFAULT 0',
-			'import_source VARCHAR(20) NOT NULL DEFAULT ""',
+			'import_source VARCHAR(20) NOT NULL DEFAULT \'\'',
 			'created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP',
 			'updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP',
 			'INDEX idx_campaign (campaign_id)',
@@ -259,6 +264,7 @@ class Donations extends Base {
 			'INDEX idx_subscription_status (subscription_status)',
 			'INDEX idx_parent_subscription (parent_subscription_id)',
 			'INDEX idx_import_source (import_source_id, import_source)',
+			'INDEX idx_stripe_account (stripe_account_id)',
 		];
 	}
 
@@ -267,7 +273,9 @@ class Donations extends Base {
 	 *
 	 * Version 2 added subscription support; version 4 added the
 	 * source-agnostic pair `import_source_id` + `import_source` used by
-	 * the migration tool for duplicate detection and rollback.
+	 * the migration tool for duplicate detection and rollback; version 5
+	 * added `stripe_account_id` so donations record which connected Stripe
+	 * account processed them (multiple Stripe accounts support).
 	 *
 	 * {@inheritDoc}
 	 *
@@ -279,12 +287,71 @@ class Donations extends Base {
 			'subscription_status VARCHAR(30) NOT NULL AFTER subscription_id',
 			'parent_subscription_id BIGINT(20) UNSIGNED NOT NULL DEFAULT 0 AFTER subscription_status',
 			'import_source_id BIGINT(20) UNSIGNED NOT NULL DEFAULT 0 AFTER referer_url',
-			'import_source VARCHAR(20) NOT NULL DEFAULT "" AFTER import_source_id',
+			'import_source VARCHAR(20) NOT NULL DEFAULT \'\' AFTER import_source_id',
+			'stripe_account_id VARCHAR(50) NOT NULL DEFAULT \'\' AFTER customer_id',
 			'INDEX idx_subscription (subscription_id)',
 			'INDEX idx_subscription_status (subscription_status)',
 			'INDEX idx_parent_subscription (parent_subscription_id)',
 			'INDEX idx_import_source (import_source_id, import_source)',
+			'INDEX idx_stripe_account (stripe_account_id)',
 		];
+	}
+
+	/**
+	 * One-time data migrations for the donations table.
+	 *
+	 * Version 5 introduced the `stripe_account_id` column. Before multi-account there
+	 * could only be a single connected Stripe account, so every pre-v5 Stripe
+	 * donation belongs to the current (single) default account. Backfill it so
+	 * refunds and subscription lifecycle actions keep routing to the originating
+	 * account after a second account is connected and the default is switched.
+	 * Idempotent (touches only empty rows) and gated to the upgrade into v5.
+	 *
+	 * @return void
+	 * @since 1.3.0
+	 */
+	public function run_data_migrations() {
+		// A failed CREATE/ALTER earlier in this upgrade already cleared the flag;
+		// the column may not exist, so don't run an UPDATE against it.
+		if ( ! $this->db_upgradable ) {
+			return;
+		}
+
+		// Already on v5+ (e.g. a later upgrade) — the backfill is done.
+		if ( $this->prev_version >= 5 ) {
+			return;
+		}
+
+		if ( ! class_exists( '\SureDonation\Inc\Payments\Stripe\Stripe_Helper' ) ) {
+			return;
+		}
+
+		// Runs during the v5 DB upgrade — before any second account can be
+		// connected via the UI — so the default is still the single legacy account.
+		$account_id = \SureDonation\Inc\Payments\Stripe\Stripe_Helper::get_default_account_id();
+		if ( ! is_string( $account_id ) || '' === $account_id ) {
+			return;
+		}
+
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- One-time backfill of a newly added column; not cacheable.
+		$result = $wpdb->query(
+			$wpdb->prepare(
+				'UPDATE %i SET stripe_account_id = %s WHERE gateway = %s AND ( stripe_account_id = %s OR stripe_account_id IS NULL )',
+				$this->get_tablename(),
+				$account_id,
+				'stripe',
+				''
+			)
+		);
+
+		// A transient failure (e.g. lock wait timeout on a busy table) must not
+		// persist the new version: `prev_version >= 5` would then skip this
+		// one-shot backfill forever. Leaving the version unwritten makes the
+		// idempotent sequence retry on the next request.
+		if ( false === $result ) {
+			$this->db_upgradable = false;
+		}
 	}
 
 	/**
@@ -866,6 +933,145 @@ class Donations extends Base {
 				);
 		}
 
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( ! $results || ! is_array( $results ) ) {
+			return [];
+		}
+
+		return array_map( [ $instance, 'decode_by_datatype' ], $results );
+	}
+
+	/**
+	 * Build the WHERE clause + prepare-args for an export query.
+	 *
+	 * Always constrains to one-time donations (subscription_id = '' AND
+	 * parent_subscription_id = 0) so recurring/renewal rows never leak into the
+	 * free export — recurring export is Pro (see the Import & Export spec, #237).
+	 * Optional filters: status, campaign_id, payment_mode, gateway, and a
+	 * created_at date range (after / before).
+	 *
+	 * @param array<string, mixed> $filters Filter map.
+	 * @param array<int, mixed>    $args    Prepare-args, populated by reference in placeholder order.
+	 * @return string WHERE clause (without the "WHERE" keyword); placeholders only, no interpolated values.
+	 * @since 1.3.0
+	 */
+	private static function build_export_where( $filters, &$args ) {
+		$conditions = [ '1=1' ];
+
+		/**
+		 * Whether the donations export is restricted to one-time donations.
+		 *
+		 * True by default so recurring/renewal rows never leak into the free
+		 * export; Pro returns false to include subscriptions and renewals.
+		 *
+		 * @param bool $one_time_only Whether to restrict to one-time donations.
+		 */
+		if ( apply_filters( 'suredonation_export_one_time_only', true ) ) {
+			$conditions[] = 'subscription_id = %s';
+			$conditions[] = 'parent_subscription_id = %d';
+			$args[]       = '';
+			$args[]       = 0;
+		}
+
+		$status = sanitize_text_field( Helper::get_string_value( $filters['status'] ?? '' ) );
+		if ( '' !== $status && 'all' !== $status ) {
+			$conditions[] = 'payment_status = %s';
+			$args[]       = $status;
+		}
+
+		$campaign_id = absint( Helper::get_string_value( $filters['campaign_id'] ?? 0 ) );
+		if ( $campaign_id > 0 ) {
+			$conditions[] = 'campaign_id = %d';
+			$args[]       = $campaign_id;
+		}
+
+		$payment_mode = sanitize_text_field( Helper::get_string_value( $filters['payment_mode'] ?? '' ) );
+		if ( '' !== $payment_mode ) {
+			$conditions[] = 'payment_mode = %s';
+			$args[]       = $payment_mode;
+		}
+
+		$gateway = sanitize_text_field( Helper::get_string_value( $filters['gateway'] ?? '' ) );
+		if ( '' !== $gateway ) {
+			$conditions[] = 'gateway = %s';
+			$args[]       = $gateway;
+		}
+
+		$after = sanitize_text_field( Helper::get_string_value( $filters['after'] ?? '' ) );
+		if ( '' !== $after ) {
+			$conditions[] = 'created_at >= %s';
+			$args[]       = $after;
+		}
+
+		$before = sanitize_text_field( Helper::get_string_value( $filters['before'] ?? '' ) );
+		if ( '' !== $before ) {
+			// A date-only `before` (Y-m-d) coerces to 00:00:00, which would
+			// silently drop donations made later that same day. Normalize to
+			// end-of-day so the whole end date is inclusive; full datetimes
+			// are left untouched.
+			if ( 1 === preg_match( '/^\d{4}-\d{2}-\d{2}$/', $before ) ) {
+				$before .= ' 23:59:59';
+			}
+			$conditions[] = 'created_at <= %s';
+			$args[]       = $before;
+		}
+
+		return implode( ' AND ', $conditions );
+	}
+
+	/**
+	 * Count one-time donations matching the export filters.
+	 *
+	 * @param array<string, mixed> $filters Filter map (see build_export_where()).
+	 * @return int Matching row count.
+	 * @since 1.3.0
+	 */
+	public static function count_for_export( $filters = [] ) {
+		$instance = self::get_instance();
+		global $wpdb;
+		$table = $instance->get_tablename();
+
+		$args  = [];
+		$where = self::build_export_where( $filters, $args );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Export count over live data.
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where is built only from static placeholder fragments; every value is passed through prepare args.
+		$count = $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM %i WHERE {$where}", array_merge( [ $table ], $args ) ) );
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return is_numeric( $count ) ? (int) $count : 0;
+	}
+
+	/**
+	 * Fetch one-time donations for export, decoded.
+	 *
+	 * @param array<string, mixed> $filters Filter map (see build_export_where()).
+	 * @param int                  $limit   Max rows to return (0 = no limit).
+	 * @param int                  $offset  Offset for pagination.
+	 * @return array<int, array<string, mixed>> Decoded donation rows.
+	 * @since 1.3.0
+	 */
+	public static function get_for_export( $filters = [], $limit = 0, $offset = 0 ) {
+		$instance = self::get_instance();
+		global $wpdb;
+		$table = $instance->get_tablename();
+
+		$args  = [];
+		$where = self::build_export_where( $filters, $args );
+
+		$sql          = "SELECT * FROM %i WHERE {$where} ORDER BY created_at DESC";
+		$prepare_args = array_merge( [ $table ], $args );
+
+		if ( $limit > 0 ) {
+			$sql           .= ' LIMIT %d, %d';
+			$prepare_args[] = absint( $offset );
+			$prepare_args[] = absint( $limit );
+		}
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Export query over live data.
+		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $sql is assembled only from static placeholder fragments; every value is passed through prepare args.
+		$results = $wpdb->get_results( $wpdb->prepare( $sql, $prepare_args ), ARRAY_A );
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		if ( ! $results || ! is_array( $results ) ) {

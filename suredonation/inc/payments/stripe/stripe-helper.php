@@ -22,6 +22,16 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 class Stripe_Helper {
 	/**
+	 * Post meta key storing a donation form's selected Stripe account.
+	 *
+	 * Value is a Stripe account id (`acct_…`) to override, or 'default'/empty
+	 * to use the site default account.
+	 *
+	 * @since 1.3.0
+	 */
+	public const FORM_ACCOUNT_META_KEY = '_suredonation_form_stripe_account';
+
+	/**
 	 * Get all Stripe settings
 	 *
 	 * @return array<string, mixed> Stripe settings.
@@ -43,73 +53,436 @@ class Stripe_Helper {
 	}
 
 	/**
-	 * Check if Stripe is connected
+	 * Normalize Stripe settings into the multi-account shape.
 	 *
-	 * @return bool True if connected.
-	 * @since 0.0.1
+	 * Produces an in-memory view with an `accounts` map (keyed by the
+	 * immutable Stripe account id, `acct_…`) plus a `default_account_id`
+	 * pointer. If the settings already carry an `accounts` map (native
+	 * multi-account data), it is used as-is. Otherwise a single legacy
+	 * connection stored as flat fields is projected into one account entry,
+	 * so already-connected sites keep working with zero behaviour change.
+	 *
+	 * This is a pure projection — it does not persist. The flat fields
+	 * remain the source of truth until the connect flow becomes
+	 * account-native, so a reconnect that rewrites the flat fields is always
+	 * reflected here (no stale snapshot).
+	 *
+	 * @param array<string, mixed> $settings Raw Stripe settings.
+	 * @return array<string, mixed> Settings with `accounts` + `default_account_id`.
+	 * @since 1.3.0
 	 */
-	public static function is_stripe_connected() {
-		$settings = self::get_all_stripe_settings();
-		return ! empty( $settings['stripe_connected'] ) && ! empty( $settings['stripe_account_id'] );
+	public static function normalize_accounts( $settings ) {
+		if ( ! is_array( $settings ) ) {
+			$settings = [];
+		}
+
+		// Native multi-account data already present — use it as the source of truth.
+		if ( isset( $settings['accounts'] ) && is_array( $settings['accounts'] ) ) {
+			if ( empty( $settings['default_account_id'] ) || ! isset( $settings['accounts'][ $settings['default_account_id'] ] ) ) {
+				$settings['default_account_id'] = self::pick_default_account_id( $settings['accounts'] );
+			}
+			return $settings;
+		}
+
+		// Project a legacy single connection (flat fields) into one account entry.
+		$accounts  = [];
+		$legacy_id = isset( $settings['stripe_account_id'] ) && is_string( $settings['stripe_account_id'] ) ? $settings['stripe_account_id'] : '';
+
+		if ( ! empty( $settings['stripe_connected'] ) && '' !== $legacy_id ) {
+			$accounts[ $legacy_id ] = [
+				'account_id'           => $legacy_id,
+				'label'                => is_string( $settings['account_name'] ?? null ) ? $settings['account_name'] : '',
+				'email'                => is_string( $settings['stripe_account_email'] ?? null ) ? $settings['stripe_account_email'] : '',
+				'connected'            => true,
+				'live_secret_key'      => is_string( $settings['stripe_live_secret_key'] ?? null ) ? $settings['stripe_live_secret_key'] : '',
+				'live_publishable_key' => is_string( $settings['stripe_live_publishable_key'] ?? null ) ? $settings['stripe_live_publishable_key'] : '',
+				'test_secret_key'      => is_string( $settings['stripe_test_secret_key'] ?? null ) ? $settings['stripe_test_secret_key'] : '',
+				'test_publishable_key' => is_string( $settings['stripe_test_publishable_key'] ?? null ) ? $settings['stripe_test_publishable_key'] : '',
+				'live_webhook_secret'  => is_string( $settings['webhook_live_secret'] ?? null ) ? $settings['webhook_live_secret'] : '',
+				'live_webhook_id'      => is_string( $settings['webhook_live_id'] ?? null ) ? $settings['webhook_live_id'] : '',
+				'live_webhook_url'     => is_string( $settings['webhook_live_url'] ?? null ) ? $settings['webhook_live_url'] : '',
+				'test_webhook_secret'  => is_string( $settings['webhook_test_secret'] ?? null ) ? $settings['webhook_test_secret'] : '',
+				'test_webhook_id'      => is_string( $settings['webhook_test_id'] ?? null ) ? $settings['webhook_test_id'] : '',
+				'test_webhook_url'     => is_string( $settings['webhook_test_url'] ?? null ) ? $settings['webhook_test_url'] : '',
+			];
+		}
+
+		$settings['accounts']           = $accounts;
+		$settings['default_account_id'] = self::pick_default_account_id( $accounts, $legacy_id );
+
+		return $settings;
 	}
 
 	/**
-	 * Get Stripe secret key (mode-aware)
+	 * Choose the default account id from an accounts map.
 	 *
-	 * @param string $mode Optional. Payment mode ('test' or 'live'). Defaults to current mode.
-	 * @return string Secret key.
+	 * Prefers the given preferred id when present, otherwise falls back to
+	 * the first connected account, otherwise the first account, otherwise ''.
+	 *
+	 * @param array<string, array<string, mixed>> $accounts     Accounts map.
+	 * @param string                              $preferred_id Preferred account id.
+	 * @return string Default account id, or '' when there are no accounts.
+	 * @since 1.3.0
+	 */
+	public static function pick_default_account_id( $accounts, $preferred_id = '' ) {
+		if ( ! is_array( $accounts ) || empty( $accounts ) ) {
+			return '';
+		}
+
+		if ( '' !== $preferred_id && isset( $accounts[ $preferred_id ] ) ) {
+			return $preferred_id;
+		}
+
+		foreach ( $accounts as $id => $account ) {
+			if ( is_array( $account ) && ! empty( $account['connected'] ) ) {
+				return (string) $id;
+			}
+		}
+
+		return (string) array_key_first( $accounts );
+	}
+
+	/**
+	 * Get all connected Stripe accounts, keyed by account id.
+	 *
+	 * @return array<string, array<string, mixed>> Accounts map.
+	 * @since 1.3.0
+	 */
+	public static function get_all_accounts() {
+		$settings = self::normalize_accounts( self::get_all_stripe_settings() );
+		return is_array( $settings['accounts'] ) ? $settings['accounts'] : [];
+	}
+
+	/**
+	 * Get the default account id.
+	 *
+	 * @return string Default account id, or '' when none connected.
+	 * @since 1.3.0
+	 */
+	public static function get_default_account_id() {
+		$settings = self::normalize_accounts( self::get_all_stripe_settings() );
+		return is_string( $settings['default_account_id'] ) ? $settings['default_account_id'] : '';
+	}
+
+	/**
+	 * Get a single account record by id.
+	 *
+	 * @param string $account_id Stripe account id (`acct_…`).
+	 * @return array<string, mixed> Account record, or [] when not found.
+	 * @since 1.3.0
+	 */
+	public static function get_account( $account_id ) {
+		$accounts = self::get_all_accounts();
+		return isset( $accounts[ $account_id ] ) && is_array( $accounts[ $account_id ] ) ? $accounts[ $account_id ] : [];
+	}
+
+	/**
+	 * Resolve an account record for use at a call site.
+	 *
+	 * When $account_id is null/empty the default account is used. Returns []
+	 * when the account cannot be resolved (callers treat this as "not
+	 * connected" and read nothing).
+	 *
+	 * @param string|null $account_id Optional account id; default account when empty.
+	 * @return array<string, mixed> Resolved account record, or [].
+	 * @since 1.3.0
+	 */
+	public static function resolve_account_record( $account_id = null ) {
+		if ( empty( $account_id ) ) {
+			$account_id = self::get_default_account_id();
+		}
+		if ( empty( $account_id ) ) {
+			return [];
+		}
+		return self::get_account( $account_id );
+	}
+
+	/**
+	 * Resolve which connected account a donation form should charge to.
+	 *
+	 * Uses the form's selected account when it is set to a valid, connected
+	 * account; otherwise falls back to the site default account.
+	 *
+	 * @param int|string $form_id Donation form post ID.
+	 * @return string Account id (`acct_…`), or '' when no account is connected.
+	 * @since 1.3.0
+	 */
+	public static function resolve_account_for_form( $form_id ) {
+		$form_id = absint( $form_id );
+
+		if ( $form_id > 0 ) {
+			$selected = get_post_meta( $form_id, self::FORM_ACCOUNT_META_KEY, true );
+			if ( is_string( $selected ) && '' !== $selected && 'default' !== $selected && ! empty( self::get_account( $selected ) ) ) {
+				return $selected;
+			}
+		}
+
+		return self::get_default_account_id();
+	}
+
+	/**
+	 * Insert or update a connected account, then persist.
+	 *
+	 * Merges into any existing record for the same account id (so re-connecting
+	 * the same Stripe account refreshes its tokens). The first account becomes
+	 * the default.
+	 *
+	 * @param array<string, mixed> $account Account record; must include `account_id`.
+	 * @return string The account id, or '' when the payload has no account id.
+	 * @since 1.3.0
+	 */
+	public static function upsert_account( $account ) {
+		$account_id = isset( $account['account_id'] ) && is_string( $account['account_id'] ) ? $account['account_id'] : '';
+		if ( '' === $account_id ) {
+			return '';
+		}
+
+		$accounts                = self::get_all_accounts();
+		$existing                = isset( $accounts[ $account_id ] ) && is_array( $accounts[ $account_id ] ) ? $accounts[ $account_id ] : [];
+		$accounts[ $account_id ] = array_merge( $existing, $account );
+
+		$default_id = self::get_default_account_id();
+		if ( '' === $default_id ) {
+			$default_id = $account_id;
+		}
+
+		self::save_accounts( $accounts, $default_id );
+		return $account_id;
+	}
+
+	/**
+	 * Merge fields into an existing account record and persist.
+	 *
+	 * @param string               $account_id Account id.
+	 * @param array<string, mixed> $fields     Fields to merge.
+	 * @return bool True on success, false when the account does not exist.
+	 * @since 1.3.0
+	 */
+	public static function update_account_fields( $account_id, $fields ) {
+		$accounts = self::get_all_accounts();
+		if ( ! isset( $accounts[ $account_id ] ) || ! is_array( $accounts[ $account_id ] ) ) {
+			return false;
+		}
+		$accounts[ $account_id ] = array_merge( $accounts[ $account_id ], $fields );
+		return self::save_accounts( $accounts, self::get_default_account_id() );
+	}
+
+	/**
+	 * Remove a connected account and persist (repicking the default if needed).
+	 *
+	 * @param string $account_id Account id.
+	 * @return bool True on success, false when the account does not exist.
+	 * @since 1.3.0
+	 */
+	public static function remove_account( $account_id ) {
+		$accounts = self::get_all_accounts();
+		if ( ! isset( $accounts[ $account_id ] ) ) {
+			return false;
+		}
+		unset( $accounts[ $account_id ] );
+
+		$default_id = self::get_default_account_id();
+		if ( $default_id === $account_id ) {
+			$default_id = self::pick_default_account_id( $accounts );
+		}
+
+		return self::save_accounts( $accounts, $default_id );
+	}
+
+	/**
+	 * Set the default account and persist.
+	 *
+	 * @param string $account_id Account id.
+	 * @return bool True on success, false when the account does not exist.
+	 * @since 1.3.0
+	 */
+	public static function set_default_account( $account_id ) {
+		$accounts = self::get_all_accounts();
+		if ( ! isset( $accounts[ $account_id ] ) ) {
+			return false;
+		}
+		return self::save_accounts( $accounts, (string) $account_id );
+	}
+
+	/**
+	 * Get a sanitized account list safe for the browser (no secret material).
+	 *
+	 * Returns only the account id, label, email, connected + default flags,
+	 * the publishable keys (which are public by design), and per-mode booleans
+	 * for whether a webhook has been configured. Secret keys and webhook
+	 * secrets are never included.
+	 *
+	 * @return array<int, array<string, mixed>> Sanitized account list.
+	 * @since 1.3.0
+	 */
+	public static function get_public_accounts() {
+		$default_id = self::get_default_account_id();
+		$public     = [];
+
+		foreach ( self::get_all_accounts() as $id => $account ) {
+			if ( ! is_array( $account ) ) {
+				continue;
+			}
+			$public[] = [
+				'account_id'              => (string) $id,
+				'label'                   => is_string( $account['label'] ?? null ) ? $account['label'] : '',
+				'email'                   => is_string( $account['email'] ?? null ) ? $account['email'] : '',
+				'connected'               => ! empty( $account['connected'] ),
+				'is_default'              => ( (string) $id === $default_id ),
+				'live_publishable_key'    => is_string( $account['live_publishable_key'] ?? null ) ? $account['live_publishable_key'] : '',
+				'test_publishable_key'    => is_string( $account['test_publishable_key'] ?? null ) ? $account['test_publishable_key'] : '',
+				'test_webhook_configured' => ! empty( $account['test_webhook_id'] ),
+				'live_webhook_configured' => ! empty( $account['live_webhook_id'] ),
+			];
+		}
+
+		return $public;
+	}
+
+	/**
+	 * Persist the accounts map + default pointer, mirroring the default account
+	 * into the legacy flat fields for back-compat readers.
+	 *
+	 * @param array<string, array<string, mixed>> $accounts   Accounts map.
+	 * @param string|null                         $default_id Default account id; recomputed when null.
+	 * @return bool True on success.
+	 * @since 1.3.0
+	 */
+	private static function save_accounts( $accounts, $default_id = null ) {
+		$settings             = self::get_all_stripe_settings();
+		$settings             = is_array( $settings ) ? $settings : [];
+		$settings['accounts'] = $accounts;
+
+		if ( null === $default_id ) {
+			$current    = is_string( $settings['default_account_id'] ?? null ) ? $settings['default_account_id'] : '';
+			$default_id = self::pick_default_account_id( $accounts, $current );
+		}
+		$settings['default_account_id'] = (string) $default_id;
+
+		$settings = self::apply_flat_mirror( $settings );
+
+		return self::update_all_stripe_settings( $settings );
+	}
+
+	/**
+	 * Mirror the default account's fields into the legacy flat settings so
+	 * code paths not yet migrated to the accounts model keep working.
+	 *
+	 * @param array<string, mixed> $settings Settings carrying `accounts` + `default_account_id`.
+	 * @return array<string, mixed> Settings with legacy flat fields synced to the default account.
+	 * @since 1.3.0
+	 */
+	private static function apply_flat_mirror( $settings ) {
+		$accounts   = isset( $settings['accounts'] ) && is_array( $settings['accounts'] ) ? $settings['accounts'] : [];
+		$default_id = is_string( $settings['default_account_id'] ?? null ) ? $settings['default_account_id'] : '';
+		$default    = isset( $accounts[ $default_id ] ) && is_array( $accounts[ $default_id ] ) ? $accounts[ $default_id ] : [];
+
+		$map = [
+			'stripe_account_id'           => 'account_id',
+			'stripe_account_email'        => 'email',
+			'account_name'                => 'label',
+			'stripe_live_secret_key'      => 'live_secret_key',
+			'stripe_live_publishable_key' => 'live_publishable_key',
+			'stripe_test_secret_key'      => 'test_secret_key',
+			'stripe_test_publishable_key' => 'test_publishable_key',
+			'webhook_live_secret'         => 'live_webhook_secret',
+			'webhook_live_id'             => 'live_webhook_id',
+			'webhook_live_url'            => 'live_webhook_url',
+			'webhook_test_secret'         => 'test_webhook_secret',
+			'webhook_test_id'             => 'test_webhook_id',
+			'webhook_test_url'            => 'test_webhook_url',
+		];
+
+		foreach ( $map as $flat_key => $account_key ) {
+			$settings[ $flat_key ] = is_string( $default[ $account_key ] ?? null ) ? $default[ $account_key ] : '';
+		}
+		$settings['stripe_connected'] = ! empty( $default['connected'] );
+
+		return $settings;
+	}
+
+	/**
+	 * Check if Stripe is connected (any account).
+	 *
+	 * @return bool True if at least one account is connected.
 	 * @since 0.0.1
 	 */
-	public static function get_stripe_secret_key( $mode = '' ) {
+	public static function is_stripe_connected() {
+		foreach ( self::get_all_accounts() as $account ) {
+			if ( is_array( $account ) && ! empty( $account['connected'] ) ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Check whether the Stripe webhook is configured for a mode.
+	 *
+	 * A webhook counts as configured once its id has been stored for the mode
+	 * (set on creation, cleared on delete). This is a cheap local check; it does
+	 * not verify the endpoint still exists in Stripe.
+	 *
+	 * @param string $mode Optional. Payment mode ('test' or 'live'). Defaults to the current mode.
+	 * @return bool True if a webhook id is stored for the mode.
+	 * @since 1.3.0
+	 */
+	public static function is_webhook_configured( $mode = '' ) {
 		if ( empty( $mode ) ) {
 			$mode = Payment_Helper::get_payment_mode();
 		}
 		$settings = self::get_all_stripe_settings();
+		return ! empty( $settings[ "webhook_{$mode}_id" ] );
+	}
 
-		if ( 'live' === $mode ) {
-			$key = $settings['stripe_live_secret_key'] ?? '';
-			return is_string( $key ) ? $key : '';
+	/**
+	 * Get Stripe secret key (mode- and account-aware)
+	 *
+	 * @param string      $mode       Optional. Payment mode ('test' or 'live'). Defaults to current mode.
+	 * @param string|null $account_id Optional. Account id; the default account is used when empty.
+	 * @return string Secret key.
+	 * @since 0.0.1
+	 */
+	public static function get_stripe_secret_key( $mode = '', $account_id = null ) {
+		if ( empty( $mode ) ) {
+			$mode = Payment_Helper::get_payment_mode();
 		}
-
-		$key = $settings['stripe_test_secret_key'] ?? '';
+		$account = self::resolve_account_record( $account_id );
+		$key     = $account[ $mode . '_secret_key' ] ?? '';
 		return is_string( $key ) ? $key : '';
 	}
 
 	/**
-	 * Get Stripe publishable key (mode-aware)
+	 * Get Stripe publishable key (mode- and account-aware)
 	 *
+	 * @param string      $mode       Optional. Payment mode ('test' or 'live'). Defaults to current mode.
+	 * @param string|null $account_id Optional. Account id; the default account is used when empty.
 	 * @return string Publishable key.
 	 * @since 0.0.1
 	 */
-	public static function get_stripe_publishable_key() {
-		$mode     = Payment_Helper::get_payment_mode();
-		$settings = self::get_all_stripe_settings();
-
-		if ( 'live' === $mode ) {
-			$key = $settings['stripe_live_publishable_key'] ?? '';
-			return is_string( $key ) ? $key : '';
+	public static function get_stripe_publishable_key( $mode = '', $account_id = null ) {
+		if ( empty( $mode ) ) {
+			$mode = Payment_Helper::get_payment_mode();
 		}
-
-		$key = $settings['stripe_test_publishable_key'] ?? '';
+		$account = self::resolve_account_record( $account_id );
+		$key     = $account[ $mode . '_publishable_key' ] ?? '';
 		return is_string( $key ) ? $key : '';
 	}
 
 	/**
-	 * Get Stripe webhook secret (mode-aware)
+	 * Get Stripe webhook secret (mode- and account-aware)
 	 *
+	 * @param string      $mode       Optional. Payment mode ('test' or 'live'). Defaults to current mode.
+	 * @param string|null $account_id Optional. Account id; the default account is used when empty.
 	 * @return string Webhook secret.
 	 * @since 0.0.1
 	 */
-	public static function get_webhook_secret() {
-		$mode     = Payment_Helper::get_payment_mode();
-		$settings = self::get_all_stripe_settings();
-
-		if ( 'live' === $mode ) {
-			$secret = $settings['webhook_live_secret'] ?? '';
-			return is_string( $secret ) ? $secret : '';
+	public static function get_webhook_secret( $mode = '', $account_id = null ) {
+		if ( empty( $mode ) ) {
+			$mode = Payment_Helper::get_payment_mode();
 		}
-
-		$secret = $settings['webhook_test_secret'] ?? '';
+		$account = self::resolve_account_record( $account_id );
+		$secret  = $account[ $mode . '_webhook_secret' ] ?? '';
 		return is_string( $secret ) ? $secret : '';
 	}
 
@@ -169,25 +542,28 @@ class Stripe_Helper {
 	/**
 	 * Get Stripe account ID
 	 *
+	 * @param string|null $account_id Optional. When provided and connected, it is returned as-is; otherwise the default account id.
 	 * @return string Account ID.
 	 * @since 0.0.1
 	 */
-	public static function get_stripe_account_id() {
-		$settings   = self::get_all_stripe_settings();
-		$account_id = $settings['stripe_account_id'] ?? '';
-		return is_string( $account_id ) ? $account_id : '';
+	public static function get_stripe_account_id( $account_id = null ) {
+		if ( ! empty( $account_id ) && ! empty( self::get_account( $account_id ) ) ) {
+			return (string) $account_id;
+		}
+		return self::get_default_account_id();
 	}
 
 	/**
 	 * Get Stripe account email
 	 *
+	 * @param string|null $account_id Optional. Account id; the default account is used when empty.
 	 * @return string Account email.
 	 * @since 0.0.1
 	 */
-	public static function get_stripe_account_email() {
-		$settings      = self::get_all_stripe_settings();
-		$account_email = $settings['stripe_account_email'] ?? '';
-		return is_string( $account_email ) ? $account_email : '';
+	public static function get_stripe_account_email( $account_id = null ) {
+		$account = self::resolve_account_record( $account_id );
+		$email   = $account['email'] ?? '';
+		return is_string( $email ) ? $email : '';
 	}
 
 	/**
@@ -236,14 +612,15 @@ class Stripe_Helper {
 	 * @param string              $endpoint   Endpoint path.
 	 * @param string              $method     HTTP method.
 	 * @param array<string,mixed> $data       Request data.
-	 * @param array<string,mixed> $extra_args Extra arguments (e.g., 'mode' to specify test/live).
+	 * @param array<string,mixed> $extra_args Extra arguments: 'mode' (test/live) and 'account_id' (which connected account to use).
 	 * @return array<string,mixed>|\WP_Error Response data.
 	 * @since 0.0.1
 	 */
 	public static function stripe_api_request( $endpoint, $method = 'POST', $data = [], $extra_args = [] ) {
 		// Get mode from extra_args or default to current payment mode.
 		$mode       = isset( $extra_args['mode'] ) && is_string( $extra_args['mode'] ) ? $extra_args['mode'] : '';
-		$secret_key = self::get_stripe_secret_key( $mode );
+		$account_id = isset( $extra_args['account_id'] ) && is_string( $extra_args['account_id'] ) ? $extra_args['account_id'] : null;
+		$secret_key = self::get_stripe_secret_key( $mode, $account_id );
 
 		if ( empty( $secret_key ) ) {
 			return new \WP_Error( 'no_secret_key', __( 'Stripe secret key not configured', 'suredonation' ) );
@@ -295,10 +672,11 @@ class Stripe_Helper {
 	 * Create Stripe customer
 	 *
 	 * @param array<string,mixed> $customer_data Customer data.
+	 * @param string|null         $account_id    Connected account to create the customer on; default account when empty.
 	 * @return array<string,mixed>|\WP_Error Customer data.
 	 * @since 0.0.1
 	 */
-	public static function create_customer( $customer_data ) {
+	public static function create_customer( $customer_data, $account_id = null ) {
 		$data = [
 			'email'       => $customer_data['email'] ?? '',
 			'name'        => $customer_data['name'] ?? '',
@@ -308,7 +686,7 @@ class Stripe_Helper {
 		// Remove empty values.
 		$data = array_filter( $data );
 
-		return self::stripe_api_request( 'customers', 'POST', $data );
+		return self::stripe_api_request( 'customers', 'POST', $data, [ 'account_id' => $account_id ] );
 	}
 
 	/**
@@ -317,16 +695,17 @@ class Stripe_Helper {
 	 * This is useful when reusing cached customer IDs to handle mode switches
 	 * (test/live) or deleted customers gracefully.
 	 *
-	 * @param string $customer_id Stripe customer ID.
+	 * @param string      $customer_id Stripe customer ID.
+	 * @param string|null $account_id  Connected account the customer should exist on; default account when empty.
 	 * @return bool True if customer exists, false otherwise.
 	 * @since 0.0.1
 	 */
-	public static function verify_customer_exists( $customer_id ) {
+	public static function verify_customer_exists( $customer_id, $account_id = null ) {
 		if ( empty( $customer_id ) ) {
 			return false;
 		}
 
-		$response = self::stripe_api_request( 'customers/' . $customer_id, 'GET' );
+		$response = self::stripe_api_request( 'customers/' . $customer_id, 'GET', [], [ 'account_id' => $account_id ] );
 
 		// If it's an error or customer was deleted, return false.
 		if ( is_wp_error( $response ) ) {
@@ -346,10 +725,11 @@ class Stripe_Helper {
 	 * Create Payment Intent
 	 *
 	 * @param array<string,mixed> $intent_data Payment intent data.
+	 * @param string|null         $account_id  Connected account to charge; default account when empty.
 	 * @return array<string,mixed>|\WP_Error Intent data.
 	 * @since 0.0.1
 	 */
-	public static function create_payment_intent( $intent_data ) {
+	public static function create_payment_intent( $intent_data, $account_id = null ) {
 		$data = [
 			'amount'                             => $intent_data['amount'],
 			'currency'                           => $intent_data['currency'] ?? Payment_Helper::get_currency(),
@@ -370,30 +750,32 @@ class Stripe_Helper {
 			}
 		}
 
-		return self::stripe_api_request( 'payment_intents', 'POST', $data );
+		return self::stripe_api_request( 'payment_intents', 'POST', $data, [ 'account_id' => $account_id ] );
 	}
 
 	/**
 	 * Retrieve Payment Intent
 	 *
-	 * @param string $intent_id Payment intent ID.
+	 * @param string      $intent_id  Payment intent ID.
+	 * @param string|null $account_id Connected account the intent belongs to; default account when empty.
 	 * @return array<string,mixed>|\WP_Error Intent data.
 	 * @since 0.0.1
 	 */
-	public static function retrieve_payment_intent( $intent_id ) {
-		return self::stripe_api_request( 'payment_intents/' . $intent_id, 'GET' );
+	public static function retrieve_payment_intent( $intent_id, $account_id = null ) {
+		return self::stripe_api_request( 'payment_intents/' . $intent_id, 'GET', [], [ 'account_id' => $account_id ] );
 	}
 
 	/**
 	 * Create refund
 	 *
-	 * @param string   $payment_intent_id Payment intent ID.
-	 * @param int|null $amount            Amount to refund (in cents). Leave empty for full refund.
-	 * @param string   $reason            Refund reason.
+	 * @param string      $payment_intent_id Payment intent ID.
+	 * @param int|null    $amount            Amount to refund (in cents). Leave empty for full refund.
+	 * @param string      $reason            Refund reason.
+	 * @param string|null $account_id        Account that processed the original charge; default account when empty.
 	 * @return array<string,mixed>|\WP_Error Refund data.
 	 * @since 0.0.1
 	 */
-	public static function create_refund( $payment_intent_id, $amount = null, $reason = '' ) {
+	public static function create_refund( $payment_intent_id, $amount = null, $reason = '', $account_id = null ) {
 		// Stripe accepts either 'payment_intent' or 'charge' — detect by prefix.
 		$key  = 0 === strpos( $payment_intent_id, 'ch_' ) ? 'charge' : 'payment_intent';
 		$data = [
@@ -410,7 +792,7 @@ class Stripe_Helper {
 			$data['reason'] = $reason;
 		}
 
-		return self::stripe_api_request( 'refunds', 'POST', $data );
+		return self::stripe_api_request( 'refunds', 'POST', $data, [ 'account_id' => $account_id ] );
 	}
 
 	/**
@@ -437,11 +819,12 @@ class Stripe_Helper {
 	 * based on license tier automatically.
 	 *
 	 * @param array<string,mixed> $intent_data Payment intent data.
+	 * @param string|null         $account_id  Connected account to charge; default account when empty.
 	 * @return array<string,mixed>|\WP_Error Intent data.
 	 * @since 0.0.1
 	 */
-	public static function create_payment_intent_via_middleware( $intent_data ) {
-		$secret_key = self::get_stripe_secret_key();
+	public static function create_payment_intent_via_middleware( $intent_data, $account_id = null ) {
+		$secret_key = self::get_stripe_secret_key( '', $account_id );
 
 		if ( empty( $secret_key ) ) {
 			return new \WP_Error( 'no_secret_key', __( 'Stripe secret key not configured', 'suredonation' ) );
@@ -546,12 +929,13 @@ class Stripe_Helper {
 	 * Called after payment confirmation when the PaymentIntent status is 'requires_capture'.
 	 * This is required because the middleware creates PaymentIntents with capture_method='manual'.
 	 *
-	 * @param string $payment_intent_id Payment Intent ID to capture.
+	 * @param string      $payment_intent_id Payment Intent ID to capture.
+	 * @param string|null $account_id        Account that created the intent; default account when empty.
 	 * @return array<string,mixed>|\WP_Error Captured payment intent data.
 	 * @since 0.0.1
 	 */
-	public static function capture_payment_intent_via_middleware( $payment_intent_id ) {
-		$secret_key = self::get_stripe_secret_key();
+	public static function capture_payment_intent_via_middleware( $payment_intent_id, $account_id = null ) {
+		$secret_key = self::get_stripe_secret_key( '', $account_id );
 
 		if ( empty( $secret_key ) ) {
 			return new \WP_Error( 'no_secret_key', __( 'Stripe secret key not configured', 'suredonation' ) );
@@ -564,7 +948,7 @@ class Stripe_Helper {
 		$middleware_data = [
 			'secret_key'        => $secret_key,
 			'payment_intent_id' => $payment_intent_id,
-			'stripe_account_id' => self::get_stripe_account_id(),
+			'stripe_account_id' => self::get_stripe_account_id( $account_id ),
 			'plugin_name'       => 'SureDonation',
 		];
 

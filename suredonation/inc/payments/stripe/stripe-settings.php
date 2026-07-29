@@ -36,6 +36,7 @@ class Stripe_Settings {
 	public function __construct() {
 		add_action( 'rest_api_init', [ $this, 'register_routes' ] );
 		add_action( 'admin_init', [ $this, 'intercept_stripe_callback' ] );
+		add_filter( 'suredonation_stripe_account_usage_blockers', [ $this, 'add_form_usage_blocker' ], 10, 2 );
 	}
 
 	/**
@@ -78,7 +79,36 @@ class Stripe_Settings {
 			]
 		);
 
-		// Disconnect Stripe.
+		// List connected accounts (sanitized).
+		register_rest_route(
+			'suredonation/v1',
+			'/payments/stripe/accounts',
+			[
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => [ $this, 'get_accounts' ],
+				'permission_callback' => [ $this, 'check_permissions' ],
+			]
+		);
+
+		// Set the default account.
+		register_rest_route(
+			'suredonation/v1',
+			'/payments/stripe/accounts/default',
+			[
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => [ $this, 'set_default_account' ],
+				'permission_callback' => [ $this, 'check_permissions' ],
+				'args'                => [
+					'account_id' => [
+						'required'          => true,
+						'type'              => 'string',
+						'sanitize_callback' => 'sanitize_text_field',
+					],
+				],
+			]
+		);
+
+		// Disconnect Stripe (a specific account, or the default when omitted).
 		register_rest_route(
 			'suredonation/v1',
 			'/payments/stripe/disconnect',
@@ -86,6 +116,13 @@ class Stripe_Settings {
 				'methods'             => WP_REST_Server::CREATABLE,
 				'callback'            => [ $this, 'disconnect_stripe' ],
 				'permission_callback' => [ $this, 'check_permissions' ],
+				'args'                => [
+					'account_id' => [
+						'required'          => false,
+						'type'              => 'string',
+						'sanitize_callback' => 'sanitize_text_field',
+					],
+				],
 			]
 		);
 
@@ -98,23 +135,31 @@ class Stripe_Settings {
 				'callback'            => [ $this, 'create_webhook' ],
 				'permission_callback' => [ $this, 'check_permissions' ],
 				'args'                => [
-					'mode' => [
-						'required'          => true,
+					// No default: an omitted mode resolves to the site's current
+					// payment mode in the callback. Defaulting to 'all' made a
+					// caller working in test mode fail on the live account.
+					'mode'       => [
+						'required'          => false,
 						'type'              => 'string',
 						'sanitize_callback' => 'sanitize_text_field',
 						'validate_callback' => static function ( $param ) {
-							if ( ! in_array( $param, [ 'test', 'live' ], true ) ) {
+							if ( ! in_array( $param, [ 'all', 'test', 'live' ], true ) ) {
 								return new \WP_Error(
 									'invalid_mode',
 									sprintf(
 										/* translators: %s: provided mode value */
-										__( 'Invalid mode "%s". Must be "test" or "live".', 'suredonation' ),
+										__( 'Invalid mode "%s". Must be "all", "test" or "live".', 'suredonation' ),
 										$param
 									)
 								);
 							}
 							return true;
 						},
+					],
+					'account_id' => [
+						'required'          => false,
+						'type'              => 'string',
+						'sanitize_callback' => 'sanitize_text_field',
 					],
 				],
 			]
@@ -129,11 +174,16 @@ class Stripe_Settings {
 				'callback'            => [ $this, 'delete_webhook' ],
 				'permission_callback' => [ $this, 'check_permissions' ],
 				'args'                => [
-					'mode' => [
+					'mode'       => [
 						'required'          => true,
 						'validate_callback' => static function ( $param ) {
 							return in_array( $param, [ 'test', 'live' ], true );
 						},
+					],
+					'account_id' => [
+						'required'          => false,
+						'type'              => 'string',
+						'sanitize_callback' => 'sanitize_text_field',
 					],
 				],
 			]
@@ -160,11 +210,18 @@ class Stripe_Settings {
 		unset( $safe_settings['webhook_test_secret'] );
 		unset( $safe_settings['webhook_live_secret'] );
 
+		// Never expose the raw accounts map (it holds secret keys + webhook secrets);
+		// replace it with the sanitized, publishable-only list.
+		unset( $safe_settings['accounts'] );
+		$safe_settings['accounts']           = Stripe_Helper::get_public_accounts();
+		$safe_settings['default_account_id'] = Stripe_Helper::get_default_account_id();
+
 		// Add global settings (currency, payment_mode, fee_recovery).
-		$safe_settings['currency']        = $global_settings['currency'] ?? 'USD';
-		$safe_settings['currency_symbol'] = Payment_Helper::get_currency_symbol( is_string( $safe_settings['currency'] ) ? $safe_settings['currency'] : 'USD' );
-		$safe_settings['payment_mode']    = $global_settings['payment_mode'] ?? 'test';
-		$safe_settings['fee_recovery']    = Payment_Helper::get_fee_recovery_settings();
+		$safe_settings['currency']               = $global_settings['currency'] ?? 'USD';
+		$safe_settings['currency_symbol']        = Payment_Helper::get_currency_symbol( is_string( $safe_settings['currency'] ) ? $safe_settings['currency'] : 'USD' );
+		$safe_settings['payment_mode']           = $global_settings['payment_mode'] ?? 'test';
+		$safe_settings['currency_sign_position'] = Payment_Helper::get_currency_sign_position();
+		$safe_settings['fee_recovery']           = Payment_Helper::get_fee_recovery_settings();
 
 		// Include gateway list so the settings UI knows which gateways exist.
 		$safe_settings['gateways'] = array_map(
@@ -204,9 +261,9 @@ class Stripe_Settings {
 			);
 		}
 
-		// Handle global settings (currency, payment_mode, fee_recovery) separately.
+		// Handle global settings (currency, payment_mode, currency_sign_position, fee_recovery) separately.
 		$global_updated = true;
-		if ( isset( $settings['currency'] ) || isset( $settings['payment_mode'] ) || isset( $settings['fee_recovery'] ) ) {
+		if ( isset( $settings['currency'] ) || isset( $settings['payment_mode'] ) || isset( $settings['currency_sign_position'] ) || isset( $settings['fee_recovery'] ) ) {
 			$global_settings = Payment_Helper::get_all_payment_settings();
 
 			if ( isset( $settings['currency'] ) ) {
@@ -220,6 +277,14 @@ class Stripe_Settings {
 					$global_settings['payment_mode'] = $mode;
 				}
 				unset( $settings['payment_mode'] );
+			}
+
+			if ( isset( $settings['currency_sign_position'] ) ) {
+				$position = sanitize_text_field( $settings['currency_sign_position'] );
+				if ( in_array( $position, Payment_Helper::ALLOWED_SIGN_POSITIONS, true ) ) {
+					$global_settings['currency_sign_position'] = $position;
+				}
+				unset( $settings['currency_sign_position'] );
 			}
 
 			if ( isset( $settings['fee_recovery'] ) && is_array( $settings['fee_recovery'] ) ) {
@@ -287,6 +352,15 @@ class Stripe_Settings {
 				}
 			}
 
+			// Preserve the multi-account map + default pointer. They are managed by
+			// the connect/disconnect/default flows — never by this endpoint — and the
+			// full-replace above would otherwise drop them.
+			foreach ( [ 'accounts', 'default_account_id' ] as $preserved_key ) {
+				if ( ! isset( $sanitized_settings[ $preserved_key ] ) && isset( $existing_stripe[ $preserved_key ] ) ) {
+					$sanitized_settings[ $preserved_key ] = $existing_stripe[ $preserved_key ];
+				}
+			}
+
 			$stripe_updated = Stripe_Helper::update_all_stripe_settings( $sanitized_settings );
 		}
 
@@ -332,18 +406,42 @@ class Stripe_Settings {
 	 * Disconnect Stripe account
 	 *
 	 * @param WP_REST_Request $request Request object.
-	 * @return WP_REST_Response Response object.
+	 * @return WP_REST_Response|WP_Error Response object.
 	 * @since 0.0.1
 	 */
 	public function disconnect_stripe( $request ) {
-		unset( $request ); // Unused parameter.
+		$account_id = $request->get_param( 'account_id' );
+		$account_id = is_string( $account_id ) ? sanitize_text_field( $account_id ) : '';
 
-		// Delete webhooks first.
-		$this->delete_webhook_for_mode( 'test' );
-		$this->delete_webhook_for_mode( 'live' );
+		if ( '' === $account_id ) {
+			$account_id = Stripe_Helper::get_default_account_id();
+		}
 
-		// Clear all Stripe settings.
-		Stripe_Helper::update_all_stripe_settings( [] );
+		if ( '' === $account_id || empty( Stripe_Helper::get_account( $account_id ) ) ) {
+			return new WP_Error(
+				'account_not_found',
+				__( 'Stripe account not found.', 'suredonation' ),
+				[ 'status' => 404 ]
+			);
+		}
+
+		// Guard rail: refuse to disconnect an account that is still in use.
+		$blockers = self::get_account_usage_blockers( $account_id );
+		if ( ! empty( $blockers ) ) {
+			return new WP_Error(
+				'account_in_use',
+				__( 'This Stripe account is still in use and cannot be disconnected.', 'suredonation' ),
+				[
+					'status'   => 409,
+					'blockers' => array_values( $blockers ),
+				]
+			);
+		}
+
+		// Delete this account's webhooks first, then remove the account.
+		$this->delete_webhook_for_mode( 'test', $account_id );
+		$this->delete_webhook_for_mode( 'live', $account_id );
+		Stripe_Helper::remove_account( $account_id );
 
 		return new WP_REST_Response(
 			[
@@ -355,6 +453,125 @@ class Stripe_Settings {
 	}
 
 	/**
+	 * Set the default Stripe account.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response|WP_Error Response object.
+	 * @since 1.3.0
+	 */
+	public function set_default_account( $request ) {
+		$account_id = $request->get_param( 'account_id' );
+		$account_id = is_string( $account_id ) ? sanitize_text_field( $account_id ) : '';
+
+		if ( '' === $account_id || ! Stripe_Helper::set_default_account( $account_id ) ) {
+			return new WP_Error(
+				'account_not_found',
+				__( 'Stripe account not found.', 'suredonation' ),
+				[ 'status' => 404 ]
+			);
+		}
+
+		return new WP_REST_Response(
+			[
+				'success'            => true,
+				'message'            => __( 'Default Stripe account updated.', 'suredonation' ),
+				'default_account_id' => $account_id,
+			],
+			200
+		);
+	}
+
+	/**
+	 * Get the sanitized list of connected Stripe accounts (no secret material).
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response Response object.
+	 * @since 1.3.0
+	 */
+	public function get_accounts( $request ) {
+		unset( $request ); // Unused parameter.
+
+		return new WP_REST_Response(
+			[
+				'success'  => true,
+				'accounts' => Stripe_Helper::get_public_accounts(),
+			],
+			200
+		);
+	}
+
+	/**
+	 * Collect reasons an account cannot be disconnected.
+	 *
+	 * Extensible via the `suredonation_stripe_account_usage_blockers` filter —
+	 * this class registers a blocker for donation forms assigned to the account,
+	 * and Pro adds one for active subscriptions. Each blocker is a human-readable
+	 * string.
+	 *
+	 * @param string $account_id Account id being disconnected.
+	 * @return array<int, string> List of blocker messages (empty = safe to disconnect).
+	 * @since 1.3.0
+	 */
+	public static function get_account_usage_blockers( $account_id ) {
+		/**
+		 * Filter the list of reasons a Stripe account cannot be disconnected.
+		 *
+		 * @param array<int, string> $blockers   Blocker messages.
+		 * @param string             $account_id Account id being disconnected.
+		 */
+		$blockers = apply_filters( 'suredonation_stripe_account_usage_blockers', [], $account_id );
+		return is_array( $blockers ) ? $blockers : [];
+	}
+
+	/**
+	 * Block disconnecting an account that donation forms are still assigned to.
+	 *
+	 * @param array<int, string> $blockers   Existing blocker messages.
+	 * @param string             $account_id Account id being disconnected.
+	 * @return array<int, string> Blocker messages.
+	 * @since 1.3.0
+	 */
+	public function add_form_usage_blocker( $blockers, $account_id ) {
+		if ( ! is_array( $blockers ) ) {
+			$blockers = [];
+		}
+
+		if ( empty( $account_id ) || ! is_string( $account_id ) ) {
+			return $blockers;
+		}
+
+		$query = new \WP_Query(
+			[
+				'post_type'      => \SureDonation\Inc\Post_Types\Donation_Form::POST_TYPE,
+				'post_status'    => 'any',
+				'fields'         => 'ids',
+				'posts_per_page' => 1,
+				// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- Admin-only disconnect guard; a meta lookup is required and infrequent.
+				'meta_key'       => Stripe_Helper::FORM_ACCOUNT_META_KEY,
+				// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value -- Admin-only disconnect guard; a meta lookup is required and infrequent.
+				'meta_value'     => $account_id,
+			]
+		);
+
+		$count = (int) $query->found_posts;
+
+		if ( $count > 0 ) {
+			$blockers[] = sprintf(
+				/* translators: %s: number of donation forms */
+				_n(
+					'%s donation form is assigned to this account.',
+					'%s donation forms are assigned to this account.',
+					$count,
+					'suredonation'
+				),
+				number_format_i18n( $count )
+			);
+		}
+
+		return $blockers;
+	}
+
+	/**
 	 * Create webhook for specified mode
 	 *
 	 * @param WP_REST_Request $request Request object.
@@ -362,9 +579,49 @@ class Stripe_Settings {
 	 * @since 0.0.1
 	 */
 	public function create_webhook( $request ) {
-		$mode = $request->get_param( 'mode' );
+		$mode       = $request->get_param( 'mode' );
+		$account_id = $request->get_param( 'account_id' );
+		$account_id = is_string( $account_id ) ? sanitize_text_field( $account_id ) : null;
 
-		$result = $this->create_webhook_for_mode( $mode );
+		// An omitted mode targets the mode the site is currently in, so a caller
+		// working in test never reaches the live account. 'all' remains available
+		// for programmatic setup, but is never implied.
+		if ( empty( $mode ) ) {
+			$mode = Payment_Helper::get_payment_mode();
+			$mode = in_array( $mode, [ 'test', 'live' ], true ) ? $mode : 'test';
+		}
+
+		if ( 'all' === $mode ) {
+			$result = $this->setup_stripe_webhooks( $account_id );
+
+			if ( empty( $result['success'] ) ) {
+				$message = isset( $result['message'] ) && is_string( $result['message'] ) && '' !== $result['message']
+					? $result['message']
+					: __( 'Failed to create webhook.', 'suredonation' );
+				return new WP_Error( 'webhook_create_failed', $message );
+			}
+
+			$partial  = ! empty( $result['errors'] );
+			$failures = isset( $result['message'] ) && is_string( $result['message'] ) ? $result['message'] : '';
+
+			return new WP_REST_Response(
+				[
+					'success' => true,
+					'partial' => $partial,
+					'message' => $partial
+						? sprintf(
+							/* translators: %s: per-mode failure reasons, already prefixed with the mode name. */
+							__( 'Webhook created, but some modes failed. %s', 'suredonation' ),
+							$failures
+						)
+						: __( 'Webhook created successfully.', 'suredonation' ),
+					'data'    => $result,
+				],
+				200
+			);
+		}
+
+		$result = $this->create_webhook_for_mode( $mode, $account_id );
 
 		if ( is_wp_error( $result ) ) {
 			return $result;
@@ -378,7 +635,11 @@ class Stripe_Settings {
 					__( 'Webhook created successfully for %s mode', 'suredonation' ),
 					$mode
 				),
-				'data'    => $result,
+				'data'    => [
+					'id'     => is_string( $result['id'] ?? null ) ? $result['id'] : '',
+					'url'    => is_string( $result['url'] ?? null ) ? $result['url'] : '',
+					'status' => is_string( $result['status'] ?? null ) ? $result['status'] : '',
+				],
 			],
 			200
 		);
@@ -392,9 +653,11 @@ class Stripe_Settings {
 	 * @since 0.0.1
 	 */
 	public function delete_webhook( $request ) {
-		$mode = $request->get_param( 'mode' );
+		$mode       = $request->get_param( 'mode' );
+		$account_id = $request->get_param( 'account_id' );
+		$account_id = is_string( $account_id ) ? sanitize_text_field( $account_id ) : null;
 
-		$this->delete_webhook_for_mode( $mode );
+		$this->delete_webhook_for_mode( $mode, $account_id );
 
 		return new WP_REST_Response(
 			[
@@ -469,27 +732,23 @@ class Stripe_Settings {
 	}
 
 	/**
-	 * Get Stripe account name using stored account ID
+	 * Get Stripe account name for a connected account.
 	 *
+	 * @param string|null $account_id Optional account id; the default account is used when empty.
 	 * @return string Account name or empty string if not found.
 	 * @since 0.0.1
 	 */
-	public function get_account_name() {
-		$settings = Stripe_Helper::get_all_stripe_settings();
-
-		// Check if Stripe is connected.
-		if ( empty( $settings['stripe_connected'] ) ) {
-			return '';
+	public function get_account_name( $account_id = null ) {
+		if ( empty( $account_id ) ) {
+			$account_id = Stripe_Helper::get_default_account_id();
 		}
 
-		// Get account ID.
-		$account_id = $settings['stripe_account_id'] ?? '';
 		if ( empty( $account_id ) || ! is_string( $account_id ) ) {
 			return '';
 		}
 
-		// Call Stripe API to get account information.
-		$api_response = Stripe_Helper::stripe_api_request( 'accounts/' . $account_id, 'GET', [] );
+		// Call Stripe API to get account information (using this account's key).
+		$api_response = Stripe_Helper::stripe_api_request( 'accounts/' . $account_id, 'GET', [], [ 'account_id' => $account_id ] );
 
 		// Check for API error.
 		if ( is_wp_error( $api_response ) ) {
@@ -527,11 +786,37 @@ class Stripe_Settings {
 	/**
 	 * Create webhook for mode
 	 *
-	 * @param string $mode Payment mode.
-	 * @return array<string, mixed>|WP_Error Webhook data.
+	 * @param string      $mode       Payment mode.
+	 * @param string|null $account_id Account id; the default account is used when empty.
+	 * @return array<string, mixed>|WP_Error Webhook data, or a `webhook_exists` error
+	 *                                       when the mode is already fully provisioned.
 	 * @since 0.0.1
 	 */
-	private function create_webhook_for_mode( $mode ) {
+	private function create_webhook_for_mode( $mode, $account_id = null ) {
+		if ( empty( $account_id ) ) {
+			$account_id = Stripe_Helper::get_default_account_id();
+		}
+		if ( empty( $account_id ) ) {
+			return new WP_Error( 'no_account', __( 'No Stripe account to create a webhook for.', 'suredonation' ) );
+		}
+
+		// Refuse to create a second endpoint for a mode that already has a usable
+		// one: the stored secret would be overwritten, so the existing endpoint's
+		// deliveries would start failing verification while still consuming one of
+		// Stripe's limited per-mode slots. Both the id and the secret must be
+		// present — an id with no secret cannot verify anything, so that state has
+		// to stay re-creatable rather than being locked in by this guard.
+		$account = Stripe_Helper::get_account( $account_id );
+		if ( is_array( $account )
+			&& ! empty( $account[ "{$mode}_webhook_id" ] )
+			&& ! empty( $account[ "{$mode}_webhook_secret" ] ) ) {
+			return new WP_Error(
+				'webhook_exists',
+				__( 'A webhook is already configured for this mode.', 'suredonation' ),
+				[ 'status' => 409 ]
+			);
+		}
+
 		$webhook_url = Stripe_Helper::get_webhook_url( $mode );
 
 		// Events to listen to.
@@ -558,20 +843,30 @@ class Stripe_Settings {
 			'api_version'    => '2025-07-30.basil',
 		];
 
-		// Create webhook via Stripe API with explicit mode.
-		$response = Stripe_Helper::stripe_api_request( 'webhook_endpoints', 'POST', $webhook_data, [ 'mode' => $mode ] );
+		// Create webhook via Stripe API with explicit mode + account.
+		$response = Stripe_Helper::stripe_api_request(
+			'webhook_endpoints',
+			'POST',
+			$webhook_data,
+			[
+				'mode'       => $mode,
+				'account_id' => $account_id,
+			]
+		);
 
 		if ( is_wp_error( $response ) ) {
 			return $response;
 		}
 
-		// Save webhook data to settings.
-		$settings                             = Stripe_Helper::get_all_stripe_settings();
-		$settings[ "webhook_{$mode}_id" ]     = $response['id'] ?? '';
-		$settings[ "webhook_{$mode}_secret" ] = $response['secret'] ?? '';
-		$settings[ "webhook_{$mode}_url" ]    = $webhook_url;
-
-		Stripe_Helper::update_all_stripe_settings( $settings );
+		// Store the webhook data on the account record.
+		Stripe_Helper::update_account_fields(
+			$account_id,
+			[
+				"{$mode}_webhook_id"     => $response['id'] ?? '',
+				"{$mode}_webhook_secret" => $response['secret'] ?? '',
+				"{$mode}_webhook_url"    => $webhook_url,
+			]
+		);
 
 		return $response;
 	}
@@ -579,27 +874,46 @@ class Stripe_Settings {
 	/**
 	 * Delete webhook for mode
 	 *
-	 * @param string $mode Payment mode.
+	 * @param string      $mode       Payment mode.
+	 * @param string|null $account_id Account id; the default account is used when empty.
 	 * @return void
 	 * @since 0.0.1
 	 */
-	private function delete_webhook_for_mode( $mode ) {
-		$settings   = Stripe_Helper::get_all_stripe_settings();
-		$webhook_id = $settings[ "webhook_{$mode}_id" ] ?? '';
+	private function delete_webhook_for_mode( $mode, $account_id = null ) {
+		if ( empty( $account_id ) ) {
+			$account_id = Stripe_Helper::get_default_account_id();
+		}
+		if ( empty( $account_id ) ) {
+			return;
+		}
+
+		$account    = Stripe_Helper::get_account( $account_id );
+		$webhook_id = isset( $account[ "{$mode}_webhook_id" ] ) && is_string( $account[ "{$mode}_webhook_id" ] ) ? $account[ "{$mode}_webhook_id" ] : '';
 
 		if ( empty( $webhook_id ) ) {
 			return;
 		}
 
-		// Delete webhook via Stripe API with explicit mode.
-		Stripe_Helper::stripe_api_request( 'webhook_endpoints/' . $webhook_id, 'DELETE', [], [ 'mode' => $mode ] );
+		// Delete webhook via Stripe API with explicit mode + account.
+		Stripe_Helper::stripe_api_request(
+			'webhook_endpoints/' . $webhook_id,
+			'DELETE',
+			[],
+			[
+				'mode'       => $mode,
+				'account_id' => $account_id,
+			]
+		);
 
-		// Remove from settings.
-		unset( $settings[ "webhook_{$mode}_id" ] );
-		unset( $settings[ "webhook_{$mode}_secret" ] );
-		unset( $settings[ "webhook_{$mode}_url" ] );
-
-		Stripe_Helper::update_all_stripe_settings( $settings );
+		// Clear the webhook data on the account record.
+		Stripe_Helper::update_account_fields(
+			$account_id,
+			[
+				"{$mode}_webhook_id"     => '',
+				"{$mode}_webhook_secret" => '',
+				"{$mode}_webhook_url"    => '',
+			]
+		);
 	}
 
 	/**
@@ -677,44 +991,43 @@ class Stripe_Settings {
 			);
 		}
 
-		// Extract OAuth data.
-		$settings = Stripe_Helper::get_all_stripe_settings();
+		// The live block carries the account id (stripe_user_id) that keys the account.
+		$live       = isset( $response['live'] ) && is_array( $response['live'] ) ? $response['live'] : [];
+		$test       = isset( $response['test'] ) && is_array( $response['test'] ) ? $response['test'] : [];
+		$account_id = sanitize_text_field( $live['stripe_user_id'] ?? '' );
 
-		// Store live keys.
-		if ( isset( $response['live'] ) && is_array( $response['live'] ) ) {
-			$settings['stripe_live_publishable_key'] = sanitize_text_field( $response['live']['stripe_publishable_key'] ?? '' );
-			$settings['stripe_live_secret_key']      = sanitize_text_field( $response['live']['access_token'] ?? '' );
-			$settings['stripe_account_id']           = sanitize_text_field( $response['live']['stripe_user_id'] ?? '' );
+		if ( '' === $account_id ) {
+			wp_die(
+				esc_html__( 'Stripe did not return an account identifier.', 'suredonation' ),
+				esc_html__( 'Stripe Connect Error', 'suredonation' ),
+				[ 'response' => 400 ]
+			);
 		}
 
-		// Store test keys.
-		if ( isset( $response['test'] ) && is_array( $response['test'] ) ) {
-			$settings['stripe_test_publishable_key'] = sanitize_text_field( $response['test']['stripe_publishable_key'] ?? '' );
-			$settings['stripe_test_secret_key']      = sanitize_text_field( $response['test']['access_token'] ?? '' );
-		}
+		// Upsert the connected account (append; re-connecting the same account refreshes its tokens).
+		Stripe_Helper::upsert_account(
+			[
+				'account_id'           => $account_id,
+				'connected'            => true,
+				'email'                => isset( $response['account'], $response['account']['email'] ) ? sanitize_email( $response['account']['email'] ) : '',
+				'live_publishable_key' => sanitize_text_field( $live['stripe_publishable_key'] ?? '' ),
+				'live_secret_key'      => sanitize_text_field( $live['access_token'] ?? '' ),
+				'test_publishable_key' => sanitize_text_field( $test['stripe_publishable_key'] ?? '' ),
+				'test_secret_key'      => sanitize_text_field( $test['access_token'] ?? '' ),
+			]
+		);
 
-		// Mark as connected.
-		$settings['stripe_connected']     = true;
-		$settings['stripe_account_email'] = isset( $response['account'], $response['account']['email'] )
-			? sanitize_email( $response['account']['email'] )
-			: '';
-
-		// Save settings.
-		Stripe_Helper::update_all_stripe_settings( $settings );
-
-		// Get account name from Stripe.
-		$account_name = $this->get_account_name();
-
+		// Fetch and store the account name/label from Stripe.
+		$account_name = $this->get_account_name( $account_id );
 		if ( ! empty( $account_name ) && is_string( $account_name ) ) {
-			$settings['account_name'] = $account_name;
-			Stripe_Helper::update_all_stripe_settings( $settings );
+			Stripe_Helper::update_account_fields( $account_id, [ 'label' => $account_name ] );
 		}
 
 		// Clean up transients.
 		delete_transient( 'suredonation_stripe_connect_nonce_' . get_current_user_id() );
 
-		// Create webhooks for both live and test mode.
-		$this->setup_stripe_webhooks();
+		// Create webhooks for both live and test mode on this account.
+		$this->setup_stripe_webhooks( $account_id );
 
 		// Redirect to SureDonation payments settings.
 		wp_safe_redirect( admin_url( 'admin.php?page=suredonation&connected=1#/settings?tab=payments&subpage=stripe' ) );
@@ -777,37 +1090,51 @@ class Stripe_Settings {
 	/**
 	 * Setup Stripe webhooks for both test and live modes
 	 *
+	 * @param string|null $account_id Account id; the default account is used when empty.
 	 * @return array<string, mixed> Result of webhook creation.
 	 * @since 0.0.1
 	 */
-	private function setup_stripe_webhooks() {
-		$settings         = Stripe_Helper::get_all_stripe_settings();
+	private function setup_stripe_webhooks( $account_id = null ) {
+		if ( empty( $account_id ) ) {
+			$account_id = Stripe_Helper::get_default_account_id();
+		}
+
 		$modes            = [ 'test', 'live' ];
 		$webhooks_created = 0;
-		$error_message    = '';
+		$webhooks_skipped = 0;
+		$errors           = [];
 
 		foreach ( $modes as $mode ) {
-			$secret_key = 'live' === $mode
-				? ( $settings['stripe_live_secret_key'] ?? '' )
-				: ( $settings['stripe_test_secret_key'] ?? '' );
+			$secret_key = Stripe_Helper::get_stripe_secret_key( $mode, $account_id );
 
 			if ( empty( $secret_key ) ) {
 				continue;
 			}
 
-			$result = $this->create_webhook_for_mode( $mode );
+			$result = $this->create_webhook_for_mode( $mode, $account_id );
 
 			if ( ! is_wp_error( $result ) ) {
 				++$webhooks_created;
+			} elseif ( 'webhook_exists' === $result->get_error_code() ) {
+				// Already provisioned for this mode; the guard lives in
+				// create_webhook_for_mode() so both callers share it.
+				++$webhooks_skipped;
 			} else {
-				$error_message = $result->get_error_message();
+				/* translators: 1: payment mode (test or live), 2: error message from Stripe. */
+				$errors[ $mode ] = sprintf( __( '%1$s: %2$s', 'suredonation' ), ucfirst( $mode ), $result->get_error_message() );
 			}
 		}
 
+		// One mode failing must not discard another mode's success: the created
+		// webhook is already persisted, and reporting overall failure leaves the
+		// admin retrying an action that has partly succeeded. Only the modes
+		// listed in `errors` need attention.
 		return [
-			'success' => $webhooks_created > 0,
+			'success' => ( $webhooks_created + $webhooks_skipped ) > 0,
 			'created' => $webhooks_created,
-			'message' => $error_message,
+			'skipped' => $webhooks_skipped,
+			'errors'  => $errors,
+			'message' => implode( ' ', $errors ),
 		];
 	}
 

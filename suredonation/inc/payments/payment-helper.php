@@ -9,6 +9,9 @@ namespace SureDonation\Inc\Payments;
 
 use SureDonation\Inc\Database\Tables\Donations;
 use SureDonation\Inc\Helper;
+use SureDonation\Inc\Payments\Offline\Offline_Helper;
+use SureDonation\Inc\Payments\PayPal\PayPal_Helper;
+use SureDonation\Inc\Payments\Stripe\Stripe_Helper;
 use WP_Error;
 
 // Exit if accessed directly.
@@ -31,6 +34,15 @@ class Payment_Helper {
 	public const OPTION_KEY = 'payment_settings';
 
 	/**
+	 * Allowed currency sign positions. Single source of truth for the getter
+	 * and every REST write handler that validates the setting.
+	 *
+	 * @since 1.3.0
+	 * @var array<int, string>
+	 */
+	public const ALLOWED_SIGN_POSITIONS = [ 'auto', 'left', 'right', 'left_space', 'right_space' ];
+
+	/**
 	 * Get all payment settings
 	 *
 	 * @return array<string, mixed> Payment settings.
@@ -41,18 +53,23 @@ class Payment_Helper {
 
 		// Ensure default structure.
 		$defaults = [
-			'currency'     => 'USD',
-			'payment_mode' => 'test', // Valid values: test or live.
-			'stripe'       => [],
+			'currency'               => 'USD',
+			'payment_mode'           => 'test', // Valid values: test or live.
+			// Currency symbol placement for displayed amounts. 'auto' preserves
+			// the historical behavior on every surface (locale-aware in the admin
+			// dashboard, symbol-left on donor-facing output); an explicit value
+			// overrides it everywhere. See get_currency_sign_position().
+			'currency_sign_position' => 'auto',
+			'stripe'                 => [],
 			// Intentionally no 'instructions' key: leaving it unset lets
 			// Offline_Helper::get_all_offline_settings() fill the default template
 			// for a never-configured install, while a deliberately-cleared value is
 			// stored as '' and preserved. Seeding '' here would make the two
 			// indistinguishable and permanently mask the default.
-			'offline'      => [
+			'offline'                => [
 				'enabled' => false,
 			],
-			'fee_recovery' => [
+			'fee_recovery'           => [
 				'fee_percentage' => 2.9,
 				'fee_fixed'      => 0.30,
 				'fee_mode'       => 'all_gateways',
@@ -154,6 +171,69 @@ class Payment_Helper {
 	public static function get_payment_mode() {
 		$response = self::get_global_setting( 'payment_mode', 'test' );
 		return ! empty( $response ) && is_string( $response ) ? $response : 'test';
+	}
+
+	/**
+	 * Get the admin URL for the SureDonation payment settings screen.
+	 *
+	 * Centralizes the (hash-routed) payment-settings URL so every "go to
+	 * payment settings" link across the plugin resolves to the same valid
+	 * location, rather than each caller hardcoding its own — and possibly
+	 * stale — path.
+	 *
+	 * @param string $subpage Optional gateway subpage slug (e.g. 'stripe') to deep-link into.
+	 * @return string The admin payment-settings URL.
+	 * @since 1.3.0
+	 */
+	public static function get_settings_url( $subpage = '' ) {
+		$path = 'admin.php?page=suredonation#/settings?tab=payments';
+		if ( is_string( $subpage ) && '' !== $subpage ) {
+			$path .= '&subpage=' . rawurlencode( $subpage );
+		}
+		return admin_url( $path );
+	}
+
+	/**
+	 * Whether any real payment gateway (Stripe or PayPal) is connected.
+	 *
+	 * Stripe's connection is mode-agnostic; PayPal's is per-mode, so both
+	 * PayPal modes are checked. Offline is intentionally excluded — it is a
+	 * manual method, not a live/test payment gateway, so it never counts as
+	 * "a gateway is connected" for test-mode/live-mode prompts.
+	 *
+	 * @return bool True when at least one gateway is connected in any mode.
+	 * @since 1.3.0
+	 */
+	public static function is_any_gateway_connected() {
+		return Stripe_Helper::is_stripe_connected()
+			|| PayPal_Helper::is_paypal_connected( 'live' )
+			|| PayPal_Helper::is_paypal_connected( 'test' );
+	}
+
+	/**
+	 * Whether at least one payment gateway is usable on the site right now — a
+	 * gateway a payment block would actually render if it selected it.
+	 *
+	 * Stricter than is_any_gateway_connected(): it is scoped to the current
+	 * mode. Stripe must also have a publishable key for the current mode, PayPal
+	 * must be connected for the current mode, and Offline must be enabled. Used
+	 * to decide whether a "no gateway available" state is a missing site-wide
+	 * gateway (nothing usable) or merely a form/block that hasn't selected an
+	 * already-usable gateway.
+	 *
+	 * @return bool
+	 * @since 1.3.0
+	 */
+	public static function has_usable_gateway() {
+		if ( Stripe_Helper::is_stripe_connected() && '' !== Stripe_Helper::get_stripe_publishable_key() ) {
+			return true;
+		}
+
+		if ( PayPal_Helper::is_paypal_connected() ) {
+			return true;
+		}
+
+		return Offline_Helper::is_offline_enabled();
 	}
 
 	/**
@@ -520,8 +600,67 @@ class Payment_Helper {
 
 		$symbol         = self::get_currency_symbol( $currency );
 		$decimal_places = self::is_zero_decimal_currency( $currency ) ? 0 : 2;
+		$formatted      = number_format( (float) $amount, $decimal_places, '.', ',' );
 
-		return $symbol . number_format( (float) $amount, $decimal_places, '.', ',' );
+		// Fall back to the uppercased currency code when we have no symbol for
+		// this currency (e.g. a historical/imported donation in a currency not
+		// in our list). Positioning a multi-letter code isn't meaningful, so
+		// keep the legacy "CODE 100.00" form rather than routing an empty
+		// symbol through the switch (which would emit a bare number and stray
+		// spaces under the *_space positions).
+		if ( '' === $symbol ) {
+			$code = strtoupper( (string) $currency );
+			return '' === $code ? $formatted : $code . ' ' . $formatted;
+		}
+
+		return self::position_currency_symbol( $symbol, $formatted );
+	}
+
+	/**
+	 * Place a currency symbol relative to an already-formatted amount per the
+	 * global sign position setting. Kept separate from format_amount() so
+	 * callers that format the number themselves (e.g. raw preset labels that
+	 * must not gain decimals) can still honor the setting.
+	 *
+	 * 'auto' (and the historical 'left') keep the symbol on the left, so
+	 * existing output is unchanged.
+	 *
+	 * @param string $symbol           Currency symbol.
+	 * @param string $formatted_amount Amount already formatted for display.
+	 * @return string Amount with the symbol positioned per the setting.
+	 * @since 1.3.0
+	 */
+	public static function position_currency_symbol( $symbol, $formatted_amount ) {
+		switch ( self::get_currency_sign_position() ) {
+			case 'right':
+				return $formatted_amount . $symbol;
+			case 'left_space':
+				return $symbol . ' ' . $formatted_amount;
+			case 'right_space':
+				return $formatted_amount . ' ' . $symbol;
+			case 'left':
+			case 'auto':
+			default:
+				return $symbol . $formatted_amount;
+		}
+	}
+
+	/**
+	 * Get the configured currency sign position.
+	 *
+	 * Controls where the currency symbol sits relative to the amount in
+	 * displayed values. 'auto' preserves the historical behavior (symbol on
+	 * the left for server-rendered donor-facing output; locale-aware in the
+	 * admin dashboard, which formats via Intl). An explicit value overrides
+	 * this consistently across every surface.
+	 *
+	 * @return string One of 'auto', 'left', 'right', 'left_space', 'right_space'.
+	 * @since 1.3.0
+	 */
+	public static function get_currency_sign_position() {
+		$position = self::get_global_setting( 'currency_sign_position', 'auto' );
+
+		return is_string( $position ) && in_array( $position, self::ALLOWED_SIGN_POSITIONS, true ) ? $position : 'auto';
 	}
 
 	/**

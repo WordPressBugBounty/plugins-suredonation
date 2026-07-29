@@ -75,7 +75,7 @@ class PayPal_Settings {
 		$environment = isset( $_GET['environment'] ) ? sanitize_text_field( wp_unslash( $_GET['environment'] ) ) : 'sandbox';
 		// phpcs:enable WordPress.Security.NonceVerification.Recommended
 
-		$redirect_url = admin_url( 'admin.php?page=suredonation#/settings/payments' );
+		$redirect_url = PayPal_Helper::get_paypal_settings_url();
 
 		if ( empty( $merchant_id ) ) {
 			wp_safe_redirect( add_query_arg( 'paypal_error', 'missing_merchant_id', $redirect_url ) );

@@ -83,7 +83,9 @@ class Form_Renderer {
 						$privacy_injected = true;
 					}
 					$block['attrs']['formId'] = $form_id;
-					echo wp_kses( render_block( $block ), Helper::get_allowed_form_html() );
+					// Allow the data: protocol so a lazy-load optimizer's inline SVG
+					// placeholder (Image block) survives this second kses pass.
+					echo wp_kses( render_block( $block ), Helper::get_allowed_form_html(), array_merge( wp_allowed_protocols(), [ 'data' ] ) );
 				}
 				if ( ! $privacy_injected && '' !== $privacy_fields ) {
 					echo wp_kses( $privacy_fields, Helper::get_allowed_form_html() );

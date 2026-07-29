@@ -114,6 +114,11 @@ class Stripe_Frontend {
 		$currency     = $data['currency'];
 		$customer_id  = $data['customer_id'];
 		$campaign     = $data['campaign'];
+		$form_id      = $data['form_id'];
+
+		// Account this form charges to — resolved in extract_donation_form_data so the
+		// customer (created there) and the payment intent use the same account.
+		$stripe_account_id = $data['stripe_account_id'];
 
 		// Convert amount to Stripe format (cents).
 		$amount_in_cents = Payment_Helper::amount_to_stripe_format( $amount, $currency );
@@ -147,7 +152,7 @@ class Stripe_Frontend {
 		];
 
 		// Use middleware for payment intent creation (handles platform fees based on license).
-		$payment_intent = Stripe_Helper::create_payment_intent_via_middleware( $intent_data );
+		$payment_intent = Stripe_Helper::create_payment_intent_via_middleware( $intent_data, $stripe_account_id );
 
 		if ( is_wp_error( $payment_intent ) ) {
 			wp_send_json_error( [ 'message' => esc_html( $payment_intent->get_error_message() ) ] );
@@ -172,7 +177,6 @@ class Stripe_Frontend {
 		);
 
 		// Create pending donation record with transaction ID and customer ID.
-		$form_id     = $data['form_id'];
 		$donation_id = $this->create_pending_donation(
 			$campaign_id,
 			$amount,
@@ -182,7 +186,8 @@ class Stripe_Frontend {
 			$customer_id,
 			$fees_covered,
 			$form_id,
-			$donor_phone
+			$donor_phone,
+			$stripe_account_id
 		);
 
 		if ( is_wp_error( $donation_id ) ) {
@@ -263,8 +268,9 @@ class Stripe_Frontend {
 			wp_send_json_error( [ 'message' => __( 'Donation is not in pending state', 'suredonation' ) ] );
 		}
 
-		// Capture the payment via middleware.
-		$capture_result = Stripe_Helper::capture_payment_intent_via_middleware( $payment_intent_id );
+		// Capture the payment via middleware, using the account that created the intent.
+		$capture_account_id = isset( $donation['stripe_account_id'] ) && is_string( $donation['stripe_account_id'] ) ? $donation['stripe_account_id'] : '';
+		$capture_result     = Stripe_Helper::capture_payment_intent_via_middleware( $payment_intent_id, $capture_account_id );
 
 		if ( is_wp_error( $capture_result ) ) {
 			wp_send_json_error( [ 'message' => esc_html( $capture_result->get_error_message() ) ] );
@@ -347,55 +353,61 @@ class Stripe_Frontend {
 	 * Note: Cached customer IDs are verified with Stripe to handle mode switches
 	 * (test/live) or deleted customers gracefully.
 	 *
-	 * @param string $email Customer email.
-	 * @param string $name  Customer name.
+	 * @param string $email      Customer email.
+	 * @param string $name       Customer name.
+	 * @param string $account_id Connected account to resolve/create the customer on; default account when empty.
 	 * @return string|\WP_Error Customer ID or error.
 	 * @since 0.0.1
 	 */
-	public static function get_or_create_stripe_customer( $email, $name ) {
+	public static function get_or_create_stripe_customer( $email, $name, $account_id = '' ) {
+		// A Stripe customer is scoped to one connected account, so resolve/create
+		// it on the account this donation will be charged to.
+		if ( empty( $account_id ) ) {
+			$account_id = Stripe_Helper::get_default_account_id();
+		}
+
+		$is_default           = ( '' !== $account_id && Stripe_Helper::get_default_account_id() === $account_id );
 		$user                 = get_user_by( 'email', $email );
-		$existing_customer_id = null;
+		$meta_key             = '_suredonation_stripe_customer_id_' . $account_id; // Per-account cache key.
+		$existing_customer_id = '';
 
-		// 1. Check if customer exists in WordPress user meta (logged-in users).
+		// 1. Per-account cache in user meta (logged-in users).
 		if ( $user ) {
-			$customer_id = get_user_meta( $user->ID, '_stripe_customer_id', true );
-
-			if ( ! empty( $customer_id ) && is_string( $customer_id ) ) {
-				$existing_customer_id = $customer_id;
+			$cached = get_user_meta( $user->ID, $meta_key, true );
+			if ( ! empty( $cached ) && is_string( $cached ) ) {
+				$existing_customer_id = $cached;
 			}
 		}
 
-		// 2. Check if customer exists in donors table (returning donors).
+		// 2. Per-account map in the donors table (returning donors), with legacy fallback.
 		if ( empty( $existing_customer_id ) ) {
-			$existing_customer_id = Donors::get_stripe_customer_id_by_email( $email );
+			$existing_customer_id = Donors::get_stripe_customer_id_for_account( $email, $account_id, $is_default );
 		}
 
-		// 3. Verify the existing customer still exists in Stripe.
+		// 3. Verify the existing customer still exists on THIS account.
 		if ( ! empty( $existing_customer_id ) ) {
-			$verified = Stripe_Helper::verify_customer_exists( $existing_customer_id );
-
-			if ( $verified ) {
-				// Customer exists, save to user meta if logged in for faster lookup.
+			if ( Stripe_Helper::verify_customer_exists( $existing_customer_id, $account_id ) ) {
 				if ( $user ) {
-					update_user_meta( $user->ID, '_stripe_customer_id', $existing_customer_id );
+					update_user_meta( $user->ID, $meta_key, $existing_customer_id );
 				}
 				return $existing_customer_id;
 			}
 
-			// Customer doesn't exist in Stripe (deleted or mode switch), clear cached ID.
+			// Not found on this account (deleted, mode switch, or belongs to another account).
 			if ( $user ) {
-				delete_user_meta( $user->ID, '_stripe_customer_id' );
+				delete_user_meta( $user->ID, $meta_key );
 			}
-			Donors::clear_stripe_customer_id_by_email( $email );
+			Donors::clear_stripe_customer_id_for_account( $email, $account_id, $is_default );
 		}
 
-		// 4. Create new Stripe customer.
-		$customer_data = [
-			'email' => $email,
-			'name'  => $name,
-		];
-
-		$customer = Stripe_Helper::create_customer( $customer_data );
+		// 4. Create a new Stripe customer on this account.
+		$customer = Stripe_Helper::create_customer(
+			[
+				'email' => $email,
+				'name'  => $name,
+			],
+			$account_id
+		);
 
 		if ( is_wp_error( $customer ) ) {
 			return $customer;
@@ -407,13 +419,11 @@ class Stripe_Frontend {
 			return new \WP_Error( 'customer_creation_failed', __( 'Failed to create customer', 'suredonation' ) );
 		}
 
-		// Save customer ID to user meta if logged in.
+		// 5. Store the customer id for this account.
 		if ( $user ) {
-			update_user_meta( $user->ID, '_stripe_customer_id', $customer_id );
+			update_user_meta( $user->ID, $meta_key, $customer_id );
 		}
-
-		// Save customer ID to donors table for future lookups.
-		Donors::set_stripe_customer_id_by_email( $email, $customer_id );
+		Donors::set_stripe_customer_id_for_account( $email, $account_id, $customer_id, $is_default );
 
 		return $customer_id;
 	}
@@ -423,7 +433,7 @@ class Stripe_Frontend {
 	 *
 	 * Calls wp_send_json_error() and exits on validation failure.
 	 *
-	 * @return array{campaign_id: int, is_standalone: bool, amount: float, base_amount: float, cover_fees: bool, donor_email: string, donor_name: string, donor_phone: string, form_id: int, block_id: string, fees_covered: float, currency: string, customer_id: string, campaign: \WP_Post|null} Validated form data.
+	 * @return array{campaign_id: int, is_standalone: bool, amount: float, base_amount: float, cover_fees: bool, donor_email: string, donor_name: string, donor_phone: string, form_id: int, block_id: string, fees_covered: float, currency: string, customer_id: string, stripe_account_id: string, campaign: \WP_Post|null} Validated form data.
 	 * @since 1.0.0
 	 */
 	private function extract_donation_form_data() {
@@ -490,7 +500,10 @@ class Stripe_Frontend {
 			wp_send_json_error( [ 'message' => __( 'Payment gateway not configured', 'suredonation' ) ] );
 		}
 
-		$customer_id = self::get_or_create_stripe_customer( $donor_email, $donor_name );
+		// Resolve the connected account this form charges to; create the customer on it.
+		$stripe_account_id = Stripe_Helper::resolve_account_for_form( $form_id );
+
+		$customer_id = self::get_or_create_stripe_customer( $donor_email, $donor_name, $stripe_account_id );
 		if ( is_wp_error( $customer_id ) ) {
 			wp_send_json_error( [ 'message' => esc_html( $customer_id->get_error_message() ) ] );
 		}
@@ -553,6 +566,7 @@ class Stripe_Frontend {
 			'fees_covered',
 			'currency',
 			'customer_id',
+			'stripe_account_id',
 			'campaign'
 		);
 	}
@@ -567,41 +581,43 @@ class Stripe_Frontend {
 	 * @param string $transaction_id Stripe payment intent ID.
 	 * @param string $customer_id    Stripe customer ID.
 	 * @param float  $fees_covered   Transaction fees covered by donor.
-	 * @param int    $form_id        Donation form post ID.
-	 * @param string $donor_phone    Donor phone number.
+	 * @param int    $form_id           Donation form post ID.
+	 * @param string $donor_phone       Donor phone number.
+	 * @param string $stripe_account_id Connected Stripe account that processed this donation.
 	 * @return int|\WP_Error Donation ID or error.
 	 * @since 0.0.1
 	 */
-	private function create_pending_donation( $campaign_id, $amount, $donor_email, $donor_name, $transaction_id, $customer_id, $fees_covered = 0.0, $form_id = 0, $donor_phone = '' ) {
+	private function create_pending_donation( $campaign_id, $amount, $donor_email, $donor_name, $transaction_id, $customer_id, $fees_covered = 0.0, $form_id = 0, $donor_phone = '', $stripe_account_id = '' ) {
 		// Get or create donor.
 		$donor_id = Donors::get_or_create( $donor_email, $donor_name, $donor_phone );
 
-		// Persist the Stripe customer ID to the donor record for future lookups.
-		if ( $donor_id && ! empty( $customer_id ) ) {
-			Donors::set_stripe_customer_id_by_email( $donor_email, $customer_id );
-		}
+		// The Stripe customer ID is already persisted against the correct
+		// account by get_or_create_stripe_customer() during data extraction.
+		// Writing the legacy default-account column here would clobber it with a
+		// non-default account's customer, so it is intentionally not done.
 
 		// Create donation in database table.
 		$donation_id = Donations::add(
 			[
-				'campaign_id'    => $campaign_id,
-				'donor_id'       => $donor_id ? $donor_id : 0,
-				'amount'         => $amount,
-				'fees_covered'   => $fees_covered,
-				'currency'       => Payment_Helper::get_currency(),
-				'gateway'        => 'stripe',
-				'payment_status' => 'pending',
-				'payment_mode'   => Payment_Helper::get_payment_mode(),
-				'donor_name'     => $donor_name,
-				'donor_email'    => $donor_email,
-				'donor_phone'    => $donor_phone,
-				'donation_type'  => 'one-time',
-				'transaction_id' => $transaction_id,
-				'customer_id'    => $customer_id,
-				'form_id'        => $form_id,
-				'ip_address'     => Helper::get_client_ip(),
-				'user_agent'     => isset( $_SERVER['HTTP_USER_AGENT'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ) : '',
-				'referer_url'    => isset( $_SERVER['HTTP_REFERER'] ) ? esc_url_raw( wp_unslash( $_SERVER['HTTP_REFERER'] ) ) : '',
+				'campaign_id'       => $campaign_id,
+				'donor_id'          => $donor_id ? $donor_id : 0,
+				'amount'            => $amount,
+				'fees_covered'      => $fees_covered,
+				'currency'          => Payment_Helper::get_currency(),
+				'gateway'           => 'stripe',
+				'payment_status'    => 'pending',
+				'payment_mode'      => Payment_Helper::get_payment_mode(),
+				'donor_name'        => $donor_name,
+				'donor_email'       => $donor_email,
+				'donor_phone'       => $donor_phone,
+				'donation_type'     => 'one-time',
+				'transaction_id'    => $transaction_id,
+				'customer_id'       => $customer_id,
+				'stripe_account_id' => $stripe_account_id,
+				'form_id'           => $form_id,
+				'ip_address'        => Helper::get_client_ip(),
+				'user_agent'        => isset( $_SERVER['HTTP_USER_AGENT'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ) : '',
+				'referer_url'       => isset( $_SERVER['HTTP_REFERER'] ) ? esc_url_raw( wp_unslash( $_SERVER['HTTP_REFERER'] ) ) : '',
 			]
 		);
 

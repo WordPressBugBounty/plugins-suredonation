@@ -73,11 +73,11 @@ class Block extends Base {
 				<div class="suredonation-campaign-goal__bar" role="progressbar" aria-valuenow="<?php echo esc_attr( (string) round( $percentage ) ); ?>" aria-valuemin="0" aria-valuemax="100">
 					<span class="suredonation-campaign-goal__bar-fill" style="width:<?php echo esc_attr( (string) min( 100, $percentage ) ); ?>%"></span>
 				</div>
+				<div class="suredonation-campaign-goal__meta">
+					<span><?php echo esc_html( number_format_i18n( $stats['donor_count'] ) ); ?> <?php echo esc_html( _n( 'donor', 'donors', (int) $stats['donor_count'], 'suredonation' ) ); ?></span>
+					<span><?php echo esc_html( (string) round( $percentage ) ); ?>%</span>
+				</div>
 			<?php endif; ?>
-			<div class="suredonation-campaign-goal__meta">
-				<span><?php echo esc_html( number_format_i18n( $stats['donor_count'] ) ); ?> <?php echo esc_html( _n( 'donor', 'donors', (int) $stats['donor_count'], 'suredonation' ) ); ?></span>
-				<span><?php echo esc_html( (string) round( $percentage ) ); ?>%</span>
-			</div>
 		</div>
 		<?php
 		$output = ob_get_clean();

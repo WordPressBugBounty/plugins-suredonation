@@ -12,6 +12,7 @@ namespace SureDonation\Inc\Pdf;
 use SureDonation\Inc\Database\Tables\Donations;
 use SureDonation\Inc\Database\Tables\Donors;
 use SureDonation\Inc\Helper;
+use SureDonation\Inc\Payments\Payment_Helper;
 
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
@@ -301,19 +302,10 @@ class Receipt_Generator {
 	 * @since 1.0.0
 	 */
 	private static function format_currency( $amount, $currency = 'USD' ) {
-		$symbols = [
-			'USD' => '$',
-			'EUR' => '€',
-			'GBP' => '£',
-			'CAD' => 'CA$',
-			'AUD' => 'A$',
-			'INR' => '₹',
-			'JPY' => '¥',
-		];
-
-		$symbol = $symbols[ strtoupper( $currency ) ] ?? esc_html( $currency ) . ' ';
-
-		return $symbol . number_format( $amount, 2 );
+		// Delegate to the single source of truth so the currency symbol,
+		// decimal handling and sign position match every other surface
+		// (this replaces a divergent local symbol map).
+		return Payment_Helper::format_amount( $amount, $currency );
 	}
 
 	/**

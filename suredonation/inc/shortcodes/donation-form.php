@@ -145,9 +145,9 @@ class Donation_Form {
 			return;
 		}
 
-		$publishable_key = \SureDonation\Inc\Payments\Stripe\Stripe_Helper::get_stripe_publishable_key();
-
-		if ( ! empty( $publishable_key ) ) {
+		// Load Stripe.js when any connected account exists; the per-form
+		// publishable key is passed to the frontend via the payment block markup.
+		if ( \SureDonation\Inc\Payments\Stripe\Stripe_Helper::is_stripe_connected() ) {
 			wp_enqueue_script(
 				'stripe-js',
 				'https://js.stripe.com/v3/',

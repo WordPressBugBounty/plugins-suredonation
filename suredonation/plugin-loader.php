@@ -9,7 +9,9 @@ namespace SureDonation;
 
 use SureDonation\Inc\Admin\Admin;
 use SureDonation\Inc\Admin\Admin_Ajax;
+use SureDonation\Inc\Admin\Admin_Bar;
 use SureDonation\Inc\Admin\Analytics;
+use SureDonation\Inc\Admin\Notice_Manager;
 use SureDonation\Inc\Admin\Notices;
 use SureDonation\Inc\Ajax\Donation_Handler;
 use SureDonation\Inc\Assets\Register as Assets_Register;
@@ -149,7 +151,12 @@ final class Plugin_Loader {
 			Pdf_Manager::get_instance();
 			Onboarding::get_instance();
 			Notices::get_instance();
+			Notice_Manager::get_instance();
 		}
+
+		// Payment-mode toolbar indicator. Loaded outside is_admin() so it also
+		// appears in the front-end admin bar; it self-gates on capability.
+		Admin_Bar::get_instance();
 
 		// Initialize Analytics. Loaded outside is_admin() so usage events
 		// fired during REST requests (onboarding, campaign publish) are

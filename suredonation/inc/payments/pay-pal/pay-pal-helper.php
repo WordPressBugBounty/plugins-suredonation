@@ -281,7 +281,7 @@ class PayPal_Helper {
 	 * @return string Settings URL.
 	 */
 	public static function get_paypal_settings_url() {
-		return admin_url( 'admin.php?page=suredonation#/settings/payments' );
+		return Payment_Helper::get_settings_url( 'paypal' );
 	}
 
 	/**

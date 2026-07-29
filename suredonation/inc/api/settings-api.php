@@ -355,8 +355,9 @@ class Settings_API {
 			[
 				'success'  => true,
 				'settings' => [
-					'currency'     => $settings['currency'] ?? 'USD',
-					'payment_mode' => $settings['payment_mode'] ?? 'test',
+					'currency'               => $settings['currency'] ?? 'USD',
+					'payment_mode'           => $settings['payment_mode'] ?? 'test',
+					'currency_sign_position' => Payment_Helper::get_currency_sign_position(),
 				],
 			],
 			200
@@ -399,6 +400,14 @@ class Settings_API {
 			$mode = sanitize_text_field( $params['payment_mode'] );
 			if ( in_array( $mode, [ 'test', 'live' ], true ) ) {
 				$current_settings['payment_mode'] = $mode;
+			}
+		}
+
+		// Update currency sign position if provided.
+		if ( isset( $params['currency_sign_position'] ) ) {
+			$position = sanitize_text_field( $params['currency_sign_position'] );
+			if ( in_array( $position, Payment_Helper::ALLOWED_SIGN_POSITIONS, true ) ) {
+				$current_settings['currency_sign_position'] = $position;
 			}
 		}
 

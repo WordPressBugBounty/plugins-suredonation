@@ -290,6 +290,8 @@ class Donation_Amount_Markup extends Base {
 		$currency = Payment_Helper::get_global_setting( 'currency', 'USD' );
 		$symbol   = Payment_Helper::get_currency_symbol( is_string( $currency ) ? $currency : 'USD' );
 
-		return $symbol . $trimmed;
+		// Position the symbol per the global setting while keeping the raw
+		// value (presets intentionally show "$3", not "$3.00").
+		return Payment_Helper::position_currency_symbol( $symbol, $trimmed );
 	}
 }

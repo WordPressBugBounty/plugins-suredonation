@@ -105,8 +105,9 @@ class Stripe_Webhook {
 			return new WP_REST_Response( [ 'error' => 'Missing signature' ], 400 );
 		}
 
-		// Verify signature.
-		$event = $this->verify_webhook_signature( $payload, $sig_header );
+		// Verify signature (tries every connected account's secret for this mode).
+		$account_id = '';
+		$event      = $this->verify_webhook_signature( $payload, $sig_header, $mode, $account_id );
 
 		if ( is_wp_error( $event ) ) {
 			$this->log_webhook_event( $mode, 'error', $event->get_error_message() );
@@ -117,7 +118,7 @@ class Stripe_Webhook {
 		$this->log_webhook_event( $mode, 'began', 'Webhook processing started', $event );
 
 		// Process event.
-		$result = $this->process_event( $event, $mode );
+		$result = $this->process_event( $event, $mode, $account_id );
 
 		if ( is_wp_error( $result ) ) {
 			$this->log_webhook_event( $mode, 'failure', $result->get_error_message(), $event );
@@ -140,18 +141,50 @@ class Stripe_Webhook {
 	 *
 	 * @param string $payload    Raw webhook request body.
 	 * @param string $sig_header Signature header value.
+	 * @param string $mode       Payment mode ('test' or 'live') the endpoint received. Both are tried when empty.
+	 * @param string $account_id Out: the connected account whose secret verified the signature.
 	 * @return array<string, mixed>|\WP_Error Decoded event data on success, WP_Error on failure.
 	 * @since 0.0.1
 	 */
-	private function verify_webhook_signature( $payload, $sig_header ) {
+	private function verify_webhook_signature( $payload, $sig_header, $mode = '', &$account_id = '' ) {
 
-		$webhook_secret = Stripe_Helper::get_webhook_secret();
+		// Each connected account has its own webhook endpoint (and signing secret)
+		// pointing at this shared URL, so try every account's secret for the mode.
+		$modes   = in_array( $mode, [ 'test', 'live' ], true ) ? [ $mode ] : [ 'test', 'live' ];
+		$secrets = [];
 
-		if ( empty( $webhook_secret ) ) {
+		foreach ( Stripe_Helper::get_all_accounts() as $account ) {
+			if ( ! is_array( $account ) ) {
+				continue;
+			}
+			foreach ( $modes as $candidate_mode ) {
+				$secret = $account[ $candidate_mode . '_webhook_secret' ] ?? '';
+				if ( is_string( $secret ) && '' !== $secret ) {
+					// Keep the owning account with each secret: whichever secret
+					// verifies identifies the account the event belongs to, which
+					// downstream handlers need to call the Stripe API back.
+					$secrets[] = [
+						'account_id' => is_string( $account['account_id'] ?? null ) ? $account['account_id'] : '',
+						'secret'     => $secret,
+					];
+				}
+			}
+		}
+
+		if ( empty( $secrets ) ) {
 			return new \WP_Error( 'no_webhook_secret', __( 'Webhook secret not configured', 'suredonation' ) );
 		}
 
-		if ( ! $this->verify_signature_locally( $payload, $sig_header, $webhook_secret ) ) {
+		$verified = false;
+		foreach ( $secrets as $candidate ) {
+			if ( $this->verify_signature_locally( $payload, $sig_header, $candidate['secret'] ) ) {
+				$verified   = true;
+				$account_id = $candidate['account_id'];
+				break;
+			}
+		}
+
+		if ( ! $verified ) {
 			return new \WP_Error( 'signature_verification_failed', __( 'Webhook signature verification failed', 'suredonation' ) );
 		}
 
@@ -221,12 +254,13 @@ class Stripe_Webhook {
 	/**
 	 * Process webhook event.
 	 *
-	 * @param array<string, mixed> $event Event data.
-	 * @param string               $mode  Payment mode.
+	 * @param array<string, mixed> $event      Event data.
+	 * @param string               $mode       Payment mode.
+	 * @param string               $account_id Connected account whose secret verified the event.
 	 * @return bool|\WP_Error True on success, WP_Error on failure.
 	 * @since 0.0.1
 	 */
-	private function process_event( $event, $mode ) {
+	private function process_event( $event, $mode, $account_id = '' ) {
 		$event_type = isset( $event['type'] ) && is_string( $event['type'] ) ? $event['type'] : '';
 
 		// Extract event data safely.
@@ -274,9 +308,14 @@ class Stripe_Webhook {
 				 * @param string                $event_type The Stripe event type.
 				 * @param array<string, mixed>  $event_data The event object data.
 				 * @param string                $mode       Payment mode (live/test).
+				 * @param string                $account_id Connected Stripe account whose signing secret verified
+				 *                                          this event. Callbacks that call the Stripe API back
+				 *                                          must pass it as `stripe_api_request()`'s
+				 *                                          `account_id` extra arg, or they will hit the default
+				 *                                          account instead of the one that owns the event.
 				 * @since 1.0.0
 				 */
-				$result = apply_filters( 'suredonation_webhook_handle_event', null, $event_type, $event_data, $mode );
+				$result = apply_filters( 'suredonation_webhook_handle_event', null, $event_type, $event_data, $mode, $account_id );
 
 				// Only accept null (unhandled), true (success), or WP_Error (failure).
 				// Reject other return types (e.g. false from buggy callbacks) to ensure Stripe retries.

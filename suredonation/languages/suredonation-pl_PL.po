@@ -18,9 +18,9 @@ msgstr ""
 #. Author of the plugin
 #: suredonation.php
 #: inc/abilities/runtime.php:58
-#: inc/admin/admin.php:262
-#: inc/admin/admin.php:263
-#: inc/blocks/register.php:146
+#: inc/admin/admin.php:355
+#: inc/admin/admin.php:356
+#: inc/blocks/register.php:147
 #: inc/page-builders/bricks/service-provider.php:85
 #: inc/page-builders/elementor/service-provider.php:73
 #: assets/build/admin/onboarding/index.js:1
@@ -39,50 +39,55 @@ msgstr "https://suredonation.com"
 msgid "A powerful donation management plugin for WordPress with campaign tracking, payment processing, and donor management."
 msgstr "Potężna wtyczka do zarządzania darowiznami dla WordPressa z funkcjami śledzenia kampanii, przetwarzania płatności i zarządzania darczyńcami."
 
-#: inc/admin/admin.php:342
+#: inc/admin/admin.php:435
 msgid "SEO Made Easy for Your Website"
 msgstr "SEO w prosty sposób dla Twojej strony internetowej"
 
-#: inc/admin/admin.php:343
+#: inc/admin/admin.php:436
 msgid "Beautiful pages, persuasive content, and custom code in seconds. The possibilities are endless!"
 msgstr "Piękne strony, przekonująca treść i niestandardowy kod w kilka sekund. Możliwości są nieograniczone!"
 
-#: inc/admin/admin.php:386
-#: assets/build/admin.js:96
+#: inc/admin/admin.php:479
+#: assets/build/admin.js:104
 msgid "Dashboard"
 msgstr "Panel sterowania"
 
-#: inc/admin/admin.php:390
+#: inc/admin/admin.php:483
 #: inc/campaigns/campaign-cpt.php:62
 #: assets/build/admin.js:10
-#: assets/build/admin.js:92
+#: assets/build/admin.js:93
 #: assets/build/admin.js:94
-#: assets/build/admin.js:96
+#: assets/build/admin.js:98
+#: assets/build/admin.js:102
+#: assets/build/admin.js:104
 #: assets/build/admin/onboarding/index.js:4
-#: assets/build/admin/onboarding/index.js:6
+#: assets/build/admin/onboarding/index.js:8
 msgid "Campaigns"
 msgstr "Kampanie"
 
-#: inc/admin/admin.php:394
+#: inc/admin/admin.php:487
 #: inc/blocks/campaign-stats/block.php:91
 #: inc/page-builders/bricks/elements/campaign-stats.php:82
 #: inc/page-builders/elementor/widgets/campaign-stats-widget.php:77
 #: assets/build/admin.js:13
-#: assets/build/admin.js:89
-#: assets/build/admin.js:90
-#: assets/build/admin.js:92
+#: assets/build/admin.js:91
 #: assets/build/admin.js:94
+#: assets/build/admin.js:95
 #: assets/build/admin.js:96
+#: assets/build/admin.js:98
+#: assets/build/admin.js:102
+#: assets/build/admin.js:104
 #: assets/build/admin/onboarding/index.js:1
 #: assets/build/admin/onboarding/index.js:2
 #: assets/build/admin/onboarding/index.js:4
-#: assets/build/admin/onboarding/index.js:6
+#: assets/build/admin/onboarding/index.js:8
 #: assets/build/campaign-blocks.js:1
 msgid "Donations"
 msgstr "Darowizny"
 
-#: inc/admin/admin.php:406
-#: assets/build/admin.js:96
+#: inc/admin/admin.php:499
+#: assets/build/admin.js:94
+#: assets/build/admin.js:104
 msgid "Settings"
 msgstr "Ustawienia"
 
@@ -93,14 +98,16 @@ msgstr "Sprawdzenie bezpieczeństwa nie powiodło się"
 
 #: inc/ajax/donation-handler.php:85
 #: inc/ajax/donation-handler.php:90
-#: inc/payments/stripe/stripe-frontend.php:461
-#: inc/payments/stripe/stripe-frontend.php:503
+#: inc/payments/stripe/stripe-frontend.php:471
+#: inc/payments/stripe/stripe-frontend.php:516
 msgid "Invalid campaign"
 msgstr "Nieprawidłowa kampania"
 
 #: inc/ajax/donation-handler.php:98
 #: inc/blocks/campaign-donations/block.php:91
 #: inc/blocks/campaign-donors/block.php:75
+#: inc/import-export/import/column-map.php:130
+#: inc/import-export/import/column-map.php:388
 msgid "Anonymous"
 msgstr "Anonimowy"
 
@@ -203,10 +210,10 @@ msgstr "Akcja zbiorcza zakończona. Sukcesy: %1$d, Niepowodzenia: %2$d"
 #: inc/api/donations-api.php:508
 #: inc/api/donations-api.php:584
 #: inc/api/donations-api.php:721
-#: inc/api/donations-api.php:907
-#: inc/api/donations-api.php:977
-#: inc/api/donations-api.php:1013
-#: inc/api/donations-api.php:1056
+#: inc/api/donations-api.php:908
+#: inc/api/donations-api.php:978
+#: inc/api/donations-api.php:1014
+#: inc/api/donations-api.php:1057
 #: inc/payments/pay-pal/pay-pal-frontend.php:248
 msgid "Donation not found."
 msgstr "Darowizna nie została znaleziona."
@@ -255,60 +262,60 @@ msgstr "Stripe nie jest połączony. Proszę skonfigurować Stripe w ustawieniac
 msgid "Refund amount exceeds maximum refundable amount of %s."
 msgstr "Kwota zwrotu przekracza maksymalną kwotę zwrotną wynoszącą %s."
 
-#: inc/api/donations-api.php:828
-#: inc/payments/stripe/stripe-webhook.php:611
+#: inc/api/donations-api.php:829
+#: inc/payments/stripe/stripe-webhook.php:635
 msgid "Full"
 msgstr "Pełny"
 
-#: inc/api/donations-api.php:829
-#: inc/payments/stripe/stripe-webhook.php:612
+#: inc/api/donations-api.php:830
+#: inc/payments/stripe/stripe-webhook.php:636
 msgid "Partial"
 msgstr "Częściowy"
 
 #. translators: %s: Refund type (Full/Partial)
-#: inc/api/donations-api.php:837
+#: inc/api/donations-api.php:838
 msgid "%s refund processed via admin"
 msgstr "Zwrócono %s przez administratora"
 
-#: inc/api/donations-api.php:872
+#: inc/api/donations-api.php:873
 msgid "Refund processed successfully."
 msgstr "Zwrot został pomyślnie przetworzony."
 
-#: inc/api/donations-api.php:918
+#: inc/api/donations-api.php:919
 msgid "No logs found for this donation."
 msgstr "Nie znaleziono logów dla tej darowizny."
 
-#: inc/api/donations-api.php:927
+#: inc/api/donations-api.php:928
 msgid "Log entry not found."
 msgstr "Nie znaleziono wpisu w dzienniku."
 
-#: inc/api/donations-api.php:944
+#: inc/api/donations-api.php:945
 #: assets/build/admin.js:55
 msgid "Failed to delete log entry."
 msgstr "Nie udało się usunąć wpisu dziennika."
 
-#: inc/api/donations-api.php:952
+#: inc/api/donations-api.php:953
 #: assets/build/admin.js:55
 msgid "Log entry deleted successfully."
 msgstr "Wpis dziennika został pomyślnie usunięty."
 
 #: inc/abilities/runtime.php:592
-#: inc/api/donations-api.php:1024
+#: inc/api/donations-api.php:1025
 #: assets/build/admin.js:55
 msgid "Failed to add note."
 msgstr "Nie udało się dodać notatki."
 
 #: inc/abilities/runtime.php:597
-#: inc/api/donations-api.php:1032
+#: inc/api/donations-api.php:1033
 #: assets/build/admin.js:55
 msgid "Note added successfully."
 msgstr "Notatka dodana pomyślnie."
 
-#: inc/api/donations-api.php:1067
+#: inc/api/donations-api.php:1068
 msgid "Note not found or could not be deleted."
 msgstr "Notatka nie została znaleziona lub nie można jej usunąć."
 
-#: inc/api/donations-api.php:1075
+#: inc/api/donations-api.php:1076
 #: assets/build/admin.js:55
 msgid "Note deleted successfully."
 msgstr "Notatka została pomyślnie usunięta."
@@ -346,29 +353,29 @@ msgstr "Formularz nie znajduje się w koszu."
 msgid "Operation failed."
 msgstr "Operacja nie powiodła się."
 
-#: inc/api/settings-api.php:379
-#: inc/payments/stripe/stripe-settings.php:202
+#: inc/api/settings-api.php:380
+#: inc/payments/stripe/stripe-settings.php:257
 msgid "Invalid settings provided"
 msgstr "Podano nieprawidłowe ustawienia"
 
-#: inc/api/settings-api.php:410
-#: inc/payments/stripe/stripe-settings.php:296
+#: inc/api/settings-api.php:419
+#: inc/payments/stripe/stripe-settings.php:368
 msgid "Failed to update settings"
 msgstr "Nie udało się zaktualizować ustawień"
 
-#: inc/api/settings-api.php:418
-#: inc/payments/stripe/stripe-settings.php:304
+#: inc/api/settings-api.php:427
+#: inc/payments/stripe/stripe-settings.php:376
 msgid "Settings updated successfully"
 msgstr "Ustawienia zostały pomyślnie zaktualizowane"
 
 #: inc/form-editor/assets.php:212
-#: inc/helper.php:964
-#: inc/helper.php:1253
-#: inc/pdf/receipt-generator.php:245
+#: inc/helper.php:998
+#: inc/helper.php:1287
+#: inc/pdf/receipt-generator.php:246
 msgid "Donation Receipt"
 msgstr "Potwierdzenie darowizny"
 
-#: inc/helper.php:862
+#: inc/helper.php:894
 msgid "Thank you for your donation!"
 msgstr "Dziękujemy za Twoją darowiznę!"
 
@@ -432,28 +439,29 @@ msgstr "Wybrano nieprawidłową kampanię."
 #: inc/blocks/donation-form/block.php:92
 #: inc/payments/offline/offline-frontend.php:111
 #: inc/payments/pay-pal/pay-pal-frontend.php:478
-#: inc/payments/stripe/stripe-frontend.php:512
+#: inc/payments/stripe/stripe-frontend.php:525
 msgid "This campaign is not currently accepting donations."
 msgstr "Ta kampania obecnie nie przyjmuje darowizn."
 
-#: inc/helper.php:867
+#: inc/helper.php:899
 msgid "Thank You!"
 msgstr "Dziękuję!"
 
-#: inc/blocks/register.php:130
+#: inc/blocks/register.php:131
 msgid "General Fields"
 msgstr "Pola ogólne"
 
 #: inc/api/donors-api.php:759
 #: inc/campaigns/campaign-cpt.php:63
 #: inc/campaigns/campaign-cpt.php:90
+#: inc/import-export/import/column-map.php:85
 #: inc/page-builders/bricks/base-element.php:137
 #: inc/page-builders/elementor/base-widget.php:93
 #: assets/build/admin.js:38
 #: assets/build/admin.js:55
 #: assets/build/admin.js:67
-#: assets/build/admin.js:89
-#: assets/build/admin.js:90
+#: assets/build/admin.js:95
+#: assets/build/admin.js:96
 #: assets/build/admin/onboarding/index.js:1
 #: assets/build/admin/onboarding/index.js:2
 #: assets/build/blocks/donation-form/editor.js:2
@@ -567,7 +575,7 @@ msgstr "Kampanie zbierania funduszy"
 msgid "Consolidated campaign settings."
 msgstr "Ujednolicone ustawienia kampanii."
 
-#: inc/database/tables/donations.php:1866
+#: inc/database/tables/donations.php:2058
 msgid "System"
 msgstr "System"
 
@@ -588,8 +596,8 @@ msgid "Failed to create duplicate form."
 msgstr "Nie udało się utworzyć duplikatu formularza."
 
 #: inc/emails/email-handler.php:315
-#: plugin-loader.php:232
-#: plugin-loader.php:254
+#: plugin-loader.php:239
+#: plugin-loader.php:261
 #: assets/build/admin.js:1
 #: assets/build/admin.js:38
 #: assets/build/admin.js:70
@@ -619,496 +627,492 @@ msgstr "Przekaż darowiznę teraz"
 #: inc/field-validation.php:876
 #: inc/fields/email-markup.php:39
 #: assets/build/admin.js:70
-#: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:10
 msgid "Please enter a valid email address."
 msgstr "Proszę wprowadzić prawidłowy adres e-mail."
 
-#: inc/fields/payment-markup.php:291
+#: inc/fields/payment-markup.php:294
 msgid "Subscription Plan"
 msgstr "Plan subskrypcyjny"
 
 #. translators: 1: Amount with currency, 2: Interval (day/week/month/quarter/year)
-#: inc/fields/payment-markup.php:496
+#: inc/fields/payment-markup.php:499
 msgid "%1$s per %2$s (until cancelled)"
 msgstr "%1$s na %2$s (do odwołania)"
 
 #. translators: 1: Amount with currency, 2: Interval (day/week/month/quarter/year), 3: Number of billing cycles
-#: inc/fields/payment-markup.php:505
+#: inc/fields/payment-markup.php:508
 msgid "%1$s per %2$s (%3$s payments)"
 msgstr "%1$s na %2$s (%3$s płatności)"
 
 #. translators: 1: Amount with currency, 2: Interval (day/week/month/quarter/year)
-#: inc/fields/payment-markup.php:515
+#: inc/fields/payment-markup.php:518
 msgid "%1$s per %2$s"
 msgstr "%1$s na %2$s"
 
 #. translators: 1: Amount with currency placeholder, 2: Interval (day/week/month/quarter/year)
-#: inc/fields/payment-markup.php:544
+#: inc/fields/payment-markup.php:547
 msgid "{amount} per %s (until cancelled)"
 msgstr "{amount} na %s (do odwołania)"
 
 #. translators: 1: Amount with currency placeholder, 2: Interval (day/week/month/quarter/year), 3: Number of billing cycles
-#: inc/fields/payment-markup.php:547
+#: inc/fields/payment-markup.php:550
 msgid "{amount} per %1$s (%2$s payments)"
 msgstr "{amount} na %1$s (%2$s płatności)"
 
 #. translators: 1: Amount with currency placeholder, 2: Interval (day/week/month/quarter/year)
-#: inc/fields/payment-markup.php:550
+#: inc/fields/payment-markup.php:553
 msgid "{amount} per %s"
 msgstr "{amount} na %s"
 
 #. translators: %s: Minimum amount with currency
-#: inc/fields/payment-markup.php:564
+#: inc/fields/payment-markup.php:567
 msgid "Minimum amount: %s"
 msgstr "Minimalna kwota: %s"
 
-#: inc/fields/payment-markup.php:633
+#: inc/fields/payment-markup.php:630
 #: assets/build/admin.js:38
 msgid "day"
 msgstr "dzień"
 
-#: inc/fields/payment-markup.php:634
+#: inc/fields/payment-markup.php:631
 #: assets/build/admin.js:38
 msgid "week"
 msgstr "tydzień"
 
-#: inc/fields/payment-markup.php:635
+#: inc/fields/payment-markup.php:632
 #: assets/build/admin.js:38
 msgid "month"
 msgstr "miesiąc"
 
-#: inc/fields/payment-markup.php:636
+#: inc/fields/payment-markup.php:633
 msgid "quarter"
 msgstr "kwartał"
 
-#: inc/fields/payment-markup.php:637
+#: inc/fields/payment-markup.php:634
 #: assets/build/admin.js:38
 msgid "year"
 msgstr "rok"
 
-#: inc/fields/payment-markup.php:662
+#: inc/fields/payment-markup.php:659
 msgid "Test mode is enabled:"
 msgstr "Tryb testowy jest włączony:"
 
-#: inc/fields/payment-markup.php:664
+#: inc/fields/payment-markup.php:661
 msgid "Click here to enable live mode and accept payment"
 msgstr "Kliknij tutaj, aby włączyć tryb na żywo i zaakceptować płatność"
 
-#: inc/payments/payment-helper.php:189
+#: inc/payments/payment-helper.php:269
 msgid "US Dollar"
 msgstr "Dolar amerykański"
 
-#: inc/payments/payment-helper.php:194
+#: inc/payments/payment-helper.php:274
 msgid "Euro"
 msgstr "Euro"
 
-#: inc/payments/payment-helper.php:199
+#: inc/payments/payment-helper.php:279
 msgid "British Pound"
 msgstr "Funt brytyjski"
 
-#: inc/payments/payment-helper.php:204
+#: inc/payments/payment-helper.php:284
 msgid "Japanese Yen"
 msgstr "Jen japoński"
 
-#: inc/payments/payment-helper.php:209
+#: inc/payments/payment-helper.php:289
 msgid "Australian Dollar"
 msgstr "Dolar australijski"
 
-#: inc/payments/payment-helper.php:214
+#: inc/payments/payment-helper.php:294
 msgid "Canadian Dollar"
 msgstr "Dolar kanadyjski"
 
-#: inc/payments/payment-helper.php:219
+#: inc/payments/payment-helper.php:299
 msgid "Swiss Franc"
 msgstr "Frank szwajcarski"
 
-#: inc/payments/payment-helper.php:224
+#: inc/payments/payment-helper.php:304
 msgid "Chinese Yuan"
 msgstr "Chiński Yuan"
 
-#: inc/payments/payment-helper.php:229
+#: inc/payments/payment-helper.php:309
 msgid "Swedish Krona"
 msgstr "Szwedzka korona"
 
-#: inc/payments/payment-helper.php:234
+#: inc/payments/payment-helper.php:314
 msgid "New Zealand Dollar"
 msgstr "Dolar nowozelandzki"
 
-#: inc/payments/payment-helper.php:239
+#: inc/payments/payment-helper.php:319
 msgid "Mexican Peso"
 msgstr "Peso meksykańskie"
 
-#: inc/payments/payment-helper.php:244
+#: inc/payments/payment-helper.php:324
 msgid "Singapore Dollar"
 msgstr "Dolar singapurski"
 
-#: inc/payments/payment-helper.php:249
+#: inc/payments/payment-helper.php:329
 msgid "Hong Kong Dollar"
 msgstr "Dolar hongkoński"
 
-#: inc/payments/payment-helper.php:254
+#: inc/payments/payment-helper.php:334
 msgid "Norwegian Krone"
 msgstr "Korona norweska"
 
-#: inc/payments/payment-helper.php:259
+#: inc/payments/payment-helper.php:339
 msgid "South Korean Won"
 msgstr "Won południowokoreański"
 
-#: inc/payments/payment-helper.php:264
+#: inc/payments/payment-helper.php:344
 msgid "Turkish Lira"
 msgstr "Lira turecka"
 
-#: inc/payments/payment-helper.php:269
+#: inc/payments/payment-helper.php:349
 msgid "Russian Ruble"
 msgstr "Rubel rosyjski"
 
-#: inc/payments/payment-helper.php:274
+#: inc/payments/payment-helper.php:354
 msgid "Indian Rupee"
 msgstr "Rupia indyjska"
 
-#: inc/payments/payment-helper.php:279
+#: inc/payments/payment-helper.php:359
 msgid "Brazilian Real"
 msgstr "Real brazylijski"
 
-#: inc/payments/payment-helper.php:284
+#: inc/payments/payment-helper.php:364
 msgid "South African Rand"
 msgstr "Rand południowoafrykański"
 
-#: inc/payments/payment-helper.php:289
+#: inc/payments/payment-helper.php:369
 msgid "UAE Dirham"
 msgstr "Dirham ZEA"
 
-#: inc/payments/payment-helper.php:294
+#: inc/payments/payment-helper.php:374
 msgid "Philippine Peso"
 msgstr "Peso filipińskie"
 
-#: inc/payments/payment-helper.php:299
+#: inc/payments/payment-helper.php:379
 msgid "Indonesian Rupiah"
 msgstr "Rupia indonezyjska"
 
-#: inc/payments/payment-helper.php:304
+#: inc/payments/payment-helper.php:384
 msgid "Malaysian Ringgit"
 msgstr "Ringgit malezyjski"
 
-#: inc/payments/payment-helper.php:309
+#: inc/payments/payment-helper.php:389
 msgid "Thai Baht"
 msgstr "Baht tajski"
 
-#: inc/payments/payment-helper.php:314
+#: inc/payments/payment-helper.php:394
 msgid "Burundian Franc"
 msgstr "Frank burundyjski"
 
-#: inc/payments/payment-helper.php:319
+#: inc/payments/payment-helper.php:399
 msgid "Chilean Peso"
 msgstr "Peso chilijskie"
 
-#: inc/payments/payment-helper.php:324
+#: inc/payments/payment-helper.php:404
 msgid "Djiboutian Franc"
 msgstr "Frank Dżibutyjski"
 
-#: inc/payments/payment-helper.php:329
+#: inc/payments/payment-helper.php:409
 msgid "Guinean Franc"
 msgstr "Frank Gwinejski"
 
-#: inc/payments/payment-helper.php:334
+#: inc/payments/payment-helper.php:414
 msgid "Comorian Franc"
 msgstr "Frank Komoryjski"
 
-#: inc/payments/payment-helper.php:339
+#: inc/payments/payment-helper.php:419
 msgid "Malagasy Ariary"
 msgstr "Ariary malgaski"
 
-#: inc/payments/payment-helper.php:344
+#: inc/payments/payment-helper.php:424
 msgid "Paraguayan Guaraní"
 msgstr "Paragwajski Guaraní"
 
-#: inc/payments/payment-helper.php:349
+#: inc/payments/payment-helper.php:429
 msgid "Rwandan Franc"
 msgstr "Frank rwandyjski"
 
-#: inc/payments/payment-helper.php:354
+#: inc/payments/payment-helper.php:434
 msgid "Ugandan Shilling"
 msgstr "Szyling ugandyjski"
 
-#: inc/payments/payment-helper.php:359
+#: inc/payments/payment-helper.php:439
 msgid "Vietnamese Đồng"
 msgstr "Wietnamski Đồng"
 
-#: inc/payments/payment-helper.php:364
+#: inc/payments/payment-helper.php:444
 msgid "Vanuatu Vatu"
 msgstr "Vanuatu Vatu"
 
-#: inc/payments/payment-helper.php:369
+#: inc/payments/payment-helper.php:449
 msgid "Central African CFA Franc"
 msgstr "Centralnoafrykański frank CFA"
 
-#: inc/payments/payment-helper.php:374
+#: inc/payments/payment-helper.php:454
 msgid "West African CFA Franc"
 msgstr "Frank CFA Afryki Zachodniej"
 
-#: inc/payments/payment-helper.php:379
+#: inc/payments/payment-helper.php:459
 msgid "CFP Franc"
 msgstr "Frank CFP"
 
-#: inc/blocks/register.php:404
-#: inc/helper.php:1111
-#: inc/payments/payment-helper.php:759
-#: assets/build/admin.js:72
+#: inc/blocks/register.php:408
+#: inc/helper.php:1145
+#: inc/payments/payment-helper.php:898
+#: assets/build/admin.js:71
 msgid "Stripe"
 msgstr "Stripe"
 
-#: inc/payments/payment-helper.php:760
+#: inc/payments/payment-helper.php:899
 msgid "Accept payments via Stripe"
 msgstr "Akceptuj płatności za pośrednictwem Stripe"
 
 #: inc/ajax/donation-handler.php:116
 #: inc/payments/offline/offline-frontend.php:117
 #: inc/payments/pay-pal/pay-pal-frontend.php:448
-#: inc/payments/payment-helper.php:813
-#: inc/payments/stripe/stripe-frontend.php:475
+#: inc/payments/payment-helper.php:952
+#: inc/payments/stripe/stripe-frontend.php:485
 msgid "Invalid form configuration."
 msgstr "Nieprawidłowa konfiguracja formularza."
 
-#: inc/payments/payment-helper.php:821
+#: inc/payments/payment-helper.php:960
 msgid "Payment configuration not found for this form."
 msgstr "Nie znaleziono konfiguracji płatności dla tego formularza."
 
 #. translators: 1: expected currency, 2: received currency
-#: inc/payments/payment-helper.php:834
+#: inc/payments/payment-helper.php:973
 msgid "Currency mismatch: expected %1$s, received %2$s."
 msgstr "Niezgodność waluty: oczekiwano %1$s, otrzymano %2$s."
 
 #. translators: %s: expected amount with currency
-#: inc/payments/payment-helper.php:852
+#: inc/payments/payment-helper.php:991
 msgid "Payment amount must be exactly %s."
 msgstr "Kwota płatności musi wynosić dokładnie %s."
 
 #. translators: %s: minimum amount with currency
 #. translators: %s: minimum amount
-#: inc/payments/payment-helper.php:864
-#: inc/payments/payment-helper.php:894
-#: inc/payments/payment-helper.php:1435
-#: inc/payments/payment-helper.php:1522
+#: inc/payments/payment-helper.php:1003
+#: inc/payments/payment-helper.php:1033
+#: inc/payments/payment-helper.php:1574
+#: inc/payments/payment-helper.php:1661
 msgid "Payment amount must be at least %s."
 msgstr "Kwota płatności musi wynosić co najmniej %s."
 
 #. translators: 1: expected currency, 2: actual currency
-#: inc/payments/payment-helper.php:1318
+#: inc/payments/payment-helper.php:1457
 msgid "Currency mismatch. Expected %1$s but received %2$s."
 msgstr "Niezgodność waluty. Oczekiwano %1$s, ale otrzymano %2$s."
 
 #. translators: 1: expected amount, 2: actual amount
-#: inc/payments/payment-helper.php:1334
+#: inc/payments/payment-helper.php:1473
 msgid "Amount mismatch detected. Expected %1$s but received %2$s. Possible payment manipulation."
 msgstr "Wykryto niezgodność kwoty. Oczekiwano %1$s, ale otrzymano %2$s. Możliwa manipulacja płatnością."
 
 #. translators: %s: maximum amount with currency
-#: inc/payments/payment-helper.php:1447
-#: inc/payments/payment-helper.php:1530
+#: inc/payments/payment-helper.php:1586
+#: inc/payments/payment-helper.php:1669
 msgid "Payment amount cannot exceed %s."
 msgstr "Kwota płatności nie może przekraczać %s."
 
-#: inc/payments/payment-helper.php:1421
-#: inc/payments/payment-helper.php:1469
+#: inc/payments/payment-helper.php:1560
+#: inc/payments/payment-helper.php:1608
 msgid "Variable amount field configuration not found."
 msgstr "Nie znaleziono konfiguracji pola zmiennej kwoty."
 
-#: inc/payments/payment-helper.php:1501
+#: inc/payments/payment-helper.php:1640
 msgid "No payment options are configured for this field."
 msgstr "Nie skonfigurowano opcji płatności dla tego pola."
 
-#: inc/payments/payment-helper.php:1506
+#: inc/payments/payment-helper.php:1645
 msgid "Invalid payment amount. Please select a valid amount from the available options."
 msgstr "Nieprawidłowa kwota płatności. Proszę wybrać prawidłową kwotę z dostępnych opcji."
 
-#: inc/payments/stripe/stripe-frontend.php:465
+#: inc/payments/stripe/stripe-frontend.php:475
 msgid "Email address is required"
 msgstr "Adres e-mail jest wymagany"
 
-#: inc/payments/stripe/stripe-frontend.php:490
+#: inc/payments/stripe/stripe-frontend.php:500
 msgid "Payment gateway not configured"
 msgstr "Bramka płatności nie jest skonfigurowana"
 
 #: inc/payments/offline/offline-frontend.php:106
 #: inc/payments/pay-pal/pay-pal-frontend.php:473
-#: inc/payments/stripe/stripe-frontend.php:507
+#: inc/payments/stripe/stripe-frontend.php:520
 msgid "This campaign is not available for donations."
 msgstr "Ta kampania nie jest dostępna do darowizn."
 
 #. translators: %s is the campaign title.
 #: inc/payments/pay-pal/pay-pal-frontend.php:122
-#: inc/payments/stripe/stripe-frontend.php:134
+#: inc/payments/stripe/stripe-frontend.php:139
 msgid "Donation to %s"
 msgstr "Darowizna na %s"
 
-#: inc/payments/stripe/stripe-frontend.php:159
+#: inc/payments/stripe/stripe-frontend.php:164
 msgid "Invalid payment intent response."
 msgstr "Nieprawidłowa odpowiedź intencji płatności."
 
-#: inc/payments/stripe/stripe-frontend.php:238
-#: inc/payments/stripe/stripe-helper.php:561
+#: inc/payments/stripe/stripe-frontend.php:243
+#: inc/payments/stripe/stripe-helper.php:943
 msgid "Payment intent ID is required"
 msgstr "Wymagany jest identyfikator zamiaru płatności"
 
-#: inc/payments/stripe/stripe-frontend.php:242
+#: inc/payments/stripe/stripe-frontend.php:247
 msgid "Donation ID is required"
 msgstr "Wymagany jest identyfikator darowizny"
 
-#: inc/payments/stripe/stripe-frontend.php:247
+#: inc/payments/stripe/stripe-frontend.php:252
 msgid "Invalid payment intent ID"
 msgstr "Nieprawidłowy identyfikator intencji płatności"
 
-#: inc/payments/stripe/stripe-frontend.php:253
+#: inc/payments/stripe/stripe-frontend.php:258
 #: assets/build/admin.js:55
 msgid "Donation not found"
 msgstr "Darowizna nie znaleziona"
 
-#: inc/payments/stripe/stripe-frontend.php:258
+#: inc/payments/stripe/stripe-frontend.php:263
 msgid "Payment verification failed"
 msgstr "Weryfikacja płatności nie powiodła się"
 
-#: inc/payments/stripe/stripe-frontend.php:277
-#: inc/payments/stripe/stripe-helper.php:599
+#: inc/payments/stripe/stripe-frontend.php:283
+#: inc/payments/stripe/stripe-helper.php:981
 msgid "Payment capture failed"
 msgstr "Przechwycenie płatności nie powiodło się"
 
 #: inc/payments/pay-pal/pay-pal-frontend.php:319
-#: inc/payments/stripe/stripe-frontend.php:294
+#: inc/payments/stripe/stripe-frontend.php:300
 msgid "Payment captured but donation status update failed"
 msgstr "Płatność została zrealizowana, ale aktualizacja statusu darowizny nie powiodła się"
 
-#: inc/payments/stripe/stripe-frontend.php:304
+#: inc/payments/stripe/stripe-frontend.php:310
 msgid "Payment captured and donation completed"
 msgstr "Płatność została zrealizowana, a darowizna zakończona"
 
-#: inc/payments/stripe/stripe-frontend.php:407
+#: inc/payments/stripe/stripe-frontend.php:419
 msgid "Failed to create customer"
 msgstr "Nie udało się utworzyć klienta"
 
-#: inc/payments/stripe/stripe-frontend.php:609
+#: inc/payments/stripe/stripe-frontend.php:625
 msgid "Failed to create donation record"
 msgstr "Nie udało się utworzyć rekordu darowizny"
 
-#: inc/payments/stripe/stripe-frontend.php:619
+#: inc/payments/stripe/stripe-frontend.php:635
 msgid "Donation created with pending payment"
 msgstr "Darowizna utworzona z oczekującą płatnością"
 
-#: inc/payments/stripe/stripe-helper.php:249
-#: inc/payments/stripe/stripe-helper.php:447
-#: inc/payments/stripe/stripe-helper.php:557
+#: inc/payments/stripe/stripe-helper.php:626
+#: inc/payments/stripe/stripe-helper.php:828
+#: inc/payments/stripe/stripe-helper.php:939
 msgid "Stripe secret key not configured"
 msgstr "Klucz tajny Stripe nie jest skonfigurowany"
 
-#: inc/payments/stripe/stripe-helper.php:283
+#: inc/payments/stripe/stripe-helper.php:660
 msgid "Unknown error"
 msgstr "Nieznany błąd"
 
-#: inc/payments/stripe/stripe-helper.php:288
+#: inc/payments/stripe/stripe-helper.php:665
 msgid "Invalid response from Stripe API"
 msgstr "Nieprawidłowa odpowiedź z API Stripe"
 
-#: inc/payments/stripe/stripe-helper.php:468
+#: inc/payments/stripe/stripe-helper.php:849
 msgid "SureDonation Payment"
 msgstr "Płatność SureDonation"
 
-#: inc/payments/stripe/stripe-helper.php:519
-#: inc/payments/stripe/stripe-helper.php:588
+#: inc/payments/stripe/stripe-helper.php:900
+#: inc/payments/stripe/stripe-helper.php:970
 msgid "Failed to connect to payment processor"
 msgstr "Nie udało się połączyć z procesorem płatności"
 
-#: inc/payments/stripe/stripe-helper.php:526
-#: inc/payments/stripe/stripe-helper.php:595
+#: inc/payments/stripe/stripe-helper.php:907
+#: inc/payments/stripe/stripe-helper.php:977
 msgid "Invalid response from payment processor"
 msgstr "Nieprawidłowa odpowiedź od procesora płatności"
 
-#: inc/payments/stripe/stripe-helper.php:531
+#: inc/payments/stripe/stripe-helper.php:912
 msgid "Payment processing failed"
 msgstr "Przetwarzanie płatności nie powiodło się"
 
-#: inc/payments/stripe/stripe-helper.php:537
+#: inc/payments/stripe/stripe-helper.php:918
 msgid "Missing required payment data"
 msgstr "Brak wymaganych danych płatności"
 
-#. translators: %s: provided mode value
-#: inc/payments/stripe/stripe-settings.php:111
-msgid "Invalid mode \"%s\". Must be \"test\" or \"live\"."
-msgstr "Nieprawidłowy tryb \"%s\". Musi być \"test\" lub \"live\"."
-
-#: inc/payments/stripe/stripe-settings.php:351
+#: inc/payments/stripe/stripe-settings.php:447
 msgid "Stripe account disconnected successfully"
 msgstr "Konto Stripe zostało pomyślnie odłączone"
 
 #. translators: %s is the mode (test or live).
-#: inc/payments/stripe/stripe-settings.php:378
+#: inc/payments/stripe/stripe-settings.php:618
 msgid "Webhook created successfully for %s mode"
 msgstr "Webhook został pomyślnie utworzony dla trybu %s"
 
 #. translators: %s is the mode (test or live).
-#: inc/payments/stripe/stripe-settings.php:404
+#: inc/payments/stripe/stripe-settings.php:646
 msgid "Webhook deleted successfully for %s mode"
 msgstr "Webhook został pomyślnie usunięty dla trybu %s"
 
-#: inc/payments/stripe/stripe-settings.php:450
+#: inc/payments/stripe/stripe-settings.php:692
 msgid "Security verification failed. Invalid nonce."
 msgstr "Weryfikacja bezpieczeństwa nie powiodła się. Nieprawidłowy nonce."
 
-#: inc/payments/stripe/stripe-settings.php:451
-#: inc/payments/stripe/stripe-settings.php:462
-#: inc/payments/stripe/stripe-settings.php:675
+#: inc/payments/stripe/stripe-settings.php:693
+#: inc/payments/stripe/stripe-settings.php:704
+#: inc/payments/stripe/stripe-settings.php:950
+#: inc/payments/stripe/stripe-settings.php:963
 msgid "Stripe Connect Error"
 msgstr "Błąd Stripe Connect"
 
-#: inc/payments/stripe/stripe-settings.php:461
+#: inc/payments/stripe/stripe-settings.php:703
 msgid "Security verification failed. OAuth session expired or nonce mismatch."
 msgstr "Weryfikacja bezpieczeństwa nie powiodła się. Sesja OAuth wygasła lub niezgodność nonce."
 
-#: inc/payments/stripe/stripe-settings.php:640
+#: inc/payments/stripe/stripe-settings.php:915
 msgid "OAuth callback missing response data."
 msgstr "Brak danych odpowiedzi w wywołaniu zwrotnym OAuth."
 
-#: inc/payments/stripe/stripe-settings.php:674
+#: inc/payments/stripe/stripe-settings.php:949
 msgid "Invalid OAuth response format."
 msgstr "Nieprawidłowy format odpowiedzi OAuth."
 
-#: inc/payments/stripe/stripe-settings.php:742
+#: inc/payments/stripe/stripe-settings.php:1016
 msgid "You do not have permission to connect Stripe."
 msgstr "Nie masz uprawnień do połączenia Stripe."
 
-#: inc/payments/stripe/stripe-settings.php:743
+#: inc/payments/stripe/stripe-settings.php:1017
 msgid "Permission Denied"
 msgstr "Odmowa dostępu"
 
-#: inc/payments/stripe/stripe-settings.php:755
-#: assets/build/admin.js:72
+#: inc/payments/stripe/stripe-settings.php:1029
+#: assets/build/admin.js:71
 msgid "Failed to connect to Stripe."
 msgstr "Nie udało się połączyć ze Stripe."
 
-#: inc/payments/stripe/stripe-webhook.php:151
+#: inc/payments/stripe/stripe-webhook.php:167
 msgid "Webhook secret not configured"
 msgstr "Tajny klucz webhooka nie jest skonfigurowany"
 
-#: inc/payments/stripe/stripe-webhook.php:155
+#: inc/payments/stripe/stripe-webhook.php:179
 msgid "Webhook signature verification failed"
 msgstr "Weryfikacja podpisu webhooka nie powiodła się"
 
-#: inc/payments/stripe/stripe-webhook.php:383
+#: inc/payments/stripe/stripe-webhook.php:407
 msgid "Payment completed successfully via webhook"
 msgstr "Płatność zakończona pomyślnie za pośrednictwem webhooka"
 
-#: inc/payments/stripe/stripe-webhook.php:465
+#: inc/payments/stripe/stripe-webhook.php:489
 msgid "Payment failed via webhook"
 msgstr "Płatność nie powiodła się przez webhook"
 
 #. translators: %s: Refund type (Full/Partial)
-#: inc/payments/stripe/stripe-webhook.php:620
+#: inc/payments/stripe/stripe-webhook.php:644
 msgid "%s refund processed via webhook"
 msgstr "Zwrócono %s za pośrednictwem webhooka"
 
-#: inc/payments/stripe/stripe-webhook.php:704
+#: inc/payments/stripe/stripe-webhook.php:728
 msgid "Refund canceled via webhook"
 msgstr "Zwrot anulowany za pośrednictwem webhooka"
 
-#: inc/payments/stripe/stripe-webhook.php:751
+#: inc/payments/stripe/stripe-webhook.php:775
 msgid "Payment canceled via webhook"
 msgstr "Płatność anulowana za pośrednictwem webhooka"
 
@@ -1158,41 +1162,41 @@ msgid "The ID of the linked campaign."
 msgstr "Identyfikator powiązanej kampanii."
 
 #. translators: %s: campaign name
-#: inc/post-types/donation-form.php:628
+#: inc/post-types/donation-form.php:645
 msgid "%s - Donation Form"
 msgstr "%s - Formularz Darowizny"
 
 #: inc/page-builders/bricks/elements/donation-form.php:48
 #: inc/page-builders/elementor/widgets/donation-form-widget.php:37
 #: inc/page-builders/elementor/widgets/donation-form-widget.php:85
-#: inc/post-types/donation-form.php:631
+#: inc/post-types/donation-form.php:648
 msgid "Donation Form"
 msgstr "Formularz darowizny"
 
-#: inc/post-types/donation-form.php:688
-#: inc/post-types/donation-form.php:778
+#: inc/post-types/donation-form.php:705
+#: inc/post-types/donation-form.php:795
 msgid "Select Donation Amount"
 msgstr "Wybierz kwotę darowizny"
 
-#: inc/post-types/donation-form.php:668
-#: inc/post-types/donation-form.php:754
+#: inc/post-types/donation-form.php:685
+#: inc/post-types/donation-form.php:771
 msgid "Full Name"
 msgstr "Pełne imię"
 
-#: inc/post-types/donation-form.php:670
-#: inc/post-types/donation-form.php:756
+#: inc/post-types/donation-form.php:687
+#: inc/post-types/donation-form.php:773
 msgid "Enter your full name"
 msgstr "Wprowadź swoje pełne imię i nazwisko"
 
-#: inc/post-types/donation-form.php:678
-#: inc/post-types/donation-form.php:766
+#: inc/post-types/donation-form.php:695
+#: inc/post-types/donation-form.php:783
 #: assets/build/admin.js:70
-#: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:10
 msgid "Email Address"
 msgstr "Adres e-mail"
 
-#: inc/post-types/donation-form.php:680
-#: inc/post-types/donation-form.php:768
+#: inc/post-types/donation-form.php:697
+#: inc/post-types/donation-form.php:785
 msgid "Enter your email"
 msgstr "Wprowadź swój email"
 
@@ -1238,18 +1242,18 @@ msgid "Install Free"
 msgstr "Zainstaluj za darmo"
 
 #: assets/build/admin.js:1
-#: assets/build/admin.js:102
+#: assets/build/admin.js:110
 msgid "Activated"
 msgstr "Aktywowany"
 
 #: assets/build/admin.js:1
-#: assets/build/admin.js:88
+#: assets/build/admin.js:90
 #: assets/build/editor/editor.js:1
 msgid "Activate"
 msgstr "Aktywuj"
 
 #: assets/build/admin.js:1
-#: assets/build/admin.js:88
+#: assets/build/admin.js:90
 #: assets/build/editor/editor.js:1
 msgid "Install & Activate"
 msgstr "Zainstaluj i aktywuj"
@@ -1289,7 +1293,7 @@ msgstr "Zastosuj"
 #: assets/build/admin.js:52
 #: assets/build/admin.js:64
 #: assets/build/admin.js:70
-#: assets/build/admin.js:91
+#: assets/build/admin.js:97
 #: assets/build/admin/onboarding/index.js:3
 #: assets/build/blocks.js:1
 #: assets/build/editor/editor.js:1
@@ -1328,10 +1332,10 @@ msgid "Type"
 msgstr "Rodzaj"
 
 #: inc/api/donors-api.php:764
-#: inc/helper.php:948
-#: inc/helper.php:1033
-#: inc/helper.php:1228
-#: inc/pdf/receipt-generator.php:268
+#: inc/helper.php:982
+#: inc/helper.php:1067
+#: inc/helper.php:1262
+#: inc/pdf/receipt-generator.php:269
 #: assets/build/admin.js:52
 msgid "Payment Method"
 msgstr "Metoda płatności"
@@ -1344,6 +1348,7 @@ msgstr "Kwota zapłacona"
 
 #: inc/api/donors-api.php:656
 #: inc/api/donors-api.php:762
+#: inc/import-export/import/column-map.php:211
 #: inc/privacy/privacy-data.php:130
 #: assets/build/admin.js:1
 #: assets/build/admin.js:10
@@ -1355,10 +1360,12 @@ msgstr "Kwota zapłacona"
 msgid "Status"
 msgstr "Status"
 
-#: inc/helper.php:924
-#: inc/helper.php:1009
-#: inc/helper.php:1207
-#: inc/pdf/receipt-generator.php:253
+#: inc/helper.php:958
+#: inc/helper.php:1043
+#: inc/helper.php:1241
+#: inc/import-export/import/column-map.php:55
+#: inc/import-export/import/column-map.php:373
+#: inc/pdf/receipt-generator.php:254
 #: inc/privacy/privacy-data.php:132
 #: assets/build/admin.js:1
 #: assets/build/admin.js:52
@@ -1458,13 +1465,13 @@ msgid "Completed"
 msgstr "Zakończono"
 
 #: assets/build/admin.js:10
-#: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:10
 msgid "Raised Amount"
 msgstr "Zebrana kwota"
 
 #: assets/build/admin.js:10
 #: assets/build/admin.js:70
-#: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:10
 msgid "Number of Donations"
 msgstr "Liczba darowizn"
 
@@ -1477,12 +1484,12 @@ msgid "Tell us about your fundraising cause."
 msgstr "Opowiedz nam o swojej akcji zbierania funduszy."
 
 #: assets/build/admin.js:10
-#: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:10
 msgid "Name your campaign"
 msgstr "Nazwij swoją kampanię"
 
 #: assets/build/admin.js:10
-#: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:10
 msgid "Describe your campaign"
 msgstr "Opisz swoją kampanię"
 
@@ -1491,35 +1498,35 @@ msgid "What is goal of your campaign"
 msgstr "Jaki jest cel Twojej kampanii"
 
 #: assets/build/admin.js:10
-#: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:10
 msgid "Amount to raise"
 msgstr "Kwota do zebrania"
 
 #: inc/page-builders/bricks/elements/campaign-donations.php:67
 #: inc/page-builders/elementor/widgets/campaign-donations-widget.php:69
 #: assets/build/admin.js:10
-#: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:10
 #: assets/build/campaign-blocks.js:1
 msgid "Number of donations"
 msgstr "Liczba darowizn"
 
 #: assets/build/admin.js:10
-#: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:10
 msgid "e.g. $1,000"
 msgstr "np. $1,000"
 
 #: assets/build/admin.js:10
-#: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:10
 msgid "e.g. 100"
 msgstr "np. 100"
 
 #: assets/build/admin.js:10
-#: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:10
 msgid "Set the target amount for your campaign to raise."
 msgstr "Ustaw docelową kwotę do zebrania dla swojej kampanii."
 
 #: assets/build/admin.js:10
-#: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:10
 msgid "Set the target number of donations for your campaign."
 msgstr "Ustaw docelową liczbę darowizn dla swojej kampanii."
 
@@ -1541,7 +1548,7 @@ msgstr "Wystąpił błąd podczas zapisywania kampanii"
 
 #: assets/build/admin.js:10
 #: assets/build/admin.js:70
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Saving…"
 msgstr "Zapisywanie…"
 
@@ -1578,11 +1585,12 @@ msgstr "Kopiuj i ponownie wykorzystuj kampanie dla nowych celów"
 msgid "Create Your First Campaign"
 msgstr "Utwórz swoją pierwszą kampanię"
 
-#: inc/helper.php:936
-#: inc/helper.php:1021
-#: inc/helper.php:1078
-#: inc/helper.php:1218
-#: inc/pdf/receipt-generator.php:262
+#: inc/helper.php:970
+#: inc/helper.php:1055
+#: inc/helper.php:1112
+#: inc/helper.php:1252
+#: inc/import-export/import/column-map.php:369
+#: inc/pdf/receipt-generator.php:263
 #: assets/build/admin.js:1
 #: assets/build/admin.js:10
 #: assets/build/admin.js:52
@@ -1645,7 +1653,7 @@ msgid "Delete Permanently"
 msgstr "Usuń na stałe"
 
 #: assets/build/admin.js:13
-#: assets/build/admin.js:90
+#: assets/build/admin.js:96
 #: assets/build/admin/onboarding/index.js:2
 msgid "Search campaigns…"
 msgstr "Kampanie wyszukiwania…"
@@ -1708,20 +1716,22 @@ msgstr "Operacja zbiorcza zakończona pomyślnie."
 msgid "Failed to perform bulk action."
 msgstr "Nie udało się wykonać akcji zbiorczej."
 
-#: inc/admin/admin.php:398
+#: inc/admin/admin.php:491
 #: inc/blocks/campaign-stats/block.php:86
 #: inc/page-builders/bricks/elements/campaign-stats.php:81
 #: inc/page-builders/elementor/widgets/campaign-stats-widget.php:76
-#: assets/build/admin.js:89
-#: assets/build/admin.js:90
 #: assets/build/admin.js:92
 #: assets/build/admin.js:94
+#: assets/build/admin.js:95
 #: assets/build/admin.js:96
-#: assets/build/admin.js:99
+#: assets/build/admin.js:98
+#: assets/build/admin.js:102
+#: assets/build/admin.js:104
+#: assets/build/admin.js:107
 #: assets/build/admin/onboarding/index.js:1
 #: assets/build/admin/onboarding/index.js:2
 #: assets/build/admin/onboarding/index.js:4
-#: assets/build/admin/onboarding/index.js:6
+#: assets/build/admin/onboarding/index.js:8
 #: assets/build/campaign-blocks.js:1
 msgid "Donors"
 msgstr "Darczyńcy"
@@ -1823,7 +1833,7 @@ msgstr "Skopiowano!"
 msgid "Copy Shortcode"
 msgstr "Skopiuj kod skrótu"
 
-#: inc/helper.php:1147
+#: inc/helper.php:1181
 #: assets/build/admin.js:1
 #: assets/build/admin.js:26
 #: assets/build/admin.js:39
@@ -1953,7 +1963,7 @@ msgstr "Usuń"
 msgid "All Statuses"
 msgstr "Wszystkie statusy"
 
-#: inc/helper.php:1151
+#: inc/helper.php:1185
 #: assets/build/admin.js:1
 #: assets/build/admin.js:39
 #: assets/build/admin/onboarding/index.js:1
@@ -1962,7 +1972,7 @@ msgstr "Wszystkie statusy"
 msgid "Processing"
 msgstr "Przetwarzanie"
 
-#: inc/helper.php:1155
+#: inc/helper.php:1189
 #: assets/build/admin.js:1
 #: assets/build/admin.js:39
 #: assets/build/admin/onboarding/index.js:1
@@ -1971,7 +1981,7 @@ msgstr "Przetwarzanie"
 msgid "Failed"
 msgstr "Nieudane"
 
-#: inc/helper.php:1159
+#: inc/helper.php:1193
 #: assets/build/admin.js:1
 #: assets/build/admin.js:39
 #: assets/build/admin/onboarding/index.js:1
@@ -2045,7 +2055,7 @@ msgstr "Zwrot darowizny"
 msgid "Process refund for donation #%s. The refunded amount will be sent to the donor's original payment method."
 msgstr "Przetwórz zwrot za darowiznę #%s. Zwrócona kwota zostanie przesłana na oryginalną metodę płatności darczyńcy."
 
-#: inc/helper.php:1045
+#: inc/helper.php:1079
 #: assets/build/admin.js:49
 #: assets/build/admin.js:52
 msgid "Refund Amount"
@@ -2091,6 +2101,8 @@ msgid "Donation Details"
 msgstr "Szczegóły darowizny"
 
 #: inc/api/donors-api.php:760
+#: inc/import-export/import/column-map.php:50
+#: inc/import-export/import/column-map.php:376
 #: inc/privacy/privacy-data.php:128
 #: assets/build/admin.js:52
 #: assets/build/admin.js:70
@@ -2113,18 +2125,22 @@ msgstr "-"
 msgid "Payment ID"
 msgstr "ID płatności"
 
+#: inc/import-export/import/column-map.php:110
+#: inc/import-export/import/column-map.php:382
 #: assets/build/admin.js:52
-#: assets/build/admin.js:72
+#: assets/build/admin.js:70
 msgid "Payment Mode"
 msgstr "Tryb płatności"
 
 #: assets/build/admin.js:52
-#: assets/build/admin.js:72
+#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "Live Mode"
 msgstr "Tryb na żywo"
 
 #: assets/build/admin.js:52
-#: assets/build/admin.js:72
+#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "Test Mode"
 msgstr "Tryb testowy"
 
@@ -2163,9 +2179,11 @@ msgstr "Wyświetl w Stripe"
 msgid "Payment Logs"
 msgstr "Dzienniki płatności"
 
-#: inc/helper.php:944
-#: inc/helper.php:1029
-#: inc/pdf/receipt-generator.php:225
+#: inc/helper.php:978
+#: inc/helper.php:1063
+#: inc/import-export/import/column-map.php:115
+#: inc/import-export/import/column-map.php:383
+#: inc/pdf/receipt-generator.php:226
 #: assets/build/admin.js:52
 msgid "Transaction ID"
 msgstr "Identyfikator transakcji"
@@ -2199,12 +2217,16 @@ msgid "Error"
 msgstr "Błąd"
 
 #: inc/api/donors-api.php:761
+#: inc/import-export/import/column-map.php:95
+#: inc/import-export/import/column-map.php:379
 #: inc/privacy/privacy-data.php:129
 #: assets/build/admin.js:52
 msgid "Currency"
 msgstr "Waluta"
 
-#: inc/pdf/receipt-generator.php:236
+#: inc/import-export/import/column-map.php:120
+#: inc/import-export/import/column-map.php:377
+#: inc/pdf/receipt-generator.php:237
 #: assets/build/admin.js:52
 msgid "Fees Covered"
 msgstr "Opłaty pokryte"
@@ -2225,10 +2247,12 @@ msgstr "Rzeczywista kwota"
 msgid "Cancellation Reason"
 msgstr "Powód anulowania"
 
+#: inc/api/import-export-api.php:222
 #: assets/build/admin.js:52
 msgid "Yes"
 msgstr "Tak"
 
+#: inc/api/import-export-api.php:222
 #: assets/build/admin.js:52
 msgid "No"
 msgstr "Nie"
@@ -2354,148 +2378,124 @@ msgid "Add an internal note about this transaction."
 msgstr "Dodaj wewnętrzną notatkę dotyczącą tej transakcji."
 
 #: inc/payments/pay-pal/pay-pal-frontend.php:463
-#: inc/payments/stripe/stripe-frontend.php:137
+#: inc/payments/stripe/stripe-frontend.php:142
 #: assets/build/admin.js:55
 msgid "Donation"
 msgstr "Darowizna"
 
-#: assets/build/admin.js:72
 #: assets/build/blocks.js:1
 #: assets/build/editor/editor.js:1
 msgid "General"
 msgstr "Ogólny"
 
-#: assets/build/admin.js:72
 #: assets/build/blocks.js:3
 msgid "Payment Methods"
 msgstr "Metody płatności"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Connect and manage your payment gateways to securely accept donations."
 msgstr "Połącz i zarządzaj swoimi bramkami płatności, aby bezpiecznie przyjmować darowizny."
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:70
 msgid "Select Currency"
 msgstr "Wybierz walutę"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:70
 msgid "Select the default currency for donation forms."
 msgstr "Wybierz domyślną walutę dla formularzy darowizn."
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:70
 msgid "Test mode allows you to process payments without real charges. Switch to Live mode for actual transactions."
 msgstr "Tryb testowy pozwala na przetwarzanie płatności bez rzeczywistych opłat. Przełącz na tryb na żywo, aby dokonywać rzeczywistych transakcji."
 
-#. translators: %1$s: Stripe dashboard button
-#: assets/build/admin.js:71
-msgid "Please visit %1$s, delete an unused webhook, then click below to retry."
-msgstr "Proszę odwiedzić %1$s, usunąć nieużywany webhook, a następnie kliknąć poniżej, aby spróbować ponownie."
-
-#: assets/build/admin.js:71
-msgid "SureDonation could not create a webhook because your Stripe account has run out of free slots. Webhooks are needed to receive updates about donations."
-msgstr "SureDonation nie mógł utworzyć webhooka, ponieważ na Twoim koncie Stripe skończyły się darmowe sloty. Webhooki są potrzebne do otrzymywania aktualizacji o darowiznach."
-
-#: assets/build/admin.js:71
-msgid "Stripe Dashboard"
-msgstr "Pulpit Stripe"
-
-#: assets/build/admin.js:71
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Creating…"
 msgstr "Tworzenie…"
 
-#: assets/build/admin.js:71
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Create Webhook"
 msgstr "Utwórz webhook"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:71
 msgid "Successfully connected to Stripe!"
 msgstr "Pomyślnie połączono ze Stripe!"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Failed to disconnect Stripe account."
 msgstr "Nie udało się odłączyć konta Stripe."
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Stripe account disconnected successfully."
 msgstr "Konto Stripe zostało pomyślnie odłączone."
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Connection Status"
 msgstr "Status połączenia"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:71
 msgid "Disconnect Stripe Account"
 msgstr "Odłącz konto Stripe"
 
-#: assets/build/admin.js:72
-msgid "Are you sure you want to disconnect your Stripe account? This will stop all active payments and donations connected to this account."
-msgstr "Czy na pewno chcesz odłączyć swoje konto Stripe? Spowoduje to zatrzymanie wszystkich aktywnych płatności i darowizn powiązanych z tym kontem."
-
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Disconnect"
 msgstr "Rozłącz"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Disconnecting…"
 msgstr "Rozłączanie…"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Webhook"
 msgstr "Webhook"
 
-#: assets/build/admin.js:72
-msgid "Webhook successfully connected, all Stripe events are being tracked."
-msgstr "Webhook został pomyślnie połączony, wszystkie zdarzenia Stripe są śledzone."
-
-#: assets/build/admin.js:72
+#: assets/build/admin.js:71
 msgid "Webhook created successfully!"
 msgstr "Webhook został pomyślnie utworzony!"
 
-#: assets/build/admin.js:72
+#: inc/payments/stripe/stripe-settings.php:593
+#: assets/build/admin.js:71
 msgid "Failed to create webhook."
 msgstr "Nie udało się utworzyć webhooka."
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Connect your Stripe account to start accepting donations through your forms."
 msgstr "Połącz swoje konto Stripe, aby zacząć przyjmować darowizny za pośrednictwem swoich formularzy."
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:71
 msgid "Invalid response from server. Please try again."
 msgstr "Nieprawidłowa odpowiedź z serwera. Proszę spróbować ponownie."
 
-#: assets/build/admin.js:72
-#: assets/build/admin.js:88
+#: assets/build/admin.js:74
+#: assets/build/admin.js:90
 #: assets/build/editor/editor.js:1
 msgid "Connecting…"
 msgstr "Łączenie…"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Connect to Stripe"
 msgstr "Połącz z Stripe"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Securely connect to Stripe with just a few clicks to begin accepting donations!"
 msgstr "Bezpiecznie połącz się ze Stripe kilkoma kliknięciami, aby zacząć przyjmować darowizny!"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Learn More"
 msgstr "Dowiedz się więcej"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:71
 #: assets/build/blocks.js:1
 #: assets/build/editor/editor.js:1
 msgid "Visual"
 msgstr "Wizualny"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:71
 #: assets/build/blocks.js:1
 #: assets/build/editor/editor.js:1
 msgid "HTML"
 msgstr "HTML"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:71
 #: assets/build/blocks.js:1
 #: assets/build/editor/editor.js:1
 msgid "Add Tag"
@@ -2525,18 +2525,18 @@ msgstr "Powiadomienia e-mailowe"
 msgid "Subject"
 msgstr "Temat"
 
-#: inc/api/settings-api.php:615
-#: inc/api/settings-api.php:671
-#: assets/build/admin.js:96
+#: inc/api/settings-api.php:624
+#: inc/api/settings-api.php:680
+#: assets/build/admin.js:91
 msgid "Settings saved"
 msgstr "Ustawienia zapisane"
 
 #. translators: %s is the donation ID
-#: assets/build/admin.js:99
+#: assets/build/admin.js:107
 msgid "Donation #%s"
 msgstr "Darowizna #%s"
 
-#: assets/build/admin.js:102
+#: assets/build/admin.js:110
 msgid "Core"
 msgstr "Rdzeń"
 
@@ -2552,6 +2552,7 @@ msgstr "Wybór formularza"
 msgid "Donations will be linked to this campaign"
 msgstr "Darowizny będą powiązane z tą kampanią"
 
+#: inc/import-export/import/column-map.php:90
 #: assets/build/blocks/donation-form/editor.js:2
 msgid "Form"
 msgstr "Formularz"
@@ -2592,7 +2593,7 @@ msgid "Reset"
 msgstr "Resetuj"
 
 #: assets/build/blocks.js:1
-#: assets/build/blocks.js:3
+#: assets/build/blocks.js:4
 msgid "Label"
 msgstr "Etykieta"
 
@@ -2602,6 +2603,7 @@ msgstr "Symbol zastępczy"
 
 #: assets/build/blocks.js:1
 #: assets/build/blocks.js:3
+#: assets/build/blocks.js:4
 msgid "Help Text"
 msgstr "Tekst pomocy"
 
@@ -2629,12 +2631,12 @@ msgstr "Nieprawidłowa wiadomość e-mail"
 msgid "Show Currency Symbol"
 msgstr "Pokaż symbol waluty"
 
-#: assets/build/admin.js:80
+#: assets/build/admin.js:82
 #: assets/build/blocks.js:1
 msgid "Minimum Value"
 msgstr "Wartość minimalna"
 
-#: assets/build/admin.js:82
+#: assets/build/admin.js:84
 #: assets/build/blocks.js:1
 msgid "Maximum Value"
 msgstr "Maksymalna wartość"
@@ -2648,7 +2650,7 @@ msgid "Step"
 msgstr "Krok"
 
 #: assets/build/blocks.js:1
-#: assets/build/blocks.js:3
+#: assets/build/blocks.js:4
 msgid "Checked by Default"
 msgstr "Domyślnie zaznaczone"
 
@@ -2739,6 +2741,7 @@ msgid "Choose Amount Field"
 msgstr "Wybierz pole kwoty"
 
 #: assets/build/blocks.js:3
+#: assets/build/blocks.js:4
 msgid "Select a field…"
 msgstr "Wybierz pole…"
 
@@ -2751,23 +2754,23 @@ msgstr "Minimalna kwota"
 msgid "Set the minimum amount users can enter (0 for no minimum)"
 msgstr "Ustaw minimalną kwotę, jaką użytkownicy mogą wprowadzić (0 dla braku minimum)"
 
-#: assets/build/blocks.js:3
+#: assets/build/blocks.js:4
 msgid "Customer Name Field (Optional)"
 msgstr "Pole Nazwa Klienta (Opcjonalne)"
 
-#: assets/build/blocks.js:3
+#: assets/build/blocks.js:4
 msgid "Select the input field that contains the customer name"
 msgstr "Wybierz pole wejściowe, które zawiera nazwisko klienta"
 
-#: assets/build/blocks.js:3
+#: assets/build/blocks.js:4
 msgid "Customer Email Field (Required)"
 msgstr "Pole e-mail klienta (wymagane)"
 
-#: assets/build/blocks.js:3
+#: assets/build/blocks.js:4
 msgid "Select the email field that contains the customer email"
 msgstr "Wybierz pole e-mail, które zawiera adres e-mail klienta"
 
-#: assets/build/blocks.js:3
+#: assets/build/blocks.js:4
 msgid "Donate Button Preview"
 msgstr "Podgląd przycisku darowizny"
 
@@ -2791,8 +2794,8 @@ msgid "Partially Refunded"
 msgstr "Częściowo zwrócono"
 
 #: assets/build/admin.js:1
-#: assets/build/admin.js:89
-#: assets/build/admin.js:90
+#: assets/build/admin.js:95
+#: assets/build/admin.js:96
 #: assets/build/admin/onboarding/index.js:1
 #: assets/build/admin/onboarding/index.js:2
 #: assets/build/blocks.js:1
@@ -3218,22 +3221,22 @@ msgstr "Nie określono wtyczki."
 msgid "Plugin activated successfully."
 msgstr "Wtyczka została pomyślnie aktywowana."
 
-#: inc/admin/admin.php:402
+#: inc/admin/admin.php:495
 #: assets/build/admin.js:70
-#: assets/build/admin.js:96
+#: assets/build/admin.js:104
 msgid "Reports"
 msgstr "Raporty"
 
-#: inc/admin/admin.php:426
-#: inc/admin/admin.php:427
+#: inc/admin/admin.php:519
+#: inc/admin/admin.php:520
 msgid "SureDonation Setup"
 msgstr "Konfiguracja SureDonation"
 
-#: inc/admin/analytics.php:124
+#: inc/admin/analytics.php:146
 msgid "Quick Feedback"
 msgstr "Szybka opinia"
 
-#: inc/admin/analytics.php:126
+#: inc/admin/analytics.php:148
 msgid "If you have a moment, please share why you are deactivating SureDonation:"
 msgstr "Jeśli masz chwilę, podziel się, dlaczego dezaktywujesz SureDonation:"
 
@@ -3277,27 +3280,34 @@ msgid "%1$d donor(s) processed, %2$d error(s)."
 msgstr "%1$d darczyńca(ów) przetworzono, %2$d błąd(ów)."
 
 #: inc/api/donors-api.php:651
+#: inc/import-export/import/column-map.php:191
 #: inc/privacy/privacy-data.php:108
 #: assets/build/editor/editor.js:1
 msgid "Name"
 msgstr "Imię"
 
 #: inc/api/donors-api.php:652
+#: inc/import-export/import/column-map.php:186
 #: inc/privacy/privacy-data.php:109
 msgid "Email"
 msgstr "Email"
 
 #: inc/api/donors-api.php:653
+#: inc/import-export/import/column-map.php:196
 #: inc/privacy/privacy-data.php:110
 msgid "Phone"
 msgstr "Telefon"
 
 #: inc/api/donors-api.php:654
+#: inc/import-export/import/column-map.php:75
+#: inc/import-export/import/column-map.php:201
 #: inc/privacy/privacy-data.php:111
 msgid "Company"
 msgstr "Firma"
 
 #: inc/api/donors-api.php:655
+#: inc/import-export/import/column-map.php:80
+#: inc/import-export/import/column-map.php:206
 #: inc/privacy/privacy-data.php:112
 #: assets/build/admin.js:70
 #: assets/build/blocks.js:1
@@ -3305,28 +3315,34 @@ msgid "Address"
 msgstr "Adres"
 
 #: inc/api/donors-api.php:657
+#: inc/import-export/import/column-map.php:221
 #: assets/build/admin.js:58
 msgid "Total Donated"
 msgstr "Łączna kwota darowizn"
 
 #: inc/api/donors-api.php:658
+#: inc/import-export/import/column-map.php:226
 msgid "Donation Count"
 msgstr "Liczba darowizn"
 
 #: inc/api/donors-api.php:659
+#: inc/import-export/import/column-map.php:231
 msgid "Largest Donation"
 msgstr "Największa darowizna"
 
 #: inc/api/donors-api.php:660
+#: inc/import-export/import/column-map.php:236
 msgid "First Donation"
 msgstr "Pierwsza darowizna"
 
 #: inc/api/donors-api.php:661
+#: inc/import-export/import/column-map.php:241
 #: assets/build/admin.js:64
 msgid "Last Donation"
 msgstr "Ostatnia darowizna"
 
 #: inc/api/donors-api.php:662
+#: inc/import-export/import/column-map.php:246
 msgid "Created At"
 msgstr "Utworzono"
 
@@ -3336,12 +3352,15 @@ msgid "Failed to generate CSV."
 msgstr "Nie udało się wygenerować pliku CSV."
 
 #: inc/api/donors-api.php:765
-#: inc/pdf/receipt-generator.php:281
+#: inc/import-export/import/column-map.php:165
+#: inc/import-export/import/column-map.php:391
+#: inc/pdf/receipt-generator.php:282
 #: inc/privacy/privacy-data.php:131
 msgid "Date"
 msgstr "Data"
 
 #: inc/api/donors-api.php:839
+#: inc/api/import-export-api.php:138
 msgid "Invalid or missing nonce."
 msgstr "Nieprawidłowy lub brakujący nonce."
 
@@ -3402,16 +3421,16 @@ msgid "Import session not found or already completed."
 msgstr "Sesja importu nie została znaleziona lub już zakończona."
 
 #: inc/api/onboarding-api.php:139
-#: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:10
 msgid "Campaign name is required."
 msgstr "Nazwa kampanii jest wymagana."
 
 #: inc/api/onboarding-api.php:176
-#: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:10
 msgid "Could not create the campaign."
 msgstr "Nie udało się utworzyć kampanii."
 
-#: inc/api/settings-api.php:497
+#: inc/api/settings-api.php:506
 msgid "AI settings saved"
 msgstr "Ustawienia AI zapisane"
 
@@ -3425,8 +3444,8 @@ msgstr "Ustawienia AI zapisane"
 #: inc/page-builders/elementor/widgets/campaign-donate-button-widget.php:87
 #: inc/page-builders/elementor/widgets/campaign-donations-widget.php:102
 #: inc/page-builders/elementor/widgets/campaign-donations-widget.php:122
-#: inc/post-types/donation-form.php:728
-#: inc/post-types/donation-form.php:822
+#: inc/post-types/donation-form.php:745
+#: inc/post-types/donation-form.php:839
 msgid "Donate"
 msgstr "Przekaż darowiznę"
 
@@ -3474,7 +3493,7 @@ msgstr "Brak darczyńców."
 msgid "raised of %s goal"
 msgstr "zebrano z celu %s"
 
-#: inc/blocks/campaign-goal/block.php:78
+#: inc/blocks/campaign-goal/block.php:77
 msgid "donor"
 msgid_plural "donors"
 msgstr[0] "darczyńca"
@@ -3496,9 +3515,10 @@ msgstr "Największa darowizna"
 msgid "Average Donation"
 msgstr "Średnia darowizna"
 
-#: inc/blocks/register.php:409
-#: inc/payments/payment-helper.php:765
-#: assets/build/admin.js:72
+#: inc/blocks/register.php:413
+#: inc/payments/payment-helper.php:904
+#: assets/build/admin.js:74
+#: assets/build/admin.js:91
 msgid "Offline Donations"
 msgstr "Darowizny offline"
 
@@ -3516,12 +3536,12 @@ msgstr "Strona kampanii bez podpisu tematu lub zduplikowanego obrazu wyróżniaj
 msgid "Enter custom amount"
 msgstr "Wprowadź niestandardową kwotę"
 
-#: inc/fields/payment-markup.php:332
+#: inc/fields/payment-markup.php:335
 msgid "Credit / Debit Card"
 msgstr "Karta kredytowa / debetowa"
 
-#: inc/fields/payment-markup.php:555
-#: inc/helper.php:877
+#: inc/fields/payment-markup.php:558
+#: inc/helper.php:909
 msgid "Complete the form to view the amount."
 msgstr "Wypełnij formularz, aby zobaczyć kwotę."
 
@@ -3641,128 +3661,134 @@ msgstr "Zwrot został przetworzony."
 msgid "Form email notification settings."
 msgstr "Formularz ustawień powiadomień e-mail."
 
-#: inc/helper.php:872
+#: inc/helper.php:904
 msgid "Payment received. We are finalizing your donation and will email you a confirmation shortly. Please do not pay again."
 msgstr "Płatność otrzymana. Finalizujemy Twoją darowiznę i wkrótce wyślemy Ci potwierdzenie e-mailem. Prosimy nie płacić ponownie."
 
 #. translators: %s: formatted fee amount with currency symbol.
-#: inc/helper.php:876
+#: inc/helper.php:908
 msgid "(includes %s processing fee)"
 msgstr "(zawiera %s opłatę za przetwarzanie)"
 
-#: inc/helper.php:928
-#: inc/helper.php:1013
-#: inc/helper.php:1211
-#: inc/pdf/receipt-generator.php:256
+#: inc/helper.php:962
+#: inc/helper.php:1047
+#: inc/helper.php:1245
+#: inc/import-export/import/column-map.php:45
+#: inc/import-export/import/column-map.php:374
+#: inc/pdf/receipt-generator.php:257
 #: inc/privacy/privacy-data.php:133
 #: assets/build/admin.js:52
 #: assets/build/admin.js:64
 msgid "Donor Email"
 msgstr "E-mail darczyńcy"
 
-#: inc/helper.php:932
-#: inc/helper.php:1017
-#: inc/helper.php:1232
-#: inc/pdf/receipt-generator.php:272
+#: inc/helper.php:966
+#: inc/helper.php:1051
+#: inc/helper.php:1266
+#: inc/pdf/receipt-generator.php:273
 msgid "Donation Amount"
 msgstr "Kwota darowizny"
 
-#: inc/helper.php:940
-#: inc/helper.php:1025
+#: inc/helper.php:974
+#: inc/helper.php:1059
 msgid "Donation Date"
 msgstr "Data darowizny"
 
-#: inc/helper.php:952
-#: inc/helper.php:1054
-#: inc/helper.php:1082
+#: inc/helper.php:986
+#: inc/helper.php:1088
+#: inc/helper.php:1116
 msgid "Site Title"
 msgstr "Tytuł strony"
 
-#: inc/helper.php:956
-#: inc/helper.php:1247
-#: inc/pdf/receipt-generator.php:276
+#: inc/helper.php:990
+#: inc/helper.php:1281
+#: inc/pdf/receipt-generator.php:277
 msgid "Donation Total"
 msgstr "Łączna kwota darowizny"
 
-#: inc/helper.php:960
-#: inc/helper.php:1224
-#: inc/pdf/receipt-generator.php:265
+#: inc/helper.php:994
+#: inc/helper.php:1258
+#: inc/import-export/import/column-map.php:105
+#: inc/import-export/import/column-map.php:381
+#: inc/pdf/receipt-generator.php:266
 msgid "Payment Status"
 msgstr "Status płatności"
 
-#: inc/helper.php:968
+#: inc/helper.php:1002
 msgid "Success Badge"
 msgstr "Odznaka sukcesu"
 
-#: inc/helper.php:979
-#: inc/helper.php:1058
-#: inc/helper.php:1090
+#: inc/helper.php:1013
+#: inc/helper.php:1092
+#: inc/helper.php:1124
 msgid "Admin Email"
 msgstr "E-mail administratora"
 
-#: inc/helper.php:983
-#: inc/helper.php:1062
-#: inc/helper.php:1086
+#: inc/helper.php:1017
+#: inc/helper.php:1096
+#: inc/helper.php:1120
 msgid "Site URL"
 msgstr "URL strony"
 
-#: inc/helper.php:987
-#: inc/helper.php:1066
+#: inc/helper.php:1021
+#: inc/helper.php:1100
 msgid "Admin URL"
 msgstr "URL administratora"
 
-#: inc/helper.php:991
-#: inc/helper.php:1037
+#: inc/helper.php:1025
+#: inc/helper.php:1071
+#: inc/import-export/import/column-map.php:140
+#: inc/import-export/import/column-map.php:385
 msgid "Subscription ID"
 msgstr "ID subskrypcji"
 
-#: inc/helper.php:995
-#: inc/helper.php:1041
+#: inc/helper.php:1029
+#: inc/helper.php:1075
 msgid "Subscription Interval"
 msgstr "Interwał subskrypcji"
 
-#: inc/helper.php:999
-#: inc/helper.php:1070
+#: inc/helper.php:1033
+#: inc/helper.php:1104
 msgid "Offline Instructions"
 msgstr "Instrukcje offline"
 
-#: inc/helper.php:1005
+#: inc/helper.php:1039
 msgid "Donation Tags"
 msgstr "Tagi darowizn"
 
-#: inc/helper.php:1050
+#: inc/helper.php:1084
 msgid "General Tags"
 msgstr "Tagi ogólne"
 
-#: inc/helper.php:1106
+#: inc/helper.php:1140
 #: inc/payments/pay-pal/pay-pal-settings.php:121
 #: inc/payments/pay-pal/pay-pal-settings.php:140
 #: inc/payments/pay-pal/pay-pal-settings.php:178
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "PayPal"
 msgstr "PayPal"
 
-#: inc/fields/payment-markup.php:339
-#: inc/helper.php:1109
+#: inc/fields/payment-markup.php:342
+#: inc/helper.php:1143
 msgid "Offline Donation"
 msgstr "Darowizna offline"
 
-#: inc/helper.php:1124
+#: inc/helper.php:1158
 msgid "Success"
 msgstr "Sukces"
 
-#: inc/helper.php:1139
-#: inc/helper.php:1143
-#: inc/helper.php:1165
+#: inc/helper.php:1173
+#: inc/helper.php:1177
+#: inc/helper.php:1199
 msgid "Complete"
 msgstr "Zakończono"
 
 #. translators: {donor_name} is a smart tag replaced with the donor's name.
-#: inc/helper.php:1268
+#: inc/helper.php:1302
 msgid "Thank you {donor_name} for your Donation"
 msgstr "Dziękujemy {donor_name} za Twoją darowiznę"
 
-#: inc/helper.php:1271
+#: inc/helper.php:1305
 msgid "Your contribution means a lot. We have sent an email to your registered account along with a receipt for your donation."
 msgstr "Twoja wpłata wiele znaczy. Wysłaliśmy e-mail na Twoje zarejestrowane konto wraz z potwierdzeniem darowizny."
 
@@ -3841,7 +3867,7 @@ msgstr "Nieprawidłowa kwota darowizny."
 #: inc/payments/offline/offline-frontend.php:95
 #: inc/payments/pay-pal/pay-pal-frontend.php:434
 #: assets/build/admin.js:70
-#: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:10
 msgid "Email address is required."
 msgstr "Adres e-mail jest wymagany."
 
@@ -3952,7 +3978,7 @@ msgid "PayPal SDK failed to load. Please refresh the page."
 msgstr "Nie udało się załadować SDK PayPal. Proszę odświeżyć stronę."
 
 #: inc/payments/pay-pal/pay-pal-settings.php:471
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Failed to get PayPal connect URL."
 msgstr "Nie udało się uzyskać URL połączenia PayPal."
 
@@ -3966,7 +3992,7 @@ msgid "PayPal account setup incomplete: %s. Please complete your PayPal account 
 msgstr "Konfiguracja konta PayPal niekompletna: %s. Proszę dokończyć konfigurację konta PayPal i spróbować ponownie."
 
 #: inc/payments/pay-pal/pay-pal-settings.php:571
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "PayPal account connected successfully!"
 msgstr "Konto PayPal połączone pomyślnie!"
 
@@ -4007,7 +4033,7 @@ msgid "Webhook signature is invalid."
 msgstr "Podpis webhooka jest nieprawidłowy."
 
 #: inc/payments/pay-pal/pay-pal-webhook-listener.php:224
-#: inc/payments/stripe/stripe-webhook.php:300
+#: inc/payments/stripe/stripe-webhook.php:324
 msgid "Webhook filter returned unexpected value"
 msgstr "Filtr webhooka zwrócił nieoczekiwaną wartość"
 
@@ -4035,23 +4061,23 @@ msgstr "PayPal nie jest połączony."
 msgid "No webhook found to delete."
 msgstr "Nie znaleziono webhooka do usunięcia."
 
-#: inc/payments/payment-helper.php:766
+#: inc/payments/payment-helper.php:905
 msgid "Accept offline donations"
 msgstr "Akceptuj darowizny offline"
 
-#: inc/payments/payment-helper.php:871
+#: inc/payments/payment-helper.php:1010
 msgid "Payment amount must be greater than zero."
 msgstr "Kwota płatności musi być większa niż zero."
 
-#: inc/payments/payment-helper.php:942
+#: inc/payments/payment-helper.php:1081
 msgid "Payment type mismatch. This form does not support the requested payment type."
 msgstr "Niezgodność typu płatności. Ten formularz nie obsługuje żądanego typu płatności."
 
-#: inc/payments/payment-helper.php:1304
+#: inc/payments/payment-helper.php:1443
 msgid "Unable to verify the expected donation amount for this payment. Flagged for manual review."
 msgstr "Nie można zweryfikować oczekiwanej kwoty darowizny dla tej płatności. Oznaczono do ręcznej weryfikacji."
 
-#: inc/payments/stripe/stripe-frontend.php:263
+#: inc/payments/stripe/stripe-frontend.php:268
 msgid "Donation is not in pending state"
 msgstr "Darowizna nie jest w stanie oczekiwania"
 
@@ -4108,12 +4134,12 @@ msgstr "Archiwum zawiera ścieżkę wychodzącą poza katalog docelowy."
 msgid "Archive uncompressed size exceeds the safety limit."
 msgstr "Rozpakowany rozmiar archiwum przekracza limit bezpieczeństwa."
 
-#: inc/pdf/receipt-generator.php:249
+#: inc/pdf/receipt-generator.php:250
 msgid "Receipt"
 msgstr "Paragon"
 
 #. translators: 1: Site name, 2: Site URL.
-#: inc/pdf/receipt-generator.php:287
+#: inc/pdf/receipt-generator.php:288
 msgid "Generated by %1$s · %2$s"
 msgstr "Wygenerowane przez %1$s · %2$s"
 
@@ -4170,7 +4196,7 @@ msgid "Failed to install PDF library."
 msgstr "Nie udało się zainstalować biblioteki PDF."
 
 #: assets/build/admin.js:1
-#: assets/build/admin.js:88
+#: assets/build/admin.js:90
 #: assets/build/editor/editor.js:1
 msgid "Installing…"
 msgstr "Instalowanie…"
@@ -4211,7 +4237,7 @@ msgid "Launch Setup Wizard"
 msgstr "Uruchom kreatora konfiguracji"
 
 #: assets/build/admin.js:1
-#: assets/build/admin.js:90
+#: assets/build/admin.js:96
 #: assets/build/admin/onboarding/index.js:2
 msgid "Clear"
 msgstr "Wyczyść"
@@ -4256,6 +4282,7 @@ msgid "Remove"
 msgstr "Usuń"
 
 #: assets/build/admin.js:10
+#: assets/build/admin.js:94
 #: assets/build/editor/editor.js:1
 msgid "Replace"
 msgstr "Zamień"
@@ -4305,6 +4332,8 @@ msgid "Failed to set the default form."
 msgstr "Nie udało się ustawić domyślnego formularza."
 
 #: assets/build/admin.js:26
+#: assets/build/admin.js:71
+#: assets/build/blocks.js:1
 msgid "Default"
 msgstr "Domyślny"
 
@@ -4370,6 +4399,8 @@ msgstr "Nazwa kampanii"
 msgid "%s interval"
 msgstr "%s interwał"
 
+#: inc/import-export/import/column-map.php:135
+#: inc/import-export/import/column-map.php:384
 #: assets/build/admin.js:39
 msgid "Donation Type"
 msgstr "Typ darowizny"
@@ -4406,6 +4437,8 @@ msgstr "Nazwa formularza"
 msgid "Billing Cycle"
 msgstr "Cykl rozliczeniowy"
 
+#: inc/import-export/import/column-map.php:181
+#: inc/import-export/import/column-map.php:372
 #: assets/build/admin.js:52
 #: assets/build/admin.js:64
 msgid "Donor ID"
@@ -4420,6 +4453,7 @@ msgid "Donors exported successfully."
 msgstr "Darczyńcy wyeksportowani pomyślnie."
 
 #: assets/build/admin.js:55
+#: assets/build/admin.js:92
 msgid "Failed to export donors."
 msgstr "Nie udało się wyeksportować darczyńców."
 
@@ -4501,11 +4535,14 @@ msgid "Donors Overview"
 msgstr "Przegląd darczyńców"
 
 #: assets/build/admin.js:64
+#: assets/build/admin.js:91
 msgid "Exporting…"
 msgstr "Eksportowanie…"
 
 #: assets/build/admin.js:64
 #: assets/build/admin.js:70
+#: assets/build/admin.js:91
+#: assets/build/admin.js:92
 msgid "Export CSV"
 msgstr "Eksportuj CSV"
 
@@ -4709,291 +4746,287 @@ msgid "Upgrade to Pro"
 msgstr "Ulepsz do wersji Pro"
 
 #. translators: %s: payment gateway name (e.g. Stripe, PayPal).
-#: assets/build/admin.js:72
+#: assets/build/admin.js:71
 msgid "You'll pay a 2.9%% transaction fee plus standard %s fees."
 msgstr "Zapłacisz 2,9%% opłaty transakcyjnej plus standardowe opłaty %s."
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "PayPal onboarding failed: merchant ID not received."
 msgstr "Niepowodzenie w onboardingu PayPal: nie otrzymano identyfikatora sprzedawcy."
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "PayPal onboarding failed: could not verify merchant status."
 msgstr "Niepowodzenie w onboardingu PayPal: nie można zweryfikować statusu sprzedawcy."
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "PayPal account setup is incomplete. Please complete your PayPal account setup and try again."
 msgstr "Konfiguracja konta PayPal jest niekompletna. Proszę dokończyć konfigurację konta PayPal i spróbować ponownie."
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "PayPal onboarding failed."
 msgstr "Niepowodzenie w onboardingu PayPal."
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Failed to disconnect PayPal."
 msgstr "Nie udało się odłączyć PayPal."
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "PayPal account disconnected successfully."
 msgstr "Konto PayPal zostało pomyślnie odłączone."
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Disconnect PayPal Account"
 msgstr "Odłącz konto PayPal"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Are you sure you want to disconnect your PayPal account? This will stop all active PayPal donations."
 msgstr "Czy na pewno chcesz odłączyć swoje konto PayPal? To zatrzyma wszystkie aktywne darowizny PayPal."
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Webhook successfully connected. PayPal events are being tracked."
 msgstr "Webhook został pomyślnie połączony. Wydarzenia PayPal są śledzone."
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Set up a webhook to receive real-time payment notifications from PayPal."
 msgstr "Skonfiguruj webhook, aby otrzymywać powiadomienia o płatnościach w czasie rzeczywistym z PayPal."
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Failed to create PayPal webhook."
 msgstr "Nie udało się utworzyć webhooka PayPal."
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "PayPal webhook created successfully!"
 msgstr "Webhook PayPal został pomyślnie utworzony!"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Connect your PayPal account to start accepting donations through PayPal."
 msgstr "Połącz swoje konto PayPal, aby zacząć przyjmować darowizny przez PayPal."
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Failed to connect to PayPal."
 msgstr "Nie udało się połączyć z PayPal."
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Waiting for PayPal setup…"
 msgstr "Oczekiwanie na konfigurację PayPal…"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Connect to PayPal"
 msgstr "Połącz z PayPal"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Complete the setup in the PayPal tab that just opened. This page will update automatically."
 msgstr "Ukończ konfigurację w zakładce PayPal, która właśnie się otworzyła. Ta strona zaktualizuje się automatycznie."
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "A new tab will open for you to complete the PayPal setup."
 msgstr "Nowa zakładka otworzy się, abyś mógł ukończyć konfigurację PayPal."
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:71
 msgid "Enable Offline Donations"
 msgstr "Włącz darowizny offline"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:71
 msgid "Allow donors to submit donations without online payment. You can manually mark them as complete."
 msgstr "Pozwól darczyńcom przesyłać darowizny bez płatności online. Możesz ręcznie oznaczyć je jako zakończone."
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:71
 msgid "Payment Instructions"
 msgstr "Instrukcje płatności"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:71
 msgid "These instructions will be shown to donors who choose offline payment."
 msgstr "Te instrukcje będą wyświetlane darczyńcom, którzy wybiorą płatność offline."
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Fee Recovery"
 msgstr "Odzyskiwanie opłat"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Let donors cover the processing fees so your cause receives the full donation amount."
 msgstr "Pozwól darczyńcom pokryć koszty przetwarzania, aby Twoja sprawa otrzymała pełną kwotę darowizny."
 
-#: assets/build/admin.js:72
-msgid "Configure the currency and payment mode for donations."
-msgstr "Skonfiguruj walutę i tryb płatności dla darowizn."
-
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Donor Management"
 msgstr "Zarządzanie darczyńcami"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Control how donor records relate to WordPress user accounts."
 msgstr "Kontroluj, jak rekordy darczyńców odnoszą się do kont użytkowników WordPress."
 
-#: assets/build/admin.js:72
-#: assets/build/admin.js:96
-#: assets/build/admin/onboarding/index.js:6
+#: assets/build/admin.js:91
+#: assets/build/admin.js:104
+#: assets/build/admin/onboarding/index.js:8
 msgid "Migrate"
 msgstr "Migruj"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:91
 msgid "Migrate donor data from other plugins."
 msgstr "Migruj dane darczyńców z innych wtyczek."
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "MCP"
 msgstr "MCP"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Control AI agent access to your donation data through the WordPress Abilities API."
 msgstr "Kontroluj dostęp agenta AI do danych o darowiznach za pośrednictwem WordPress Abilities API."
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Miscellaneous"
 msgstr "Różne"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Additional settings to improve your experience."
 msgstr "Dodatkowe ustawienia, aby poprawić Twoje doświadczenie."
 
-#: assets/build/admin.js:72
-#: assets/build/blocks.js:3
+#: assets/build/admin.js:74
+#: assets/build/blocks.js:4
 msgid "Fee Percentage (%)"
 msgstr "Procent opłaty (%)"
 
-#: assets/build/admin.js:72
-#: assets/build/blocks.js:3
+#: assets/build/admin.js:74
+#: assets/build/blocks.js:4
 msgid "Fixed Fee"
 msgstr "Stała opłata"
 
-#: assets/build/admin.js:72
-#: assets/build/blocks.js:3
+#: assets/build/admin.js:74
+#: assets/build/blocks.js:4
 msgid "Fee Configuration"
 msgstr "Konfiguracja opłat"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Set the default processing fee rates. These apply when donors opt to cover fees, unless overridden per form."
 msgstr "Ustaw domyślne stawki opłat przetwarzania. Mają zastosowanie, gdy darczyńcy zdecydują się pokryć opłaty, chyba że zostaną zastąpione dla konkretnego formularza."
 
-#: assets/build/admin.js:72
-#: assets/build/blocks.js:3
+#: assets/build/admin.js:74
+#: assets/build/blocks.js:4
 msgid "All Gateways"
 msgstr "Wszystkie bramki"
 
-#: assets/build/admin.js:72
-#: assets/build/blocks.js:3
+#: assets/build/admin.js:74
+#: assets/build/blocks.js:4
 msgid "Per Gateway"
 msgstr "Na bramkę"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "The percentage fee charged by Stripe (e.g., 2.9 for US accounts)."
 msgstr "Procentowa opłata pobierana przez Stripe (np. 2.9 dla kont w USA)."
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "The fixed fee per transaction charged by Stripe (e.g., 0.30 for US accounts)."
 msgstr "Stała opłata za transakcję pobierana przez Stripe (np. 0.30 dla kont w USA)."
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Stripe fees vary by country and account. Check your Stripe dashboard for your actual processing rates."
 msgstr "Opłaty Stripe różnią się w zależności od kraju i konta. Sprawdź swoje rzeczywiste stawki przetwarzania w panelu Stripe."
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Copy to clipboard"
 msgstr "Kopiuj do schowka"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Connect Your AI Client"
 msgstr "Połącz swojego klienta AI"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Open Application Passwords"
 msgstr "Otwórz hasła aplikacji"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Copy the JSON config below into your AI client's MCP config file."
 msgstr "Skopiuj poniższą konfigurację JSON do pliku konfiguracyjnego MCP swojego klienta AI."
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Replace \"your-application-password\" with the password from Step 1."
 msgstr "Zastąp \"your-application-password\" hasłem z Kroku 1."
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Add to .mcp.json (Claude Code), claude_desktop_config.json (Claude Desktop), or your client's MCP settings."
 msgstr "Dodaj do .mcp.json (Claude Code), claude_desktop_config.json (Claude Desktop) lub ustawień MCP swojego klienta."
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Experimental"
 msgstr "Eksperymentalne"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Enable Abilities"
 msgstr "Włącz umiejętności"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Register SureDonation abilities with the WordPress Abilities API. When enabled, AI clients can list, read, create, edit, and delete your campaigns, donations, and donors. When disabled, no abilities are registered."
 msgstr "Zarejestruj umiejętności SureDonation w WordPress Abilities API. Po włączeniu klienci AI mogą wymieniać, czytać, tworzyć, edytować i usuwać Twoje kampanie, darowizny i darczyńców. Po wyłączeniu żadne umiejętności nie są rejestrowane."
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Enable Edit Abilities"
 msgstr "Włącz edytowanie umiejętności"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "When enabled, AI clients can create new campaigns, update campaign settings, modify donations, and manage donor records. When disabled, these abilities are unregistered and AI clients can only read your data."
 msgstr "Gdy włączone, klienci AI mogą tworzyć nowe kampanie, aktualizować ustawienia kampanii, modyfikować darowizny i zarządzać danymi darczyńców. Gdy wyłączone, te umiejętności są wyrejestrowane i klienci AI mogą tylko odczytywać Twoje dane."
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Enable Delete Abilities"
 msgstr "Włącz usuwanie umiejętności"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "When enabled, AI clients can permanently delete campaigns, donations, and donors. Deleted data cannot be recovered. When disabled, delete abilities are unregistered."
 msgstr "Gdy włączone, klienci AI mogą trwale usuwać kampanie, darowizny i darczyńców. Usuniętych danych nie można odzyskać. Gdy wyłączone, umiejętności usuwania są wyrejestrowane."
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "MCP Server"
 msgstr "Serwer MCP"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Enable MCP Server"
 msgstr "Włącz serwer MCP"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Creates a dedicated SureDonation MCP endpoint that AI clients like Claude can connect to. When disabled, the endpoint is removed and external AI clients cannot discover or call any SureDonation abilities."
 msgstr "Tworzy dedykowany punkt końcowy SureDonation MCP, do którego mogą się podłączyć klienci AI, tacy jak Claude. Gdy wyłączone, punkt końcowy jest usuwany i zewnętrzni klienci AI nie mogą odkrywać ani wywoływać żadnych umiejętności SureDonation."
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Learn more"
 msgstr "Dowiedz się więcej"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Contribute to SureDonation"
 msgstr "Współtwórz SureDonation"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Help shape the future of SureDonation. Share how you use the plugin so we can build features that matter, fix issues faster, and make smarter decisions."
 msgstr "Pomóż kształtować przyszłość SureDonation. Podziel się, jak używasz wtyczki, abyśmy mogli budować funkcje, które mają znaczenie, szybciej naprawiać problemy i podejmować mądrzejsze decyzje."
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Create WordPress accounts for donors"
 msgstr "Twórz konta WordPress dla darczyńców"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "When enabled, a WordPress user account is automatically created for each new donor and a new-account email is sent to them. Leave this off to keep guest donations from creating accounts."
 msgstr "Gdy włączone, konto użytkownika WordPress jest automatycznie tworzone dla każdego nowego darczyńcy, a do nich wysyłany jest e-mail z nowym kontem. Pozostaw to wyłączone, aby darowizny gości nie tworzyły kont."
 
-#: assets/build/admin.js:89
+#: assets/build/admin.js:95
 #: assets/build/admin/onboarding/index.js:1
 msgid "Could not load GiveWP data"
 msgstr "Nie można załadować danych GiveWP"
 
-#: assets/build/admin.js:89
+#: assets/build/admin.js:95
 #: assets/build/admin/onboarding/index.js:1
 msgid "Failed to fetch GiveWP preview."
 msgstr "Nie udało się pobrać podglądu GiveWP."
 
-#: assets/build/admin.js:89
+#: assets/build/admin.js:95
 #: assets/build/admin/onboarding/index.js:1
 msgid "No GiveWP campaigns found"
 msgstr "Nie znaleziono kampanii GiveWP"
 
-#: assets/build/admin.js:89
+#: assets/build/admin.js:95
 #: assets/build/admin/onboarding/index.js:1
 msgid "We didn't find any GiveWP campaigns to migrate. If you've recently moved sites, restore the GiveWP database tables and try again."
 msgstr "Nie znaleźliśmy żadnych kampanii GiveWP do migracji. Jeśli niedawno przeniosłeś witryny, przywróć tabele bazy danych GiveWP i spróbuj ponownie."
 
 #. translators: %d: campaign count
-#: assets/build/admin.js:90
+#: assets/build/admin.js:96
 #: assets/build/admin/onboarding/index.js:2
 msgid "Found %d campaign. Select what to migrate."
 msgid_plural "Found %d campaigns. Select what to migrate."
@@ -5001,33 +5034,33 @@ msgstr[0] "Znaleziono %d kampanię. Wybierz, co migrować."
 msgstr[1] ""
 msgstr[2] ""
 
-#: assets/build/admin.js:90
+#: assets/build/admin.js:96
 #: assets/build/admin/onboarding/index.js:2
 msgid "Picking a campaign migrates all its donations, donors, and recurring donations."
 msgstr "Wybór kampanii migruje wszystkie jej darowizny, darczyńców i powtarzające się darowizny."
 
-#: assets/build/admin.js:90
+#: assets/build/admin.js:96
 #: assets/build/admin/onboarding/index.js:2
 msgid "Select all"
 msgstr "Wybierz wszystko"
 
-#: assets/build/admin.js:90
+#: assets/build/admin.js:96
 #: assets/build/admin/onboarding/index.js:2
 msgid "With donations"
 msgstr "Z darowiznami"
 
-#: assets/build/admin.js:90
+#: assets/build/admin.js:96
 #: assets/build/admin/onboarding/index.js:2
 msgid "No campaigns match your search."
 msgstr "Żadne kampanie nie pasują do Twojego wyszukiwania."
 
-#: assets/build/admin.js:90
+#: assets/build/admin.js:96
 #: assets/build/admin/onboarding/index.js:2
 msgid "Include standalone donors"
 msgstr "Uwzględnij samodzielnych darczyńców"
 
 #. translators: %d: standalone donor count
-#: assets/build/admin.js:91
+#: assets/build/admin.js:97
 #: assets/build/admin/onboarding/index.js:3
 msgid "Also import %d standalone donor"
 msgid_plural "Also import %d standalone donors"
@@ -5035,13 +5068,13 @@ msgstr[0] "Zaimportuj także %d samodzielnego darczyńcę"
 msgstr[1] ""
 msgstr[2] ""
 
-#: assets/build/admin.js:91
+#: assets/build/admin.js:97
 #: assets/build/admin/onboarding/index.js:3
 msgid "Donors that exist in GiveWP without any donation linked to them."
 msgstr "Darczyńcy, którzy istnieją w GiveWP bez żadnej powiązanej z nimi darowizny."
 
 #. translators: 1: item count, 2: campaign count
-#: assets/build/admin.js:92
+#: assets/build/admin.js:98
 #: assets/build/admin/onboarding/index.js:4
 msgid "%1$d item across %2$d campaign"
 msgid_plural "%1$d items across %2$d campaigns"
@@ -5049,269 +5082,270 @@ msgstr[0] "%1$d element w %2$d kampanii"
 msgstr[1] ""
 msgstr[2] ""
 
-#: assets/build/admin.js:92
+#: assets/build/admin.js:98
 #: assets/build/admin/onboarding/index.js:4
 msgid "Proceed"
 msgstr "Kontynuuj"
 
-#: assets/build/admin.js:92
-#: assets/build/admin.js:94
+#: assets/build/admin.js:98
+#: assets/build/admin.js:102
 #: assets/build/admin/onboarding/index.js:4
-#: assets/build/admin/onboarding/index.js:6
+#: assets/build/admin/onboarding/index.js:8
 msgid "Recurring Donations"
 msgstr "Powtarzające się darowizny"
 
-#: assets/build/admin.js:92
+#: assets/build/admin.js:98
 #: assets/build/admin/onboarding/index.js:4
 msgid "Importing campaigns and settings from GiveWP"
 msgstr "Importowanie kampanii i ustawień z GiveWP"
 
-#: assets/build/admin.js:92
+#: assets/build/admin.js:98
 #: assets/build/admin/onboarding/index.js:4
 msgid "Importing donations from GiveWP"
 msgstr "Importowanie darowizn z GiveWP"
 
-#: assets/build/admin.js:92
+#: assets/build/admin.js:98
 #: assets/build/admin/onboarding/index.js:4
 msgid "Importing recurring donations from GiveWP"
 msgstr "Importowanie powtarzających się darowizn z GiveWP"
 
-#: assets/build/admin.js:92
+#: assets/build/admin.js:98
 #: assets/build/admin/onboarding/index.js:4
 msgid "Importing donors from GiveWP"
 msgstr "Importowanie darczyńców z GiveWP"
 
-#: assets/build/admin.js:92
-#: assets/build/admin.js:94
+#: assets/build/admin.js:98
+#: assets/build/admin.js:102
 #: assets/build/admin/onboarding/index.js:4
-#: assets/build/admin/onboarding/index.js:6
+#: assets/build/admin/onboarding/index.js:8
 msgid "Migration complete"
 msgstr "Migracja zakończona"
 
-#: assets/build/admin.js:92
-#: assets/build/admin.js:95
+#: assets/build/admin.js:98
+#: assets/build/admin.js:103
 #: assets/build/admin/onboarding/index.js:4
-#: assets/build/admin/onboarding/index.js:7
+#: assets/build/admin/onboarding/index.js:9
 msgid "Migration cancelled"
 msgstr "Migracja anulowana"
 
-#: assets/build/admin.js:92
-#: assets/build/admin.js:95
+#: assets/build/admin.js:98
+#: assets/build/admin.js:103
 #: assets/build/admin/onboarding/index.js:4
-#: assets/build/admin/onboarding/index.js:7
+#: assets/build/admin/onboarding/index.js:9
 msgid "Migration failed"
 msgstr "Migracja nie powiodła się"
 
-#: assets/build/admin.js:92
+#: assets/build/admin.js:98
 #: assets/build/admin/onboarding/index.js:4
 msgid "Importing data from GiveWP"
 msgstr "Importowanie danych z GiveWP"
 
-#: assets/build/admin.js:92
+#: assets/build/admin.js:98
 #: assets/build/admin/onboarding/index.js:4
 msgid "All done."
 msgstr "Wszystko gotowe."
 
-#: assets/build/admin.js:92
+#: assets/build/admin.js:98
 #: assets/build/admin/onboarding/index.js:4
 msgid "Cancelled."
 msgstr "Anulowano."
 
-#: assets/build/admin.js:92
-#: assets/build/admin.js:95
+#: assets/build/admin.js:98
+#: assets/build/admin.js:103
 #: assets/build/admin/onboarding/index.js:4
-#: assets/build/admin/onboarding/index.js:7
+#: assets/build/admin/onboarding/index.js:9
 msgid "Migration failed."
 msgstr "Migracja nie powiodła się."
 
 #. translators: %s: current phase label, e.g. "Donations"
-#: assets/build/admin.js:93
+#: assets/build/admin.js:99
 #: assets/build/admin/onboarding/index.js:5
 msgid "Importing %s…"
 msgstr "Importowanie %s…"
 
-#: assets/build/admin.js:93
-#: assets/build/admin/onboarding/index.js:5
-msgid "100% completed"
-msgstr "100% ukończone"
-
 #. translators: 1: processed count 2: total count
-#: assets/build/admin.js:94
-#: assets/build/admin/onboarding/index.js:6
+#: assets/build/admin.js:102
+#: assets/build/admin/onboarding/index.js:8
 msgid "%1$d/%2$d items imported"
 msgstr "%1$d/%2$d elementów zaimportowanych"
 
 #: assets/build/admin.js:94
-#: assets/build/admin.js:96
-#: assets/build/admin/onboarding/index.js:6
+#: assets/build/admin.js:95
+#: assets/build/admin.js:102
+#: assets/build/admin.js:104
+#: assets/build/admin/onboarding/index.js:8
 msgid "Importing…"
 msgstr "Importowanie…"
 
 #. translators: 1: imported 2: skipped 3: errors
-#: assets/build/admin.js:95
-#: assets/build/admin.js:96
-#: assets/build/admin/onboarding/index.js:7
+#: assets/build/admin.js:103
+#: assets/build/admin.js:104
+#: assets/build/admin/onboarding/index.js:9
 msgid "Imported %1$d, skipped %2$d, %3$d errors."
 msgstr "Zaimportowano %1$d, pominięto %2$d, %3$d błędów."
 
-#: assets/build/admin.js:95
+#: assets/build/admin.js:103
 msgid "Could not check GiveWP"
 msgstr "Nie można sprawdzić GiveWP"
 
-#: assets/build/admin.js:95
+#: assets/build/admin.js:103
 msgid "Failed to fetch GiveWP data."
 msgstr "Nie udało się pobrać danych GiveWP."
 
-#: assets/build/admin.js:95
+#: assets/build/admin.js:103
 msgid "No GiveWP data found"
 msgstr "Nie znaleziono danych GiveWP"
 
-#: assets/build/admin.js:95
+#: assets/build/admin.js:103
 msgid "We didn't find any GiveWP records in this site's database, so there's nothing to migrate. If you've recently moved sites, restore the GiveWP database tables and try again. You can still upload a CSV export from the Import from CSV tab."
 msgstr "Nie znaleźliśmy żadnych rekordów GiveWP w bazie danych tej strony, więc nie ma nic do migracji. Jeśli niedawno przeniosłeś strony, przywróć tabele bazy danych GiveWP i spróbuj ponownie. Nadal możesz przesłać eksport CSV z zakładki Importuj z CSV."
 
-#: assets/build/admin.js:95
-#: assets/build/admin/onboarding/index.js:7
+#: assets/build/admin.js:103
+#: assets/build/admin/onboarding/index.js:9
 msgid "Your data has been imported successfully."
 msgstr "Twoje dane zostały pomyślnie zaimportowane."
 
-#: assets/build/admin.js:95
+#: assets/build/admin.js:103
 msgid "We've Imported Your Donation Data. Here's What's Done:"
 msgstr "Zaimportowaliśmy Twoje dane dotyczące darowizn. Oto, co zostało zrobione:"
 
-#: assets/build/admin.js:95
-#: assets/build/admin/onboarding/index.js:7
+#: assets/build/admin.js:103
+#: assets/build/admin/onboarding/index.js:9
 msgid "Data Type"
 msgstr "Typ danych"
 
-#: assets/build/admin.js:95
-#: assets/build/admin/onboarding/index.js:7
+#: assets/build/admin.js:103
+#: assets/build/admin/onboarding/index.js:9
 msgid "Imported"
 msgstr "Zaimportowano"
 
-#: assets/build/admin.js:95
-#: assets/build/admin/onboarding/index.js:7
+#: assets/build/admin.js:103
+#: assets/build/admin/onboarding/index.js:9
 msgid "Skipped"
 msgstr "Pominięto"
 
-#: assets/build/admin.js:95
+#: assets/build/admin.js:103
 msgid "Some settings may not migrate exactly due to differences between platforms. Donation forms are not imported and will be automatically generated for each imported campaign. Please review your imported data."
 msgstr "Niektóre ustawienia mogą nie zostać dokładnie zmigrowane z powodu różnic między platformami. Formularze darowizn nie są importowane i zostaną automatycznie wygenerowane dla każdej zaimportowanej kampanii. Proszę przejrzeć zaimportowane dane."
 
-#: assets/build/admin.js:95
+#: assets/build/admin.js:103
 msgid "Review Campaigns"
 msgstr "Przejrzyj kampanie"
 
-#: assets/build/admin.js:95
-#: assets/build/admin/onboarding/index.js:7
+#: assets/build/admin.js:103
+#: assets/build/admin/onboarding/index.js:9
 msgid "The migration did not finish. You can try again."
 msgstr "Migracja nie została zakończona. Możesz spróbować ponownie."
 
-#: assets/build/admin.js:95
+#: assets/build/admin.js:103
 msgid "Back to selector"
 msgstr "Powrót do selektora"
 
-#: assets/build/admin.js:95
-#: assets/build/admin.js:96
-#: assets/build/admin/onboarding/index.js:6
+#: assets/build/admin.js:103
+#: assets/build/admin.js:104
+#: assets/build/admin/onboarding/index.js:8
 msgid "GiveWP"
 msgstr "GiveWP"
 
-#: assets/build/admin.js:95
+#: assets/build/admin.js:103
 msgid "Select Source Plugin"
 msgstr "Wybierz wtyczkę źródłową"
 
-#: assets/build/admin.js:95
+#: assets/build/admin.js:103
 msgid "Choose the platform that exported your CSV file to ensure the data is mapped correctly."
 msgstr "Wybierz platformę, która wyeksportowała Twój plik CSV, aby upewnić się, że dane są poprawnie mapowane."
 
-#: assets/build/admin.js:95
+#: assets/build/admin.js:103
 msgid "Upload CSV File"
 msgstr "Prześlij plik CSV"
 
-#: assets/build/admin.js:95
+#: assets/build/admin.js:94
+#: assets/build/admin.js:103
 msgid "Please select a .csv file."
 msgstr "Proszę wybrać plik .csv."
 
-#: assets/build/admin.js:95
+#: assets/build/admin.js:103
 msgid "Upload your donation export CSV to import donations into SureDonation."
 msgstr "Prześlij swój eksport darowizn CSV, aby zaimportować darowizny do SureDonation."
 
-#: assets/build/admin.js:95
+#: assets/build/admin.js:103
 msgid "Upload failed."
 msgstr "Przesyłanie nie powiodło się."
 
-#: assets/build/admin.js:96
+#: assets/build/admin.js:104
 msgid "CSV processed with errors"
 msgstr "CSV przetworzony z błędami"
 
-#: assets/build/admin.js:96
+#: assets/build/admin.js:104
 msgid "CSV imported successfully"
 msgstr "CSV zaimportowany pomyślnie"
 
-#: assets/build/admin.js:96
+#: assets/build/admin.js:104
 msgid "CSV import failed"
 msgstr "Import CSV nie powiódł się"
 
-#: assets/build/admin.js:96
+#: assets/build/admin.js:104
 msgid "Something went wrong while importing this CSV."
 msgstr "Coś poszło nie tak podczas importowania tego CSV."
 
-#: assets/build/admin.js:96
+#: assets/build/admin.js:94
+#: assets/build/admin.js:95
+#: assets/build/admin.js:104
 msgid "Import"
 msgstr "Importuj"
 
-#: assets/build/admin.js:96
-#: assets/build/admin/onboarding/index.js:6
+#: assets/build/admin.js:104
+#: assets/build/admin/onboarding/index.js:8
 msgid "Import Donation Information"
 msgstr "Importuj informacje o darowiznach"
 
-#: assets/build/admin.js:96
+#: assets/build/admin.js:104
 msgid "Unlock Full Migration Support"
 msgstr "Odblokuj pełne wsparcie migracji"
 
-#: assets/build/admin.js:96
+#: assets/build/admin.js:104
 msgid "Migrate recurring donations, import standalone donors and more with SureDonation Pro."
 msgstr "Migruj cykliczne darowizny, importuj samodzielnych darczyńców i więcej z SureDonation Pro."
 
-#: assets/build/admin.js:96
+#: assets/build/admin.js:104
 msgid "Upgrade now"
 msgstr "Ulepsz teraz"
 
-#: assets/build/admin.js:96
+#: assets/build/admin.js:104
 msgid "Migrate from Plugin"
 msgstr "Migruj z wtyczki"
 
-#: assets/build/admin.js:96
+#: assets/build/admin.js:94
+#: assets/build/admin.js:104
 msgid "Import from CSV"
 msgstr "Importuj z CSV"
 
 #. translators: %s is the donor ID
-#: assets/build/admin.js:102
+#: assets/build/admin.js:110
 msgid "Donor #%s"
 msgstr "Darczyńca #%s"
 
-#: assets/build/admin.js:102
+#: assets/build/admin.js:110
 msgid "Pro"
 msgstr "Pro"
 
-#: assets/build/admin.js:102
+#: assets/build/admin.js:110
 msgid "Unlicensed"
 msgstr "Bez licencji"
 
-#: assets/build/admin.js:102
+#: assets/build/admin.js:110
 msgid "Knowledge Base"
 msgstr "Baza wiedzy"
 
-#: assets/build/admin.js:102
+#: assets/build/admin.js:110
 msgid "Something went wrong"
 msgstr "Coś poszło nie tak"
 
-#: assets/build/admin.js:102
+#: assets/build/admin.js:110
 msgid "This section failed to load. Try again, or reload the page if the problem continues."
 msgstr "Nie udało się załadować tej sekcji. Spróbuj ponownie lub odśwież stronę, jeśli problem będzie się powtarzał."
 
-#: assets/build/admin.js:102
+#: assets/build/admin.js:110
 msgid "Try again"
 msgstr "Spróbuj ponownie"
 
@@ -5355,191 +5389,193 @@ msgstr "Twórz kampanie darowizn, zbieraj płatności bezpiecznie i zarządzaj w
 msgid "Let's Get Started"
 msgstr "Zacznijmy"
 
-#: assets/build/admin/onboarding/index.js:6
 #: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:10
 msgid "Back"
 msgstr "Wstecz"
 
-#: assets/build/admin/onboarding/index.js:6
-#: assets/build/admin/onboarding/index.js:7
 #: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:9
+#: assets/build/admin/onboarding/index.js:10
 msgid "Skip"
 msgstr "Pomiń"
 
-#: assets/build/admin/onboarding/index.js:6
-#: assets/build/admin/onboarding/index.js:7
+#: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:9
 msgid "Continue"
 msgstr "Kontynuuj"
 
-#: assets/build/admin/onboarding/index.js:7
+#: assets/build/admin/onboarding/index.js:9
 msgid "Import your existing donation data"
 msgstr "Zaimportuj swoje istniejące dane dotyczące darowizn"
 
-#: assets/build/admin/onboarding/index.js:7
+#: assets/build/admin/onboarding/index.js:9
 msgid "Migrate campaigns, donations, and donors from another donation plugin. You can review everything before publishing."
 msgstr "Migruj kampanie, darowizny i darczyńców z innej wtyczki do darowizn. Możesz wszystko przejrzeć przed publikacją."
 
-#: assets/build/admin/onboarding/index.js:7
+#: assets/build/admin/onboarding/index.js:9
 msgid "We've imported your donation data. Here's what's done:"
 msgstr "Zaimportowaliśmy Twoje dane dotyczące darowizn. Oto, co zostało zrobione:"
 
-#: assets/build/admin/onboarding/index.js:7
+#: assets/build/admin/onboarding/index.js:9
 msgid "Some settings may not migrate exactly due to differences between platforms. Donation forms are not imported and will be automatically generated for each imported campaign."
 msgstr "Niektóre ustawienia mogą nie zostać dokładnie przeniesione z powodu różnic między platformami. Formularze darowizn nie są importowane i zostaną automatycznie wygenerowane dla każdej zaimportowanej kampanii."
 
-#: assets/build/admin/onboarding/index.js:7
+#: assets/build/admin/onboarding/index.js:9
 msgid "Try Again"
 msgstr "Spróbuj ponownie"
 
 #. translators: %s: site name or platform name.
-#: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:10
 msgid "Importing data from %s…"
 msgstr "Importowanie danych z %s…"
 
-#: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:10
 msgid "This may take a few moments. Please keep this tab open."
 msgstr "To może potrwać kilka chwil. Proszę, nie zamykaj tej karty."
 
-#: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:10
 msgid "Create your first campaign"
 msgstr "Utwórz swoją pierwszą kampanię"
 
-#: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:10
 msgid "A campaign explains why people are donating and how much they can contribute."
 msgstr "Kampania wyjaśnia, dlaczego ludzie przekazują darowizny i ile mogą przyczynić się."
 
-#: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:10
 msgid "e.g. Education Support Fund"
 msgstr "np. Fundusz Wsparcia Edukacji"
 
-#: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:10
 msgid "What is the goal of your campaign"
 msgstr "Jaki jest cel Twojej kampanii"
 
-#: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:10
 msgid "Configure Later"
 msgstr "Skonfiguruj później"
 
-#: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:10
 msgid "Goal amount is required."
 msgstr "Wymagana jest kwota celu."
 
-#: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:10
 msgid "Number of donations is required."
 msgstr "Wymagana jest liczba darowizn."
 
 #: inc/field-validation.php:877
-#: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:10
 msgid "Please enter a valid number."
 msgstr "Proszę wprowadzić prawidłową liczbę."
 
-#: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:10
 msgid "Please enter a value greater than 0."
 msgstr "Proszę wprowadzić wartość większą niż 0."
 
-#: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:10
 msgid "Could not create the campaign"
 msgstr "Nie można utworzyć kampanii"
 
-#: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:10
 msgid "Create Campaign"
 msgstr "Utwórz kampanię"
 
-#: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:10
 msgid "Okay, just one last step…"
 msgstr "Dobrze, jeszcze tylko jeden krok…"
 
-#: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:10
 msgid "Help us tailor your SureDonation experience by sharing a bit about yourself."
 msgstr "Pomóż nam dostosować Twoje doświadczenie z SureDonation, dzieląc się kilkoma informacjami o sobie."
 
-#: assets/build/admin/onboarding/index.js:8
+#: inc/import-export/import/column-map.php:60
+#: assets/build/admin/onboarding/index.js:10
 msgid "First Name"
 msgstr "Imię"
 
-#: assets/build/admin/onboarding/index.js:8
+#: inc/import-export/import/column-map.php:65
+#: assets/build/admin/onboarding/index.js:10
 msgid "Last Name"
 msgstr "Nazwisko"
 
 #: inc/privacy/privacy-frontend.php:161
-#: assets/build/admin.js:89
-#: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin.js:91
+#: assets/build/admin/onboarding/index.js:10
 msgid "Privacy Policy"
 msgstr "Polityka Prywatności"
 
-#: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:10
 msgid "First name is required."
 msgstr "Imię jest wymagane."
 
-#: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:10
 msgid "This is required."
 msgstr "To jest wymagane."
 
-#: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:10
 msgid "Could not save your details."
 msgstr "Nie można zapisać Twoich danych."
 
-#: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:10
 msgid "Could not save your details"
 msgstr "Nie można zapisać Twoich danych"
 
-#: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:10
 msgid "Finish"
 msgstr "Zakończ"
 
-#: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:10
 msgid "You’re all set, your campaign is ready 🚀"
 msgstr "Wszystko gotowe, Twoja kampania jest gotowa 🚀"
 
-#: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:10
 msgid "You’re all set, SureDonation is ready 🚀"
 msgstr "Wszystko gotowe, SureDonation jest gotowe 🚀"
 
-#: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:10
 msgid "Your donation campaign has been created successfully. You’re in control of when and how it goes live."
 msgstr "Twoja kampania darowizn została pomyślnie utworzona. Masz kontrolę nad tym, kiedy i jak zostanie uruchomiona."
 
-#: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:10
 msgid "SureDonation is installed and ready to go. Create your first campaign whenever you’d like to start accepting donations."
 msgstr "SureDonation jest zainstalowane i gotowe do działania. Utwórz swoją pierwszą kampanię, kiedy tylko chcesz zacząć przyjmować darowizny."
 
-#: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:10
 msgid "Created your donation campaign and saved it as a draft"
 msgstr "Utworzono kampanię darowizn i zapisano ją jako szkic"
 
-#: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:10
 msgid "Generated a donation form for your campaign"
 msgstr "Wygenerowano formularz darowizny dla Twojej kampanii"
 
-#: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:10
 msgid "Prepared everything for secure payment setup"
 msgstr "Przygotowano wszystko do bezpiecznego ustawienia płatności"
 
-#: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:10
 msgid "Set up your SureDonation workspace"
 msgstr "Skonfiguruj swoje środowisko SureDonation"
 
-#: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:10
 msgid "To start accepting donations, connect a payment method and publish your campaign."
 msgstr "Aby zacząć przyjmować darowizny, połącz metodę płatności i opublikuj swoją kampanię."
 
-#: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:10
 msgid "Create a donation campaign and connect a payment method to start accepting donations."
 msgstr "Utwórz kampanię darowizn i połącz metodę płatności, aby zacząć przyjmować darowizny."
 
-#: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:10
 msgid "Here’s what SureDonation has done for you:"
 msgstr "Oto, co SureDonation zrobiło dla Ciebie:"
 
-#: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:10
 msgid "What’s next"
 msgstr "Co dalej"
 
-#: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:10
 msgid "Visit Dashboard"
 msgstr "Odwiedź pulpit nawigacyjny"
 
-#: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:10
 msgid "Set Up Payments"
 msgstr "Skonfiguruj płatności"
 
@@ -5548,8 +5584,8 @@ msgid "Input Pattern"
 msgstr "Wzorzec wejściowy"
 
 #: inc/privacy/privacy-settings.php:88
-#: assets/build/admin.js:88
-#: assets/build/admin.js:89
+#: assets/build/admin.js:90
+#: assets/build/admin.js:91
 #: assets/build/blocks.js:1
 msgid "None"
 msgstr "Brak"
@@ -5602,40 +5638,40 @@ msgstr "Wybierz metody płatności…"
 msgid "Select which payment methods donors can use on this form."
 msgstr "Wybierz, które metody płatności darczyńcy mogą używać w tym formularzu."
 
-#: assets/build/blocks.js:3
+#: assets/build/blocks.js:4
 msgid "Button Text"
 msgstr "Tekst przycisku"
 
-#: assets/build/blocks.js:3
+#: assets/build/blocks.js:4
 msgid "Use Global Defaults"
 msgstr "Użyj ustawień domyślnych globalnych"
 
-#: assets/build/blocks.js:3
+#: assets/build/blocks.js:4
 msgid "Using global fee rates from Settings > Payments."
 msgstr "Używanie globalnych stawek opłat z Ustawienia > Płatności."
 
-#: assets/build/blocks.js:3
+#: assets/build/blocks.js:4
 msgid "Using custom fee rates for this form."
 msgstr "Używanie niestandardowych stawek opłat dla tego formularza."
 
-#: assets/build/blocks.js:3
+#: assets/build/blocks.js:4
 msgid "Disabled"
 msgstr "Wyłączone"
 
-#: assets/build/blocks.js:3
+#: assets/build/blocks.js:4
 msgid "Mode: Per Gateway"
 msgstr "Tryb: Na bramkę"
 
-#: assets/build/blocks.js:3
+#: assets/build/blocks.js:4
 msgid "Fee Percentage:"
 msgstr "Procent opłaty:"
 
-#: assets/build/blocks.js:3
+#: assets/build/blocks.js:4
 msgid "Fixed Fee:"
 msgstr "Stała opłata:"
 
 #. translators: %s: field width percentage.
-#: assets/build/blocks.js:6
+#: assets/build/blocks.js:7
 msgid "%s Width"
 msgstr "%s Szerokość"
 
@@ -5644,7 +5680,7 @@ msgstr "%s Szerokość"
 msgid "No results found…"
 msgstr "Nie znaleziono wyników…"
 
-#: assets/build/admin.js:88
+#: assets/build/admin.js:90
 #: assets/build/blocks/donation-form/editor.js:1
 #: assets/build/campaign-blocks.js:1
 #: assets/build/editor/editor.js:1
@@ -5675,6 +5711,7 @@ msgstr "Najpierw wybierz kampanię."
 
 #: inc/page-builders/bricks/base-element.php:142
 #: inc/page-builders/page-builders.php:52
+#: assets/build/admin.js:94
 #: assets/build/blocks/donation-form/editor.js:2
 #: assets/build/campaign-blocks.js:1
 msgid "Select a campaign"
@@ -5802,6 +5839,7 @@ msgstr "Jednolity"
 msgid "Gradient"
 msgstr "Gradient"
 
+#: assets/build/blocks.js:1
 #: assets/build/editor/editor.js:1
 msgid "Image"
 msgstr "Obraz"
@@ -5846,10 +5884,12 @@ msgstr "Odstęp między polami"
 msgid "Small"
 msgstr "Mały"
 
+#: assets/build/blocks.js:1
 #: assets/build/editor/editor.js:1
 msgid "Medium"
 msgstr "Średni"
 
+#: assets/build/blocks.js:1
 #: assets/build/editor/editor.js:1
 msgid "Large"
 msgstr "Duży"
@@ -5895,7 +5935,7 @@ msgstr "Style"
 msgid "Saving"
 msgstr "Zapisywanie"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 #: assets/build/blocks.js:1
 #: assets/build/editor/editor.js:1
 msgid "Save"
@@ -5971,7 +6011,7 @@ msgstr "Wybierz stronę do przekierowania"
 msgid "Search for a page"
 msgstr "Wyszukaj stronę"
 
-#: assets/build/admin.js:89
+#: assets/build/admin.js:91
 #: assets/build/editor/editor.js:1
 msgid "Select a page"
 msgstr "Wybierz stronę"
@@ -6052,6 +6092,7 @@ msgstr "Ustawienia formularza"
 msgid "Close form settings"
 msgstr "Zamknij ustawienia formularza"
 
+#: inc/import-export/import/column-map.php:371
 #: assets/build/editor/editor.js:1
 msgid "Form Title"
 msgstr "Tytuł formularza"
@@ -6071,7 +6112,7 @@ msgstr "Twoje zgłoszenie zostało oznaczone jako spam. Spróbuj ponownie."
 msgid "Form validation settings saved"
 msgstr "Ustawienia walidacji formularza zostały zapisane"
 
-#: inc/api/settings-api.php:556
+#: inc/api/settings-api.php:565
 msgid "Spam protection settings saved"
 msgstr "Ustawienia ochrony przed spamem zostały zapisane"
 
@@ -6090,9 +6131,9 @@ msgstr "Minimalna wartość to %s."
 msgid "Maximum value is %s."
 msgstr "Maksymalna wartość to %s."
 
-#: inc/payments/payment-helper.php:982
-#: inc/payments/payment-helper.php:995
-#: inc/payments/payment-helper.php:1011
+#: inc/payments/payment-helper.php:1121
+#: inc/payments/payment-helper.php:1134
+#: inc/payments/payment-helper.php:1150
 #: inc/payments/stripe/stripe-frontend.php:99
 msgid "Please correct the highlighted fields and try again."
 msgstr "Popraw wyróżnione pola i spróbuj ponownie."
@@ -6113,98 +6154,94 @@ msgstr "Odrzuć i przełącz"
 msgid "Keep editing"
 msgstr "Kontynuuj edycję"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Spam Protection"
 msgstr "Ochrona przed spamem"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Honeypot"
 msgstr "Honeypot"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Protect your donation forms from spam submissions."
 msgstr "Chroń swoje formularze darowizn przed spamem."
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Form Validation"
 msgstr "Walidacja formularza"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Customize the default validation messages shown on donation form fields."
 msgstr "Dostosuj domyślne komunikaty walidacyjne wyświetlane w polach formularza darowizn."
 
-#: assets/build/admin.js:72
-msgid "Create an Application Password - "
-msgstr "Utwórz hasło aplikacji -"
-
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Abilities API - Edit"
 msgstr "API zdolności - Edytuj"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Abilities API - Delete"
 msgstr "API zdolności - Usuń"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Enable Honeypot Security"
 msgstr "Włącz zabezpieczenie Honeypot"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Add a hidden field that genuine visitors never fill in to block automated spam submissions, without affecting real donors."
 msgstr "Dodaj ukryte pole, którego prawdziwi odwiedzający nigdy nie wypełniają, aby zablokować automatyczne zgłoszenia spamu, nie wpływając na prawdziwych darczyńców."
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Required Error Messages"
 msgstr "Wymagane komunikaty o błędach"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Other Error Messages"
 msgstr "Inne komunikaty o błędach"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Input Field"
 msgstr "Pole wejściowe"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Email Field"
 msgstr "Pole e-mail"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Number Field"
 msgstr "Pole liczby"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Invalid Email"
 msgstr "Nieprawidłowy e-mail"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Invalid Number"
 msgstr "Nieprawidłowa liczba"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Maximum Length"
 msgstr "Maksymalna długość"
 
 #. translators: %s is replaced with the configured maximum length.
-#: assets/build/admin.js:74
+#: assets/build/admin.js:76
 msgid "%s is replaced with the configured maximum. For example: \"Maximum length is 100 characters.\""
 msgstr "%s jest zastąpione skonfigurowaną maksymalną długością. Na przykład: \"Maksymalna długość to 100 znaków.\""
 
 #. translators: %s is replaced with the configured minimum value.
-#: assets/build/admin.js:82
+#: assets/build/admin.js:84
 msgid "%s is replaced with the configured minimum. For example: \"Minimum value is 10.\""
 msgstr "%s jest zastąpione skonfigurowaną minimalną wartością. Na przykład: \"Minimalna wartość to 10.\""
 
 #. translators: %s is replaced with the configured maximum value.
-#: assets/build/admin.js:84
+#: assets/build/admin.js:86
 msgid "%s is replaced with the configured maximum. For example: \"Maximum value is 100.\""
 msgstr "%s jest zastąpione skonfigurowaną maksymalną wartością. Na przykład: \"Maksymalna wartość to 100.\""
 
-#: assets/build/admin.js:96
+#: assets/build/admin.js:91
 msgid "Failed to save some settings"
 msgstr "Nie udało się zapisać niektórych ustawień"
 
-#: inc/admin/admin.php:60
+#: inc/admin/admin.php:141
 msgid "When a Phone field with automatic country detection is used, this site sends the visitor’s IP address to a third-party service (ipapi.co) to determine their country code. The IP address is not stored for this purpose; the resulting country code is cached temporarily. Automatic detection can be disabled per Phone field, or site-wide via the “suredonation_phone_geo_enabled” filter."
 msgstr "Gdy używane jest pole Telefon z automatycznym wykrywaniem kraju, ta strona wysyła adres IP odwiedzającego do usługi zewnętrznej (ipapi.co) w celu określenia kodu kraju. Adres IP nie jest przechowywany w tym celu; wynikowy kod kraju jest tymczasowo buforowany. Automatyczne wykrywanie można wyłączyć dla każdego pola Telefon lub na całej stronie za pomocą filtra „suredonation_phone_geo_enabled”."
 
@@ -6246,19 +6283,19 @@ msgstr "Adres e-mail nie może przekraczać %s znaków."
 msgid "Select an option"
 msgstr "Wybierz opcję"
 
-#: inc/fields/payment-markup.php:697
+#: inc/fields/payment-markup.php:720
 msgid "Payment gateways are not configured. Please contact the site administrator."
 msgstr "Bramki płatności nie są skonfigurowane. Proszę skontaktować się z administratorem strony."
 
-#: inc/payments/payment-helper.php:1382
+#: inc/payments/payment-helper.php:1521
 msgid "Unable to verify the donation amount for this form. Please reload the page and try again."
 msgstr "Nie można zweryfikować kwoty darowizny dla tego formularza. Proszę odświeżyć stronę i spróbować ponownie."
 
-#: inc/payments/payment-helper.php:1401
+#: inc/payments/payment-helper.php:1540
 msgid "Unsupported variable amount field configuration."
 msgstr "Nieobsługiwana konfiguracja pola z zmienną kwotą."
 
-#: inc/payments/stripe/stripe-webhook.php:162
+#: inc/payments/stripe/stripe-webhook.php:186
 msgid "Invalid webhook payload"
 msgstr "Nieprawidłowy ładunek webhooka"
 
@@ -6266,68 +6303,68 @@ msgstr "Nieprawidłowy ładunek webhooka"
 msgid "Additional Information"
 msgstr "Dodatkowe informacje"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Dropdown Field"
 msgstr "Pole rozwijane"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Phone Field"
 msgstr "Pole telefonu"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "URL Field"
 msgstr "Pole URL"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Invalid Phone"
 msgstr "Nieprawidłowy telefon"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Invalid URL"
 msgstr "Nieprawidłowy URL"
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:76
 msgid "Email — Local Part Too Long"
 msgstr "E-mail — Zbyt długa część lokalna"
 
 #. translators: %s is replaced with the configured maximum local-part length.
-#: assets/build/admin.js:76
+#: assets/build/admin.js:78
 msgid "%s is replaced with the configured maximum for the part before @. For example: \"The part before @ may not exceed 64 characters.\""
 msgstr "%s jest zastąpione skonfigurowanym maksimum dla części przed @. Na przykład: \"Część przed @ nie może przekraczać 64 znaków.\""
 
-#: assets/build/admin.js:76
+#: assets/build/admin.js:78
 msgid "Email — Domain Part Too Long"
 msgstr "E-mail — Zbyt długa część domenowa"
 
 #. translators: %s is replaced with the configured maximum domain-part length.
-#: assets/build/admin.js:78
+#: assets/build/admin.js:80
 msgid "%s is replaced with the configured maximum for the part after @. For example: \"The part after @ may not exceed 255 characters.\""
 msgstr "%s jest zastąpione skonfigurowanym maksimum dla części po @. Na przykład: \"Część po @ nie może przekraczać 255 znaków.\""
 
-#: assets/build/admin.js:78
+#: assets/build/admin.js:80
 msgid "Email — Too Long"
 msgstr "E-mail — Zbyt długi"
 
 #. translators: %s is replaced with the configured maximum email length.
-#: assets/build/admin.js:80
+#: assets/build/admin.js:82
 msgid "%s is replaced with the maximum total email length (254). For example: \"The email address may not exceed 254 characters.\""
 msgstr "%s jest zastąpione maksymalną całkowitą długością e-maila (254). Na przykład: \"Adres e-mail nie może przekraczać 254 znaków.\""
 
-#: assets/build/admin.js:84
+#: assets/build/admin.js:86
 msgid "Dropdown Minimum Selections"
 msgstr "Minimalna liczba wyborów w polu rozwijanym"
 
 #. translators: %s is replaced with the configured minimum number of selections.
-#: assets/build/admin.js:86
+#: assets/build/admin.js:88
 msgid "%s is replaced with the configured minimum. For example: \"Please select at least 2 option(s).\""
 msgstr "%s jest zastąpione skonfigurowanym minimum. Na przykład: \"Proszę wybrać co najmniej 2 opcje.\""
 
-#: assets/build/admin.js:86
+#: assets/build/admin.js:88
 msgid "Dropdown Maximum Selections"
 msgstr "Maksymalna liczba wyborów w polu rozwijanym"
 
 #. translators: %s is replaced with the configured maximum number of selections.
-#: assets/build/admin.js:88
+#: assets/build/admin.js:90
 msgid "%s is replaced with the configured maximum. For example: \"Please select no more than 5 option(s).\""
 msgstr "%s jest zastąpione skonfigurowanym maksimum. Na przykład: \"Proszę wybrać nie więcej niż 5 opcji.\""
 
@@ -6557,23 +6594,23 @@ msgstr "Dodaj tutaj swój niestandardowy HTML. Pokaże się na opublikowanym for
 msgid "Edit HTML Content"
 msgstr "Edytuj zawartość HTML"
 
-#: assets/build/blocks.js:3
+#: assets/build/blocks.js:4
 msgid "Customer Phone Field (Optional)"
 msgstr "Pole telefonu klienta (opcjonalne)"
 
-#: assets/build/blocks.js:3
+#: assets/build/blocks.js:4
 msgid "Optionally map a Phone field to the donor’s phone number. When set, its value is saved to the donation’s phone column instead of Additional Information."
 msgstr "Opcjonalnie mapuj pole telefonu na numer telefonu darczyńcy. Po ustawieniu jego wartość jest zapisywana w kolumnie telefonu darowizny zamiast w Dodatkowych Informacjach."
 
-#: assets/build/admin.js:96
+#: assets/build/admin.js:104
 msgid "What's New?"
 msgstr "Co nowego?"
 
-#: assets/build/admin.js:102
+#: assets/build/admin.js:110
 msgid "What's New"
 msgstr "Co nowego"
 
-#: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:10
 msgid "Stay in the loop and help shape SureDonation! Get feature updates, and help us in betterment of SureDonation by sharing how you use the plugin. <a>Privacy Policy</a>."
 msgstr "Bądź na bieżąco i pomóż kształtować SureDonation! Otrzymuj aktualizacje funkcji i pomóż nam ulepszać SureDonation, dzieląc się tym, jak używasz wtyczki. <a>Polityka prywatności</a>."
 
@@ -6582,7 +6619,7 @@ msgid "You do not have permission to access this page."
 msgstr "Nie masz uprawnień do dostępu do tej strony."
 
 #: inc/admin/admin-ajax.php:119
-#: inc/admin/notices.php:278
+#: inc/admin/notices.php:372
 msgid "Invalid nonce."
 msgstr "Nieprawidłowy nonce."
 
@@ -6611,54 +6648,54 @@ msgstr "Uruchamia się, gdy płatność darowizny zostanie zakończona"
 msgid "John Doe"
 msgstr "John Doe"
 
-#: inc/admin/notices.php:140
+#: inc/admin/notices.php:146
 msgid "You received your first donation with SureDonation!"
 msgstr "Otrzymałeś swoją pierwszą darowiznę z SureDonation!"
 
-#: inc/admin/notices.php:141
+#: inc/admin/notices.php:147
 msgid "That is a big milestone. If SureDonation is helping power your cause, would you take a moment to leave a 5-star review on WordPress.org? It really helps."
 msgstr "To duży kamień milowy. Jeśli SureDonation wspiera Twoją sprawę, czy mógłbyś poświęcić chwilę na zostawienie 5-gwiazdkowej recenzji na WordPress.org? To naprawdę pomaga."
 
-#: inc/admin/notices.php:143
-#: inc/admin/notices.php:186
+#: inc/admin/notices.php:149
+#: inc/admin/notices.php:278
 msgid "Rate SureDonation"
 msgstr "Oceń SureDonation"
 
-#: inc/admin/notices.php:144
-#: inc/admin/notices.php:187
+#: inc/admin/notices.php:150
+#: inc/admin/notices.php:279
 msgid "Maybe later"
 msgstr "Może później"
 
-#: inc/admin/notices.php:145
-#: inc/admin/notices.php:188
+#: inc/admin/notices.php:151
+#: inc/admin/notices.php:280
 msgid "I already did"
 msgstr "Już to zrobiłem"
 
-#: inc/admin/notices.php:183
+#: inc/admin/notices.php:275
 msgid "Your payment gateway is all set up!"
 msgstr "Twój bramka płatności jest gotowa!"
 
-#: inc/admin/notices.php:184
+#: inc/admin/notices.php:276
 msgid "You have connected a payment gateway and SureDonation is ready to start raising funds. If you are enjoying it so far, a quick 5-star review on WordPress.org would mean a lot."
 msgstr "Połączyłeś bramkę płatności i SureDonation jest gotowy do rozpoczęcia zbierania funduszy. Jeśli jesteś zadowolony, szybka 5-gwiazdkowa recenzja na WordPress.org byłaby bardzo cenna."
 
-#: inc/admin/notices.php:282
+#: inc/admin/notices.php:376
 msgid "Unauthorized user."
 msgstr "Nieautoryzowany użytkownik."
 
-#: inc/admin/notices.php:307
+#: inc/admin/notices.php:410
 msgid "Invalid parameters."
 msgstr "Nieprawidłowe parametry."
 
-#: inc/admin/notices.php:403
+#: inc/admin/notices.php:491
 msgid "Your donation site is almost ready!"
 msgstr "Twoja strona darowizn jest prawie gotowa!"
 
-#: inc/admin/notices.php:404
+#: inc/admin/notices.php:492
 msgid "Connect a payment gateway to start accepting donations. Set up Stripe or PayPal in just a few clicks to go live."
 msgstr "Połącz bramkę płatności, aby zacząć przyjmować darowizny. Skonfiguruj Stripe lub PayPal w zaledwie kilku kliknięciach, aby uruchomić."
 
-#: inc/admin/notices.php:406
+#: inc/admin/notices.php:494
 msgid "Configure Payment Gateway"
 msgstr "Skonfiguruj bramkę płatności"
 
@@ -6842,6 +6879,8 @@ msgstr "Darowizny SureDonation"
 msgid "SureDonation Donor"
 msgstr "Darczyńca SureDonation"
 
+#: inc/import-export/import/column-map.php:70
+#: inc/import-export/import/column-map.php:375
 #: inc/privacy/privacy-data.php:134
 msgid "Donor Phone"
 msgstr "Telefon darczyńcy"
@@ -6850,6 +6889,8 @@ msgstr "Telefon darczyńcy"
 msgid "Comment"
 msgstr "Komentarz"
 
+#: inc/import-export/import/column-map.php:160
+#: inc/import-export/import/column-map.php:390
 #: inc/privacy/privacy-data.php:136
 msgid "IP Address"
 msgstr "Adres IP"
@@ -6862,11 +6903,11 @@ msgstr "Agent użytkownika"
 msgid "Referrer"
 msgstr "Odsyłacz"
 
-#: inc/privacy/privacy-data.php:302
+#: inc/privacy/privacy-data.php:323
 msgid "Some donation data was retained because it falls within the configured data retention period."
 msgstr "Niektóre dane dotyczące darowizn zostały zachowane, ponieważ mieszczą się w skonfigurowanym okresie przechowywania danych."
 
-#: inc/privacy/privacy-data.php:306
+#: inc/privacy/privacy-data.php:327
 msgid "Some SureDonation data could not be erased due to a database or filesystem error. Please retry or contact the site administrator."
 msgstr "Niektóre dane SureDonation nie mogły zostać usunięte z powodu błędu bazy danych lub systemu plików. Proszę spróbować ponownie lub skontaktować się z administratorem strony."
 
@@ -6892,7 +6933,7 @@ msgstr "Przekazując darowiznę, zgadzasz się na nasze [warunki]."
 
 #. translators: %d: number of years.
 #: inc/privacy/privacy-settings.php:94
-#: assets/build/admin.js:89
+#: assets/build/admin.js:91
 msgid "%d year"
 msgid_plural "%d years"
 msgstr[0] "%d rok"
@@ -6900,209 +6941,209 @@ msgstr[1] ""
 msgstr[2] ""
 
 #: inc/privacy/privacy-settings.php:99
-#: assets/build/admin.js:89
+#: assets/build/admin.js:91
 msgid "Forever"
 msgstr "Na zawsze"
 
-#: assets/build/admin.js:72
-#: assets/build/admin.js:88
+#: assets/build/admin.js:74
+#: assets/build/admin.js:90
 #: assets/build/editor/editor.js:1
 msgid "OttoKit"
 msgstr "OttoKit"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Connect your donations to 1,000+ apps and automate workflows with OttoKit."
 msgstr "Połącz swoje darowizny z ponad 1 000 aplikacji i automatyzuj przepływy pracy z OttoKit."
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Privacy"
 msgstr "Prywatność"
 
-#: assets/build/admin.js:72
+#: assets/build/admin.js:74
 msgid "Control donor data retention, consent, and the privacy policy and terms shown on donation forms."
 msgstr "Kontroluj przechowywanie danych darczyńców, zgodę oraz politykę prywatności i warunki wyświetlane na formularzach darowizn."
 
-#: assets/build/admin.js:88
+#: assets/build/admin.js:90
 #: assets/build/editor/editor.js:1
 msgid "Send donations to 1,000+ popular apps."
 msgstr "Wysyłaj darowizny do ponad 1 000 popularnych aplikacji."
 
-#: assets/build/admin.js:88
+#: assets/build/admin.js:90
 #: assets/build/editor/editor.js:1
 msgid "Build automated workflows that run instantly."
 msgstr "Buduj zautomatyzowane przepływy pracy, które działają natychmiast."
 
-#: assets/build/admin.js:88
+#: assets/build/admin.js:90
 #: assets/build/editor/editor.js:1
 msgid "Notify your team on Slack, add donors to your CRM, or update Google Sheets."
 msgstr "Powiadom swój zespół na Slacku, dodaj darczyńców do swojego CRM lub zaktualizuj Arkusze Google."
 
-#: assets/build/admin.js:88
+#: assets/build/admin.js:90
 #: assets/build/editor/editor.js:1
 msgid "Keep your tools in sync automatically."
 msgstr "Automatycznie synchronizuj swoje narzędzia."
 
-#: assets/build/admin.js:88
+#: assets/build/admin.js:90
 #: assets/build/editor/editor.js:1
 msgid "OttoKit Settings"
 msgstr "Ustawienia OttoKit"
 
-#: assets/build/admin.js:88
+#: assets/build/admin.js:90
 #: assets/build/editor/editor.js:1
 msgid "Couldn’t load the OttoKit builder. A browser ad blocker may be blocking it — allow it for this page and retry."
 msgstr "Nie udało się załadować kreatora OttoKit. Blokada reklam w przeglądarce może go blokować — zezwól na nią na tej stronie i spróbuj ponownie."
 
-#: assets/build/admin.js:88
+#: assets/build/admin.js:90
 #: assets/build/editor/editor.js:1
 msgid "Retry"
 msgstr "Ponów próbę"
 
-#: assets/build/admin.js:88
+#: assets/build/admin.js:90
 #: assets/build/editor/editor.js:1
 msgid "OttoKit Automations"
 msgstr "Automatyzacje OttoKit"
 
-#: assets/build/admin.js:88
+#: assets/build/admin.js:90
 #: assets/build/editor/editor.js:1
 msgid "Link this form to a campaign first to set up automations."
 msgstr "Najpierw połącz ten formularz z kampanią, aby skonfigurować automatyzacje."
 
-#: assets/build/admin.js:88
+#: assets/build/admin.js:90
 #: assets/build/editor/editor.js:1
 msgid "Automate Your Donations with OttoKit"
 msgstr "Automatyzuj swoje darowizny z OttoKit"
 
-#: assets/build/admin.js:88
+#: assets/build/admin.js:90
 #: assets/build/editor/editor.js:1
 msgid "Every completed donation should trigger something: a Slack alert, a CRM contact, a thank-you email, or a new row in Google Sheets."
 msgstr "Każda zakończona darowizna powinna wywołać coś: alert Slack, kontakt CRM, e-mail z podziękowaniem lub nowy wiersz w Arkuszach Google."
 
-#: assets/build/admin.js:88
+#: assets/build/admin.js:90
 #: assets/build/editor/editor.js:1
 msgid "Plugin installation failed."
 msgstr "Instalacja wtyczki nie powiodła się."
 
-#: assets/build/admin.js:88
+#: assets/build/admin.js:90
 #: assets/build/editor/editor.js:1
 msgid "Activating…"
 msgstr "Aktywowanie…"
 
-#: assets/build/admin.js:88
+#: assets/build/admin.js:90
 #: assets/build/editor/editor.js:1
 msgid "Plugin activation failed."
 msgstr "Aktywacja wtyczki nie powiodła się."
 
-#: assets/build/admin.js:88
+#: assets/build/admin.js:90
 #: assets/build/editor/editor.js:1
 msgid "Something went wrong. Please try again."
 msgstr "Coś poszło nie tak. Proszę spróbować ponownie."
 
-#: assets/build/admin.js:88
+#: assets/build/admin.js:90
 #: assets/build/editor/editor.js:1
 msgid "Please allow popups for this site to connect with OttoKit, then try again."
 msgstr "Proszę zezwolić na wyskakujące okienka dla tej strony, aby połączyć się z OttoKit, a następnie spróbować ponownie."
 
-#: assets/build/admin.js:88
+#: assets/build/admin.js:90
 #: assets/build/editor/editor.js:1
 msgid "Could not connect to OttoKit."
 msgstr "Nie można połączyć się z OttoKit."
 
-#: assets/build/admin.js:88
+#: assets/build/admin.js:90
 #: assets/build/editor/editor.js:1
 msgid "Get Started"
 msgstr "Rozpocznij"
 
-#: assets/build/admin.js:88
+#: assets/build/admin.js:90
 #: assets/build/editor/editor.js:1
 msgid "Connect with OttoKit"
 msgstr "Połącz z OttoKit"
 
-#: assets/build/admin.js:88
+#: assets/build/admin.js:90
 #: assets/build/editor/editor.js:1
 msgid "Go to OttoKit Settings"
 msgstr "Przejdź do ustawień OttoKit"
 
-#: assets/build/admin.js:89
+#: assets/build/admin.js:91
 msgid "SureDonation stores personal data such as donors’ names, emails, and phone numbers. Donors may request erasure, but you may be legally required to retain donation data for a certain time. Control how long personal data is retained below."
 msgstr "SureDonation przechowuje dane osobowe, takie jak imiona i nazwiska darczyńców, e-maile i numery telefonów. Darczyńcy mogą zażądać usunięcia, ale możesz być prawnie zobowiązany do przechowywania danych o darowiznach przez określony czas. Kontroluj, jak długo dane osobowe są przechowywane poniżej."
 
-#: assets/build/admin.js:89
+#: assets/build/admin.js:91
 msgid "Minimum Data Retention Period"
 msgstr "Minimalny okres przechowywania danych"
 
-#: assets/build/admin.js:89
+#: assets/build/admin.js:91
 msgid "Prevent personal data from being erased for donations made within this period. \"None\" allows any donation’s data to be erased; \"Forever\" prevents erasure regardless of age."
 msgstr "Zapobiegaj usuwaniu danych osobowych dla darowizn dokonanych w tym okresie. \"Brak\" pozwala na usunięcie danych każdej darowizny; \"Na zawsze\" zapobiega usunięciu niezależnie od wieku."
 
-#: assets/build/admin.js:89
+#: assets/build/admin.js:91
 msgid "Contact Consent Field"
 msgstr "Pole zgody na kontakt"
 
-#: assets/build/admin.js:89
+#: assets/build/admin.js:91
 msgid "Display a checkbox asking donors for their consent to being contacted."
 msgstr "Wyświetl pole wyboru z prośbą o zgodę darczyńców na kontakt."
 
-#: assets/build/admin.js:89
+#: assets/build/admin.js:91
 msgid "Make Consent Field Required For Donation Forms"
 msgstr "Uczyń pole zgody wymaganym dla formularzy darowizn"
 
-#: assets/build/admin.js:89
+#: assets/build/admin.js:91
 msgid "Requires the donor acknowledge consent before submitting a donation."
 msgstr "Wymaga, aby darczyńca potwierdził zgodę przed przesłaniem darowizny."
 
-#: assets/build/admin.js:89
+#: assets/build/admin.js:91
 msgid "Note: on sites using full-page caching, forms cached before enabling this may not show the checkbox until the cache is purged — those submissions are rejected until then."
 msgstr "Uwaga: na stronach korzystających z pełnego buforowania stron, formularze zbuforowane przed włączeniem tej opcji mogą nie wyświetlać pola wyboru, dopóki bufor nie zostanie wyczyszczony — te zgłoszenia są odrzucane do tego czasu."
 
-#: assets/build/admin.js:89
+#: assets/build/admin.js:91
 msgid "Contact Consent Label"
 msgstr "Etykieta zgody na kontakt"
 
-#: assets/build/admin.js:89
+#: assets/build/admin.js:91
 msgid "A short statement describing how you would like to contact people."
 msgstr "Krótka informacja opisująca, jak chciałbyś kontaktować się z ludźmi."
 
-#: assets/build/admin.js:89
+#: assets/build/admin.js:91
 msgid "Privacy Policy Field"
 msgstr "Pole polityki prywatności"
 
-#: assets/build/admin.js:89
+#: assets/build/admin.js:91
 msgid "Display the privacy policy statement on donation forms."
 msgstr "Wyświetl oświadczenie o polityce prywatności na formularzach darowizn."
 
-#: assets/build/admin.js:89
+#: assets/build/admin.js:91
 msgid "Shown to donors on the form. Use [privacy_policy] to link to the Privacy Policy page selected below."
 msgstr "Pokazywane darczyńcom w formularzu. Użyj [privacy_policy], aby połączyć się ze stroną Polityki Prywatności wybraną poniżej."
 
-#: assets/build/admin.js:89
+#: assets/build/admin.js:91
 msgid "Privacy Policy Page"
 msgstr "Strona Polityki Prywatności"
 
-#: assets/build/admin.js:89
+#: assets/build/admin.js:91
 msgid "The page the [privacy_policy] shortcode links to. Falls back to WordPress Settings → Privacy when not set."
 msgstr "Strona, do której prowadzi shortcode [privacy_policy]. W przypadku braku ustawienia, używa ustawień WordPress → Prywatność."
 
-#: assets/build/admin.js:89
+#: assets/build/admin.js:91
 msgid "Terms And Conditions Field"
 msgstr "Pole Warunków i Zasad"
 
-#: assets/build/admin.js:89
+#: assets/build/admin.js:91
 msgid "Display the terms and conditions statement on donation forms."
 msgstr "Wyświetl oświadczenie o warunkach i zasadach na formularzach darowizn."
 
-#: assets/build/admin.js:89
+#: assets/build/admin.js:91
 msgid "Terms And Conditions"
 msgstr "Warunki i Zasady"
 
-#: assets/build/admin.js:89
+#: assets/build/admin.js:91
 msgid "Shown to donors on the form. Use [terms] to link to the Terms & Conditions page selected below."
 msgstr "Pokazywane darczyńcom w formularzu. Użyj [terms], aby połączyć się ze stroną Warunków i Zasad wybraną poniżej."
 
-#: assets/build/admin.js:89
+#: assets/build/admin.js:91
 msgid "Terms & Conditions Page"
 msgstr "Strona Warunków i Zasad"
 
-#: assets/build/admin.js:89
+#: assets/build/admin.js:91
 msgid "The page the [terms] shortcode links to."
 msgstr "Strona, do której prowadzi shortcode [terms]."
 
@@ -7117,6 +7158,634 @@ msgstr "Wybierz swoje sieci społecznościowe:"
 #: assets/build/campaign-blocks.js:1
 msgid "Select at least one social network."
 msgstr "Wybierz co najmniej jedną sieć społecznościową."
+
+#: inc/admin/admin-bar.php:94
+msgid "SureDonation: Test Mode"
+msgstr "SureDonation: Tryb testowy"
+
+#: inc/admin/admin-bar.php:95
+msgid "SureDonation: Live"
+msgstr "SureDonation: Na żywo"
+
+#: inc/admin/admin-bar.php:97
+msgid "SureDonation is in test mode — no real payments are being accepted. Click to switch to live mode."
+msgstr "SureDonation jest w trybie testowym — nie są akceptowane żadne prawdziwe płatności. Kliknij, aby przełączyć na tryb na żywo."
+
+#: inc/admin/admin-bar.php:98
+msgid "SureDonation is in live mode — real payments are being accepted."
+msgstr "SureDonation jest w trybie na żywo — prawdziwe płatności są akceptowane."
+
+#. translators: the <a></a> tags wrap the inline link text and must be kept intact.
+#: inc/admin/admin.php:77
+msgid "No payment gateway is connected, so your forms cannot accept donations yet. <a>Set up a payment gateway</a> to get started."
+msgstr "Nie podłączono bramki płatności, więc Twoje formularze nie mogą jeszcze przyjmować darowizn. <a>Skonfiguruj bramkę płatności</a>, aby rozpocząć."
+
+#. translators: the <a></a> tags wrap the inline link text and must be kept intact.
+#: inc/admin/admin.php:95
+msgid "Webhooks keep SureDonation in sync with Stripe by automatically updating donation and subscription data. Please <a>configure</a> the webhook."
+msgstr "Webhooki utrzymują SureDonation w synchronizacji z Stripe, automatycznie aktualizując dane o darowiznach i subskrypcjach. Proszę <a>skonfigurować</a> webhook."
+
+#. translators: the <a></a> tags wrap the inline link text and must be kept intact.
+#: inc/admin/admin.php:113
+msgid "SureDonation is in test mode, so no real donations are being processed. <a>Switch to live mode</a> to start accepting them."
+msgstr "SureDonation jest w trybie testowym, więc nie są przetwarzane żadne prawdziwe darowizny. <a>Przełącz na tryb na żywo</a>, aby zacząć je akceptować."
+
+#. translators: %1$s: link to configure the Stripe webhook
+#: inc/admin/notices.php:237
+msgid "Webhooks keep SureDonation in sync with Stripe by automatically updating donation and subscription data. Please %1$s the webhook."
+msgstr "Webhooki utrzymują SureDonation w synchronizacji z Stripe, automatycznie aktualizując dane o darowiznach i subskrypcjach. Proszę %1$s webhook."
+
+#: inc/admin/notices.php:241
+msgid "configure"
+msgstr "skonfiguruj"
+
+#: inc/admin/notices.php:508
+msgid "SureDonation is in test mode"
+msgstr "SureDonation jest w trybie testowym"
+
+#: inc/admin/notices.php:509
+msgid "No real payments are being accepted right now. Switch to live mode to start collecting real donations."
+msgstr "Obecnie nie są akceptowane żadne prawdziwe płatności. Przełącz na tryb na żywo, aby zacząć zbierać prawdziwe darowizny."
+
+#: inc/admin/notices.php:511
+msgid "Switch to Live Mode"
+msgstr "Przełącz na tryb na żywo"
+
+#: inc/api/import-export-api.php:122
+msgid "You are not allowed to import or export data."
+msgstr "Nie masz uprawnień do importowania ani eksportowania danych."
+
+#: inc/api/import-export-api.php:386
+msgid "No file was uploaded."
+msgstr "Nie przesłano żadnego pliku."
+
+#: inc/api/import-export-api.php:391
+msgid "Please upload a .csv file."
+msgstr "Proszę przesłać plik .csv."
+
+#: inc/api/import-export-api.php:396
+msgid "The file is empty or larger than 20 MB."
+msgstr "Plik jest pusty lub większy niż 20 MB."
+
+#: inc/api/import-export-api.php:401
+msgid "Could not process the uploaded file."
+msgstr "Nie można przetworzyć przesłanego pliku."
+
+#: inc/api/import-export-api.php:407
+msgid "The file has no header row."
+msgstr "Plik nie zawiera wiersza nagłówkowego."
+
+#: inc/api/import-export-api.php:451
+msgid "The uploaded file could not be found. Please upload it again."
+msgstr "Nie można znaleźć przesłanego pliku. Proszę przesłać go ponownie."
+
+#: inc/api/import-export-api.php:456
+msgid "Invalid import type."
+msgstr "Nieprawidłowy typ importu."
+
+#. translators: %s: comma-separated required column labels.
+#: inc/api/import-export-api.php:471
+msgid "This does not look like a SureDonation export. Required columns were not found: %s. Please upload the CSV exported by SureDonation."
+msgstr "To nie wygląda na eksport SureDonation. Nie znaleziono wymaganych kolumn: %s. Proszę przesłać plik CSV wyeksportowany przez SureDonation."
+
+#: inc/api/import-export-api.php:488
+msgid "Please choose a campaign to import the donations into."
+msgstr "Proszę wybrać kampanię, do której mają zostać zaimportowane darowizny."
+
+#: inc/api/import-export-api.php:518
+#: inc/api/import-export-api.php:525
+msgid "Import session not found or already finished."
+msgstr "Nie znaleziono sesji importu lub już zakończona."
+
+#: inc/api/import-export-api.php:521
+msgid "You cannot modify an import started by another user."
+msgstr "Nie możesz modyfikować importu rozpoczętego przez innego użytkownika."
+
+#: inc/api/import-export-api.php:557
+msgid "Import session not found."
+msgstr "Nie znaleziono sesji importu."
+
+#: inc/api/import-export-api.php:560
+msgid "You cannot view an import started by another user."
+msgstr "Nie możesz przeglądać importu rozpoczętego przez innego użytkownika."
+
+#: inc/api/import-export-api.php:613
+msgid "No campaigns were found in the file."
+msgstr "Nie znaleziono kampanii w pliku."
+
+#. translators: 1: campaign count, 2: form count.
+#: inc/api/import-export-api.php:623
+msgid "Imported %1$d campaigns and %2$d forms as drafts."
+msgstr "Zaimportowano %1$d kampanii i %2$d formularzy jako szkice."
+
+#: inc/api/import-export-api.php:649
+msgid "No settings were found in the file."
+msgstr "Nie znaleziono ustawień w pliku."
+
+#: inc/api/import-export-api.php:657
+#: assets/build/admin.js:94
+msgid "Settings imported."
+msgstr "Ustawienia zaimportowane."
+
+#: inc/api/import-export-api.php:658
+msgid "Payment credentials were not imported. Reconnect your gateways under Settings → Payment Methods."
+msgstr "Dane uwierzytelniające płatności nie zostały zaimportowane. Ponownie połącz swoje bramki w Ustawieniach → Metody płatności."
+
+#: inc/fields/payment-markup.php:700
+msgid "Edit this form’s payment settings"
+msgstr "Edytuj ustawienia płatności tego formularza"
+
+#: inc/fields/payment-markup.php:705
+#: assets/build/admin.js:1
+msgid "Configure payment gateway"
+msgstr "Skonfiguruj bramkę płatności"
+
+#: inc/import-export/import/column-map.php:40
+#: inc/import-export/import/column-map.php:367
+msgid "Donation ID"
+msgstr "ID darowizny"
+
+#: inc/import-export/import/column-map.php:100
+#: inc/import-export/import/column-map.php:380
+msgid "Gateway"
+msgstr "Bramka"
+
+#: inc/import-export/import/column-map.php:125
+#: inc/import-export/import/column-map.php:378
+msgid "Refunded Amount"
+msgstr "Zwrócona kwota"
+
+#: inc/import-export/import/column-map.php:145
+#: inc/import-export/import/column-map.php:386
+msgid "Subscription Status"
+msgstr "Status subskrypcji"
+
+#: inc/import-export/import/column-map.php:150
+#: inc/import-export/import/column-map.php:387
+msgid "Parent Subscription ID"
+msgstr "ID nadrzędnej subskrypcji"
+
+#: inc/import-export/import/column-map.php:155
+#: inc/import-export/import/column-map.php:389
+msgid "Donor Comment"
+msgstr "Komentarz darczyńcy"
+
+#: inc/import-export/import/column-map.php:216
+msgid "Tags"
+msgstr "Tagi"
+
+#: inc/import-export/import/column-map.php:368
+msgid "Campaign ID"
+msgstr "ID kampanii"
+
+#: inc/import-export/import/column-map.php:370
+msgid "Form ID"
+msgstr "ID formularza"
+
+#: inc/import-export/import/column-map.php:392
+msgid "Import Source"
+msgstr "Źródło importu"
+
+#: inc/import-export/import/column-map.php:393
+msgid "Import Source ID"
+msgstr "ID źródła importu"
+
+#: inc/import-export/import/donations-import-mapper.php:115
+msgid "Row skipped: missing/invalid email or non-positive amount."
+msgstr "Wiersz pominięty: brakujący/nieprawidłowy e-mail lub niepozytywna kwota."
+
+#: inc/import-export/import/donations-import-mapper.php:210
+msgid "Row skipped: could not insert donation."
+msgstr "Wiersz pominięty: nie można wstawić darowizny."
+
+#: inc/import-export/import/donors-import-mapper.php:87
+msgid "Row skipped: missing or invalid email."
+msgstr "Pominięto wiersz: brak lub nieprawidłowy adres e-mail."
+
+#. translators: %s: provided mode value
+#: inc/payments/stripe/stripe-settings.php:149
+msgid "Invalid mode \"%s\". Must be \"all\", \"test\" or \"live\"."
+msgstr "Nieprawidłowy tryb \"%s\". Musi być \"all\", \"test\" lub \"live\"."
+
+#: inc/payments/stripe/stripe-settings.php:421
+#: inc/payments/stripe/stripe-settings.php:467
+msgid "Stripe account not found."
+msgstr "Konto Stripe nie zostało znalezione."
+
+#: inc/payments/stripe/stripe-settings.php:431
+msgid "This Stripe account is still in use and cannot be disconnected."
+msgstr "To konto Stripe jest nadal używane i nie można go odłączyć."
+
+#: inc/payments/stripe/stripe-settings.php:475
+#: assets/build/admin.js:71
+msgid "Default Stripe account updated."
+msgstr "Domyślne konto Stripe zostało zaktualizowane."
+
+#. translators: %s: number of donation forms
+#: inc/payments/stripe/stripe-settings.php:559
+msgid "%s donation form is assigned to this account."
+msgid_plural "%s donation forms are assigned to this account."
+msgstr[0] "%s formularz darowizny jest przypisany do tego konta."
+msgstr[1] ""
+msgstr[2] ""
+
+#: inc/payments/stripe/stripe-settings.php:600
+msgid "Webhook created successfully."
+msgstr "Webhook został pomyślnie utworzony."
+
+#: inc/payments/stripe/stripe-settings.php:778
+msgid "No Stripe account to create a webhook for."
+msgstr "Brak konta Stripe do utworzenia webhooka."
+
+#: inc/payments/stripe/stripe-settings.php:962
+msgid "Stripe did not return an account identifier."
+msgstr "Stripe nie zwrócił identyfikatora konta."
+
+#: inc/post-types/donation-form.php:200
+msgid "Selected Stripe account for this form (account id, or empty/\"default\" to use the site default)."
+msgstr "Wybrane konto Stripe dla tego formularza (identyfikator konta lub puste/\"domyślne\", aby użyć domyślnego konta witryny)."
+
+#: assets/build/admin.js:70
+msgid "Auto (Left)"
+msgstr "Auto (Lewo)"
+
+#: assets/build/admin.js:70
+msgid "Left ($100)"
+msgstr "Lewo (100 $)"
+
+#: assets/build/admin.js:70
+msgid "Right (100$)"
+msgstr "Prawo (100$)"
+
+#: assets/build/admin.js:70
+msgid "Left Space ($ 100)"
+msgstr "Lewo z odstępem (100 $)"
+
+#: assets/build/admin.js:70
+msgid "Right Space (100 $)"
+msgstr "Prawo z odstępem (100 $)"
+
+#: assets/build/admin.js:70
+msgid "Currency Sign Position"
+msgstr "Pozycja znaku waluty"
+
+#: assets/build/admin.js:70
+msgid "Auto follows your site locale in the dashboard and places the symbol on the left for donation forms, receipts, and emails. Choose a specific position to override this everywhere."
+msgstr "Auto podąża za lokalizacją witryny w panelu i umieszcza symbol po lewej stronie dla formularzy darowizn, paragonów i e-maili. Wybierz konkretną pozycję, aby zastąpić to wszędzie."
+
+#: assets/build/admin.js:71
+msgid "Webhook active"
+msgstr "Webhook aktywny"
+
+#: assets/build/admin.js:71
+msgid "Creating webhook…"
+msgstr "Tworzenie webhooka…"
+
+#: assets/build/admin.js:71
+msgid "Create webhook"
+msgstr "Utwórz webhook"
+
+#: assets/build/admin.js:71
+msgid "Failed to set default account."
+msgstr "Nie udało się ustawić domyślnego konta."
+
+#: assets/build/admin.js:71
+msgid "Setting…"
+msgstr "Ustawianie…"
+
+#: assets/build/admin.js:71
+msgid "Set as default"
+msgstr "Ustaw jako domyślne"
+
+#. translators: %s is the account name or id.
+#: assets/build/admin.js:74
+msgid "Are you sure you want to disconnect “%s”? Donation forms using this account will fall back to the default account, and it will stop processing new payments."
+msgstr "Czy na pewno chcesz odłączyć „%s”? Formularze darowizn korzystające z tego konta będą korzystać z domyślnego konta, a nowe płatności nie będą przetwarzane."
+
+#: assets/build/admin.js:74
+msgid "Connected Accounts"
+msgstr "Połączone konta"
+
+#: assets/build/admin.js:74
+msgid "Connect another account"
+msgstr "Połącz inne konto"
+
+#: assets/build/admin.js:74
+msgid "Payment Gateways"
+msgstr "Bramki płatności"
+
+#: assets/build/admin.js:74
+msgid "General Settings"
+msgstr "Ustawienia ogólne"
+
+#: assets/build/admin.js:74
+#: assets/build/admin.js:91
+msgid "Payments"
+msgstr "Płatności"
+
+#: assets/build/admin.js:74
+msgid "Create an Application Password"
+msgstr "Utwórz hasło aplikacji"
+
+#: assets/build/admin.js:91
+msgid "Let donors give manually. Turn it on and set the instructions they see."
+msgstr "Pozwól darczyńcom wpłacać ręcznie. Włącz to i ustaw instrukcje, które zobaczą."
+
+#: assets/build/admin.js:91
+msgid "Set your donation currency and mode, then connect a payment gateway."
+msgstr "Ustaw walutę darowizny i tryb, a następnie połącz bramkę płatności."
+
+#: assets/build/admin.js:91
+msgid "Import & Export"
+msgstr "Importuj i eksportuj"
+
+#: assets/build/admin.js:91
+msgid "Export your donations, donors, campaigns, and settings, or import them back from a file."
+msgstr "Eksportuj swoje darowizny, darczyńców, kampanie i ustawienia lub zaimportuj je z powrotem z pliku."
+
+#: assets/build/admin.js:91
+msgid "The file is larger than 20 MB."
+msgstr "Plik jest większy niż 20 MB."
+
+#: assets/build/admin.js:91
+msgid "The file is not valid JSON."
+msgstr "Plik nie jest prawidłowym JSON-em."
+
+#: assets/build/admin.js:91
+msgid "Could not read the file."
+msgstr "Nie można odczytać pliku."
+
+#: assets/build/admin.js:91
+msgid "Export your one-time donations to a CSV file, including submitted form fields."
+msgstr "Eksportuj swoje jednorazowe darowizny do pliku CSV, w tym przesłane pola formularza."
+
+#: assets/build/admin.js:91
+msgid "Failed to export donations."
+msgstr "Nie udało się wyeksportować darowizn."
+
+#. translators: %d: number of donations exported.
+#: assets/build/admin.js:92
+msgid "Exported %d donation."
+msgid_plural "Exported %d donations."
+msgstr[0] "Wyeksportowano %d darowiznę."
+msgstr[1] ""
+msgstr[2] ""
+
+#: assets/build/admin.js:92
+msgid "No donations to export."
+msgstr "Brak darowizn do eksportu."
+
+#: assets/build/admin.js:92
+msgid "Export was capped at 10,000 rows. Narrow the date range to export the rest."
+msgstr "Eksport został ograniczony do 10 000 wierszy. Zawęź zakres dat, aby wyeksportować resztę."
+
+#: assets/build/admin.js:92
+msgid "Export your donor database with names, contact details, and giving totals to a CSV file."
+msgstr "Eksportuj swoją bazę danych darczyńców z imionami, danymi kontaktowymi i sumami darowizn do pliku CSV."
+
+#. translators: %d: number of donors exported.
+#: assets/build/admin.js:93
+msgid "Exported %d donor."
+msgid_plural "Exported %d donors."
+msgstr[0] "Wyeksportowano %d darczyńcę."
+msgstr[1] ""
+msgstr[2] ""
+
+#: assets/build/admin.js:93
+msgid "No donors to export."
+msgstr "Brak darczyńców do eksportu."
+
+#: assets/build/admin.js:93
+msgid "Export was capped at 10,000 rows. Narrow the results to export the rest."
+msgstr "Eksport został ograniczony do 10 000 wierszy. Zawęź wyniki, aby wyeksportować resztę."
+
+#: assets/build/admin.js:93
+msgid "Export your campaigns and their donation forms to a JSON file for backup or moving to another site."
+msgstr "Eksportuj swoje kampanie i ich formularze darowizn do pliku JSON w celu utworzenia kopii zapasowej lub przeniesienia na inną stronę."
+
+#: assets/build/admin.js:93
+#: assets/build/admin.js:94
+msgid "Export JSON"
+msgstr "Eksportuj JSON"
+
+#: assets/build/admin.js:93
+msgid "Failed to export campaigns."
+msgstr "Nie udało się wyeksportować kampanii."
+
+#. translators: %d: number of campaigns exported.
+#: assets/build/admin.js:94
+msgid "Exported %d campaign."
+msgid_plural "Exported %d campaigns."
+msgstr[0] "Wyeksportowano %d kampanię."
+msgstr[1] ""
+msgstr[2] ""
+
+#: assets/build/admin.js:94
+msgid "No campaigns to export."
+msgstr "Brak kampanii do eksportu."
+
+#: assets/build/admin.js:94
+msgid "Export your SureDonation settings to a JSON file. Payment credentials and other secrets are never included."
+msgstr "Eksportuj ustawienia SureDonation do pliku JSON. Dane uwierzytelniające płatności i inne tajne informacje nigdy nie są uwzględniane."
+
+#: assets/build/admin.js:94
+msgid "Failed to export settings."
+msgstr "Nie udało się wyeksportować ustawień."
+
+#: assets/build/admin.js:94
+msgid "Settings exported."
+msgstr "Ustawienia wyeksportowane."
+
+#: assets/build/admin.js:94
+msgid "Merge"
+msgstr "Scal"
+
+#: assets/build/admin.js:94
+msgid "Please select a .json file."
+msgstr "Proszę wybrać plik .json."
+
+#: assets/build/admin.js:94
+msgid "Restore from JSON"
+msgstr "Przywróć z JSON"
+
+#: assets/build/admin.js:94
+msgid "Import campaigns or settings from a JSON file exported by SureDonation."
+msgstr "Importuj kampanie lub ustawienia z pliku JSON wyeksportowanego przez SureDonation."
+
+#: assets/build/admin.js:94
+msgid "Imported campaigns and their forms are added as published campaigns."
+msgstr "Zaimportowane kampanie i ich formularze są dodawane jako opublikowane kampanie."
+
+#: assets/build/admin.js:94
+msgid "Campaigns imported."
+msgstr "Kampanie zaimportowane."
+
+#: assets/build/admin.js:94
+msgid "Failed to import campaigns."
+msgstr "Nie udało się zaimportować kampanii."
+
+#: assets/build/admin.js:94
+msgid "Choose Merge to update only the keys in the file, or Replace to overwrite all settings. Payment credentials and other secrets are never imported."
+msgstr "Wybierz Scal, aby zaktualizować tylko klucze w pliku, lub Zastąp, aby nadpisać wszystkie ustawienia. Dane uwierzytelniające płatności i inne tajne informacje nigdy nie są importowane."
+
+#: assets/build/admin.js:94
+msgid "Import mode"
+msgstr "Tryb importu"
+
+#: assets/build/admin.js:94
+msgid "Failed to import settings."
+msgstr "Nie udało się zaimportować ustawień."
+
+#: assets/build/admin.js:94
+msgid "Import donations or donors from a CSV exported by SureDonation. Columns are matched automatically."
+msgstr "Importuj darowizny lub darczyńców z pliku CSV wyeksportowanego przez SureDonation. Kolumny są dopasowywane automatycznie."
+
+#: assets/build/admin.js:94
+msgid "Import type"
+msgstr "Typ importu"
+
+#: assets/build/admin.js:94
+msgid "Import into campaign"
+msgstr "Importuj do kampanii"
+
+#: assets/build/admin.js:94
+msgid "All imported donations are added to this campaign."
+msgstr "Wszystkie zaimportowane darowizny są dodawane do tej kampanii."
+
+#: assets/build/admin.js:94
+msgid "Create a campaign first — imported donations need a campaign to belong to."
+msgstr "Najpierw utwórz kampanię — zaimportowane darowizny muszą należeć do kampanii."
+
+#: assets/build/admin.js:94
+msgid "Upload CSV file"
+msgstr "Prześlij plik CSV"
+
+#: assets/build/admin.js:94
+msgid "Import progress"
+msgstr "Postęp importu"
+
+#: assets/build/admin.js:94
+msgid "Import complete"
+msgstr "Import zakończony"
+
+#. translators: 1: imported count, 2: skipped count, 3: error count.
+#: assets/build/admin.js:95
+msgid "Imported %1$d, skipped %2$d, %3$d error."
+msgid_plural "Imported %1$d, skipped %2$d, %3$d errors."
+msgstr[0] "Zaimportowano %1$d, pominięto %2$d, %3$d błąd."
+msgstr[1] ""
+msgstr[2] ""
+
+#: assets/build/admin.js:95
+msgid "Import failed."
+msgstr "Import nie powiódł się."
+
+#: assets/build/admin.js:95
+msgid "The import did not finish. It may still be running - reload to check."
+msgstr "Import nie został zakończony. Może nadal trwać - odśwież, aby sprawdzić."
+
+#: assets/build/admin.js:95
+msgid "Export"
+msgstr "Eksportuj"
+
+#. translators: %s is the completion percentage (always 100%).
+#: assets/build/admin.js:101
+#: assets/build/admin/onboarding/index.js:7
+msgid "%s completed"
+msgstr "%s zakończono"
+
+#: assets/build/admin.js:104
+msgid "Tools"
+msgstr "Narzędzia"
+
+#: assets/build/blocks.js:1
+msgid "Fill"
+msgstr "Wypełnij"
+
+#: assets/build/blocks.js:1
+msgid "Cover"
+msgstr "Pokryj"
+
+#: assets/build/blocks.js:1
+msgid "Contain"
+msgstr "Zawieraj"
+
+#: assets/build/blocks.js:1
+msgid "Thumbnail"
+msgstr "Miniatura"
+
+#: assets/build/blocks.js:1
+msgid "Full Size"
+msgstr "Pełny rozmiar"
+
+#: assets/build/blocks.js:1
+msgid "Remove Image"
+msgstr "Usuń obraz"
+
+#: assets/build/blocks.js:1
+msgid "Change Image"
+msgstr "Zmień obraz"
+
+#: assets/build/blocks.js:1
+msgid "Image Alignment"
+msgstr "Wyrównanie obrazu"
+
+#: assets/build/blocks.js:1
+msgid "Image Size"
+msgstr "Rozmiar obrazu"
+
+#: assets/build/blocks.js:1
+msgid "Width"
+msgstr "Szerokość"
+
+#: assets/build/blocks.js:1
+msgid "Height"
+msgstr "Wysokość"
+
+#: assets/build/blocks.js:1
+msgid "Alt Text"
+msgstr "Tekst alternatywny"
+
+#: assets/build/blocks.js:1
+msgid "Describes the image for screen readers and when it fails to load."
+msgstr "Opisuje obraz dla czytników ekranowych i gdy nie uda się go załadować."
+
+#: assets/build/blocks.js:1
+msgid "Object Fit"
+msgstr "Dopasowanie obiektu"
+
+#: assets/build/blocks.js:1
+msgid "Enable Caption"
+msgstr "Włącz podpis"
+
+#: assets/build/blocks.js:1
+msgid "Caption Alignment"
+msgstr "Wyrównanie podpisu"
+
+#: assets/build/blocks.js:1
+msgid "Add a caption…"
+msgstr "Dodaj podpis…"
+
+#: assets/build/blocks.js:1
+msgid "Upload an image or pick one from your media library."
+msgstr "Prześlij obraz lub wybierz jeden z biblioteki multimediów."
+
+#: assets/build/blocks.js:3
+msgid "Stripe Account"
+msgstr "Konto Stripe"
+
+#: assets/build/blocks.js:3
+msgid "Site default account"
+msgstr "Domyślne konto witryny"
+
+#. translators: %s: Stripe account name
+#: assets/build/blocks.js:4
+msgid "%s (default)"
+msgstr "%s (domyślne)"
+
+#: assets/build/blocks.js:4
+msgid "Choose which connected Stripe account receives donations from this form."
+msgstr "Wybierz, które połączone konto Stripe otrzymuje darowizny z tego formularza."
 
 #: inc/campaigns/campaign-cpt.php:60
 msgctxt "Post Type General Name"
@@ -7288,6 +7957,11 @@ msgctxt "block title"
 msgid "Campaign Social Sharing"
 msgstr "Udostępnianie Kampanii w Mediach Społecznościowych"
 
+#: inc/blocks/image/block.json
+msgctxt "block title"
+msgid "Image"
+msgstr "Obraz"
+
 #: inc/blocks/anonymous-donation/block.json
 msgctxt "block description"
 msgid "Allow donors to make their donation anonymous"
@@ -7397,6 +8071,11 @@ msgstr "Wyświetla pole URL SureDonation"
 msgctxt "block description"
 msgid "Lets visitors share the campaign on social networks."
 msgstr "Pozwala odwiedzającym udostępniać kampanię w mediach społecznościowych."
+
+#: inc/blocks/image/block.json
+msgctxt "block description"
+msgid "Displays an image within the donation form"
+msgstr "Wyświetla obraz w formularzu darowizny"
 
 #: inc/blocks/anonymous-donation/block.json
 msgctxt "block keyword"
@@ -7769,3 +8448,28 @@ msgstr "udostępnianie"
 msgctxt "block keyword"
 msgid "sharing"
 msgstr "dzielenie się"
+
+#: inc/blocks/image/block.json
+msgctxt "block keyword"
+msgid "image"
+msgstr "obraz"
+
+#: inc/blocks/image/block.json
+msgctxt "block keyword"
+msgid "picture"
+msgstr "zdjęcie"
+
+#: inc/blocks/image/block.json
+msgctxt "block keyword"
+msgid "photo"
+msgstr "fotografia"
+
+#: inc/blocks/image/block.json
+msgctxt "block keyword"
+msgid "logo"
+msgstr "logo"
+
+#: inc/blocks/image/block.json
+msgctxt "block keyword"
+msgid "media"
+msgstr "media"

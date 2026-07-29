@@ -77,6 +77,16 @@ abstract class Base {
 	private $db_upgradable;
 
 	/**
+	 * Previously stored version of this table before the current upgrade
+	 * (0 when the table had no recorded version yet). Exposed so child classes
+	 * can gate one-time data migrations in run_data_migrations().
+	 *
+	 * @var int
+	 * @since 1.3.0
+	 */
+	protected $prev_version = 0;
+
+	/**
 	 * Current table database result caches.
 	 *
 	 * @var array<mixed>
@@ -137,6 +147,16 @@ abstract class Base {
 	}
 
 	/**
+	 * Run one-time data migrations for this table after its columns are in
+	 * place. Called only while the table is upgradable (see register.php).
+	 * No-op by default; override in a child class and gate on $this->prev_version.
+	 *
+	 * @return void
+	 * @since 1.3.0
+	 */
+	public function run_data_migrations() {}
+
+	/**
 	 * Start the database upgrade process.
 	 *
 	 * @return void
@@ -146,6 +166,8 @@ abstract class Base {
 		$versions     = Helper::get_suredonation_option( self::VERSION_OPTION_KEY, [] );
 		$versions     = is_array( $versions ) ? $versions : [];
 		$prev_version = ! empty( $versions[ $this->table_suffix ] ) ? absint( $versions[ $this->table_suffix ] ) : false;
+
+		$this->prev_version = $prev_version ? (int) $prev_version : 0;
 
 		if ( ! $prev_version ) {
 			$this->db_upgradable = true;
@@ -241,6 +263,11 @@ abstract class Base {
 		// into `DEFAULT \'\'`, which MySQL rejects with a syntax error. The
 		// table name, column list, and charset are all hardcoded DDL (not user
 		// input), so direct concatenation is safe.
+		//
+		// Column definitions must quote string literals with single quotes.
+		// wpdb strips the composite `ANSI` sql_mode on connect but not a
+		// standalone `ANSI_QUOTES`, under which `DEFAULT ""` parses as an empty
+		// identifier and fails the statement permanently on every retry.
 		$query = sprintf(
 			'CREATE TABLE IF NOT EXISTS `%s` ( %s ) %s',
 			esc_sql( $this->get_tablename() ),

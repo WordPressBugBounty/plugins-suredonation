@@ -4,7 +4,7 @@ Donate link: https://www.paypal.me/BrainstormForce
 Tags: donation, donation form, fundraising, nonprofit, recurring donations
 Requires at least: 6.4
 Tested up to: 7.0
-Stable tag: 1.2.0
+Stable tag: 1.3.0
 Requires PHP: 8.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -186,6 +186,12 @@ This plugin connects to external services only when the related feature or payme
 
 == Changelog ==
 
+= 1.3.0 - 29th July 2026 =
+* New: Added support for multiple Stripe accounts, with a per-form account selector.
+* New: Added the ability to import and export donations, donors, campaigns, and settings.
+* New: Added an Image field to the donation form editor.
+* New: Added a Currency Sign Position setting to General Settings.
+
 = 1.2.0 - 20th July 2026 =
 * New: Added OttoKit (formerly SureTriggers) integration to automate workflows when donations are created, completed, or refunded.
 * New: Added a Campaign Social Sharing block so supporters can share campaigns, along with social preview meta tags for shared campaign pages.
@@ -197,15 +203,4 @@ This plugin connects to external services only when the related feature or payme
 * New: Added a What's New panel to the admin navigation so you can see the latest updates without leaving the dashboard.
 * Fix: Offline donation instructions now display consistently between the editor and the frontend, including default instructions.
 
-= 1.1.1 - 9th July 2026 =
-* New: Added Dropdown, Address, Phone Number, URL, Heading, and HTML blocks.
-* Improvement: Show a notice in the form when a payment gateway has not been configured.
-
-= 1.1.0 - 25th June 2026 =
-* New: Added field validation settings, including configurable global validation messages.
-* New: Introduced spam protection settings with Honeypot support.
-* Improvement: Added a dedicated Save button to Global Settings.
-* Improvement: Form styling options now display the global theme color palette.
-
-= 1.0.0 - 15th June 2026 =
-* New: Initial release with fundraising campaigns, block-based donation forms, Stripe, PayPal, offline payments, donor management, and GiveWP migration.
+The full changelog is available [here](https://suredonation.com/whats-new/?utm_source=wordpress.org&utm_medium=whats_new).

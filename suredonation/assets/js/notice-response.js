@@ -6,6 +6,11 @@
 			snooze: 'maybe_later',
 			dismiss: 'dismissed',
 		},
+		'sd-test-mode': {
+			primary: 'switch_to_live',
+			snooze: 'maybe_later',
+			dismiss: 'dismissed',
+		},
 		'sd-review-gateway': {
 			primary: 'rate_suredonation',
 			snooze: 'maybe_later',
@@ -16,12 +21,22 @@
 			snooze: 'maybe_later',
 			dismiss: 'dismissed',
 		},
+		'sd-webhook-not-configured': {
+			primary: 'configure_webhook',
+			dismiss: 'dismissed',
+		},
 	};
 
 	function getAction( el, noticeId ) {
 		const config = notices[ noticeId ];
 		if ( ! config ) {
 			return null;
+		}
+
+		// Plain (non-banner) notice CTA link, e.g. the webhook notice's
+		// "configure" link.
+		if ( el.classList.contains( 'sd-notice-cta' ) ) {
+			return config.primary;
 		}
 
 		if (
@@ -47,9 +62,13 @@
 		body.append( 'notice_id', noticeId );
 		body.append( 'button', button );
 
+		// keepalive lets the request outlive the page: CTA buttons navigate the
+		// same tab immediately, so without it the in-flight request is aborted on
+		// unload and the click is never recorded.
 		fetch( suredonationNoticeResponse.ajaxurl, {
 			method: 'POST',
 			body,
+			keepalive: true,
 		} ).catch( () => {} );
 	}
 

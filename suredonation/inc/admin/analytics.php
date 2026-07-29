@@ -29,6 +29,25 @@ class Analytics {
 	use Get_Instance;
 
 	/**
+	 * Allowlist of React admin-notice / UI analytics events.
+	 *
+	 * Single source of truth for the track-notice-event REST endpoint: the notice
+	 * registrations (Admin::register_react_notices) and the dashboard Quick Access
+	 * item set an event to one of these values, and handle_track_notice_event()
+	 * only records events present here. Add a new event here (and reference it on
+	 * the notice/item) to track it end-to-end.
+	 *
+	 * @var array<string, string>
+	 * @since 1.3.0
+	 */
+	public const TRACKED_EVENTS = [
+		'configure_gateway' => 'configure_gateway_notice_react_cta',
+		'webhook'           => 'webhook_notice_react_cta',
+		'test_mode'         => 'test_mode_notice_react_cta',
+		'quick_access'      => 'quick_access_configure_gateway_react_cta',
+	];
+
+	/**
 	 * BSF_Analytics_Events instance for one-time event tracking.
 	 *
 	 * @var \BSF_Analytics_Events|null
@@ -60,6 +79,9 @@ class Analytics {
 		 * init priority 10.
 		 */
 		add_action( 'init', [ $this, 'register_entity' ], 0 );
+
+		// REST route the React admin app calls to record notice/UI clicks.
+		add_action( 'rest_api_init', [ $this, 'register_routes' ] );
 
 		add_filter( 'bsf_core_stats', [ $this, 'add_suredonation_analytics_data' ] );
 
@@ -170,6 +192,61 @@ class Analytics {
 	}
 
 	/**
+	 * Register REST routes.
+	 *
+	 * Hooked - rest_api_init
+	 *
+	 * @return void
+	 * @since 1.3.0
+	 */
+	public function register_routes() {
+		register_rest_route(
+			'suredonation/v1',
+			'/track-notice-event',
+			[
+				'methods'             => \WP_REST_Server::CREATABLE,
+				'callback'            => [ $this, 'handle_track_notice_event' ],
+				'permission_callback' => static function () {
+					return current_user_can( 'manage_options' );
+				},
+				'args'                => [
+					'event' => [
+						'type'     => 'string',
+						'required' => true,
+					],
+				],
+			]
+		);
+	}
+
+	/**
+	 * Record a React notice/UI interaction event.
+	 *
+	 * Validates the event against an allowlist (so arbitrary events cannot be
+	 * injected) and records it via the shared analytics events, respecting the
+	 * usage-tracking opt-in. Event names are suffixed `_react` to keep them
+	 * distinct from the wp-admin notice events.
+	 *
+	 * @param \WP_REST_Request<array<string, mixed>> $request REST request.
+	 * @return \WP_REST_Response
+	 * @since 1.3.0
+	 */
+	public function handle_track_notice_event( $request ) {
+		$event = sanitize_key( (string) $request->get_param( 'event' ) );
+
+		if ( ! in_array( $event, self::TRACKED_EVENTS, true ) ) {
+			return new \WP_REST_Response( [ 'success' => false ], 400 );
+		}
+
+		$events = self::events();
+		if ( null !== $events ) {
+			$events->track( $event );
+		}
+
+		return new \WP_REST_Response( [ 'success' => true ], 200 );
+	}
+
+	/**
 	 * Callback function to add SureDonation specific analytics data.
 	 *
 	 * @param array<string, mixed> $stats_data Existing stats data.
@@ -197,7 +274,9 @@ class Analytics {
 				'completed_donations'             => $aggregates['completed'],
 				'recurring_donations'             => $aggregates['recurring'],
 				'total_donors'                    => $this->get_total_donors(),
+				'forms_with_image_block'          => $this->get_image_block_form_count(),
 				'posts_with_social_sharing_block' => $this->get_social_sharing_block_count(),
+				'stripe_accounts_count'           => count( Stripe_Helper::get_all_accounts() ),
 			],
 			'boolean_values'         => [
 				'stripe_enabled'               => Stripe_Helper::is_stripe_connected(),
@@ -642,6 +721,36 @@ class Analytics {
 	}
 
 	/**
+	 * How many published donation forms use the Image block.
+	 *
+	 * A privacy-preserving adoption count (no content leaves the site), run only
+	 * at analytics send time. The trailing space is the delimiter the block
+	 * serializer always emits after the block name, so a future
+	 * "image-x" block can't prefix-match.
+	 *
+	 * @return int Number of published donation forms containing the block.
+	 * @since 1.3.0
+	 */
+	private function get_image_block_form_count() {
+		global $wpdb;
+
+		$like = '%' . $wpdb->esc_like( '<!-- wp:suredonation/image ' ) . '%';
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Single aggregate COUNT run only at analytics send time.
+		$count = $wpdb->get_var(
+			$wpdb->prepare(
+				'SELECT COUNT(ID) FROM %i WHERE post_type = %s AND post_status = %s AND post_content LIKE %s',
+				$wpdb->posts,
+				'suredonation_form',
+				'publish',
+				$like
+			)
+		);
+
+		return absint( $count );
+	}
+
+	/**
 	 * Get KPI tracking data for the last 2 full days (excluding today).
 	 *
 	 * Single grouped query; raw revenue never enters the payload — only
@@ -824,8 +933,17 @@ class Analytics {
 			$events->track( 'first_refund_processed' );
 		}
 
-		// webhook_configured: a Stripe webhook secret is stored for the current mode.
-		if ( '' !== Stripe_Helper::get_webhook_secret() ) {
+		// webhook_configured: a Stripe webhook secret is stored for the current
+		// mode on any connected account (multi-account aware — reading only the
+		// default account would false-negative on sites using a non-default one).
+		$webhook_configured = false;
+		foreach ( array_keys( Stripe_Helper::get_all_accounts() ) as $wh_account_id ) {
+			if ( '' !== Stripe_Helper::get_webhook_secret( $mode, (string) $wh_account_id ) ) {
+				$webhook_configured = true;
+				break;
+			}
+		}
+		if ( $webhook_configured ) {
 			$events->track( 'webhook_configured', $mode );
 		}
 	}

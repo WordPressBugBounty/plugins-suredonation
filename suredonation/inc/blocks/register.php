@@ -8,6 +8,7 @@
 namespace SureDonation\Inc\Blocks;
 
 use SureDonation\Inc\Payments\Offline\Offline_Helper;
+use SureDonation\Inc\Payments\PayPal\PayPal_Helper;
 use SureDonation\Inc\Payments\Payment_Helper;
 use SureDonation\Inc\Payments\Stripe\Stripe_Helper;
 use SureDonation\Inc\Traits\Get_Instance;
@@ -393,8 +394,11 @@ class Register {
 			[
 				'payments'           => [
 					'stripe_connected'   => Stripe_Helper::is_stripe_connected(),
+					'paypal_connected'   => PayPal_Helper::is_paypal_connected(),
 					'stripe_connect_url' => Stripe_Helper::get_stripe_connect_url(),
-					'settings_url'       => admin_url( 'admin.php?page=suredonation#/settings?tab=payments' ),
+					// Base payments-settings URL; the editor's "Configure Payment
+					// Account" CTA appends the block's selected gateway subpage.
+					'settings_url'       => Payment_Helper::get_settings_url(),
 					'offline_enabled'    => Offline_Helper::is_offline_enabled(),
 					'gateways'           => apply_filters(
 						'suredonation_editor_payment_gateways',

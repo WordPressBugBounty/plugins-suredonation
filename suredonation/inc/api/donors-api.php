@@ -707,7 +707,7 @@ class Donors_API {
 			[
 				'success'     => true,
 				'csv'         => $csv_content,
-				'filename'    => 'donors-export-' . gmdate( 'Y-m-d' ) . '.csv',
+				'filename'    => 'suredonation-donors-export-' . gmdate( 'Y-m-d' ) . '.csv',
 				'truncated'   => $truncated,
 				'total_count' => $total_count,
 				'exported'    => count( $donors ),

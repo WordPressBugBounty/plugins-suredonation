@@ -12,6 +12,7 @@ use SureDonation\Inc\API\Dashboard_API;
 use SureDonation\Inc\API\Donations_API;
 use SureDonation\Inc\API\Donors_API;
 use SureDonation\Inc\API\Forms_API;
+use SureDonation\Inc\API\Import_Export_API;
 use SureDonation\Inc\API\Import_Givewp_API;
 use SureDonation\Inc\API\Onboarding_API;
 use SureDonation\Inc\API\Settings_API;
@@ -100,6 +101,7 @@ class Rest_Api {
 		$forms_api         = new Forms_API();
 		$settings_api      = new Settings_API();
 		$import_givewp_api = Import_Givewp_API::get_instance();
+		$import_export_api = new Import_Export_API();
 		$onboarding_api    = new Onboarding_API();
 
 		// Merge endpoints from all APIs.
@@ -111,6 +113,7 @@ class Rest_Api {
 			$forms_api->get_endpoints(),
 			$settings_api->get_endpoints(),
 			$import_givewp_api->get_endpoints(),
+			$import_export_api->get_endpoints(),
 			$onboarding_api->get_endpoints()
 		);
 
