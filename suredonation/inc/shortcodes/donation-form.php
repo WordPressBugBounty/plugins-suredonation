@@ -11,6 +11,7 @@
 namespace SureDonation\Inc\Shortcodes;
 
 use SureDonation\Inc\Fields\Form_Renderer;
+use SureDonation\Inc\Fields\Form_Styling;
 use SureDonation\Inc\Helper;
 use SureDonation\Inc\Post_Types\Donation_Form as Donation_Form_CPT;
 use SureDonation\Inc\Traits\Get_Instance;
@@ -106,8 +107,14 @@ class Donation_Form {
 	 * @since 0.0.1
 	 */
 	private function enqueue_assets( $form_id, $form ) {
-		// Enqueue the shared compiled frontend stylesheet (same handle the block uses).
-		wp_enqueue_style( 'suredonation-donation-form' );
+		// Enqueue the shared compiled frontend stylesheet (same handle the block
+		// uses). Skipped when the form has default styling disabled — the site's
+		// own CSS then controls the appearance. Scripts are always loaded so
+		// payment and validation keep working. The enqueue is additive across
+		// forms on a page, so a styled form still loads the stylesheet.
+		if ( ! Form_Styling::is_default_styling_disabled( $form_id ) ) {
+			wp_enqueue_style( 'suredonation-donation-form' );
+		}
 
 		// Enqueue frontend script (registered globally in Assets\Register).
 		wp_enqueue_script( 'suredonation-form-frontend' );

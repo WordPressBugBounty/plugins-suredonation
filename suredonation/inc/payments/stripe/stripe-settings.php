@@ -29,6 +29,27 @@ class Stripe_Settings {
 	use Get_Instance;
 
 	/**
+	 * Cron hook that reconciles webhook events away from the request path.
+	 *
+	 * @since 1.4.0
+	 */
+	public const WEBHOOK_SYNC_HOOK = 'suredonation_sync_stripe_webhook_events';
+
+	/**
+	 * Option holding the fingerprint of the last successfully synced event list.
+	 *
+	 * @since 1.4.0
+	 */
+	private const WEBHOOK_SYNC_OPTION = 'suredonation_stripe_webhook_events_synced';
+
+	/**
+	 * Transient that backs off retries after a failed sync.
+	 *
+	 * @since 1.4.0
+	 */
+	private const WEBHOOK_SYNC_BACKOFF = 'suredonation_stripe_webhook_sync_backoff';
+
+	/**
 	 * Constructor
 	 *
 	 * @since 0.0.1
@@ -36,6 +57,8 @@ class Stripe_Settings {
 	public function __construct() {
 		add_action( 'rest_api_init', [ $this, 'register_routes' ] );
 		add_action( 'admin_init', [ $this, 'intercept_stripe_callback' ] );
+		add_action( 'admin_init', [ $this, 'maybe_sync_webhook_events' ] );
+		add_action( self::WEBHOOK_SYNC_HOOK, [ $this, 'run_webhook_event_sync' ] );
 		add_filter( 'suredonation_stripe_account_usage_blockers', [ $this, 'add_form_usage_blocker' ], 10, 2 );
 	}
 
@@ -784,7 +807,228 @@ class Stripe_Settings {
 	}
 
 	/**
-	 * Create webhook for mode
+	 * Stripe events the webhook endpoint subscribes to.
+	 *
+	 * Handlers are useless unless the event is subscribed here, so anything
+	 * adding a handler has to be able to add its event. Pro's recurring
+	 * payment-failure handler was unreachable on every site because
+	 * `invoice.payment_failed` was missing from this list and there was no way
+	 * for Pro to add it.
+	 *
+	 * @return array<int, string> Stripe event names.
+	 * @since 1.4.0
+	 */
+	public static function get_webhook_events() {
+		$events = [
+			'charge.succeeded',
+			'charge.failed',
+			'charge.refunded',
+			'charge.refund.updated',
+			'charge.dispute.created',
+			'charge.dispute.closed',
+			'invoice.payment_succeeded',
+			'invoice.payment_failed',
+			'customer.subscription.created',
+			'customer.subscription.updated',
+			'customer.subscription.deleted',
+			'payment_intent.succeeded',
+			'payment_intent.payment_failed',
+			'payment_intent.canceled',
+		];
+
+		/**
+		 * Filter the Stripe events the webhook endpoint subscribes to.
+		 *
+		 * @param array<int, string> $events Stripe event names.
+		 * @since 1.4.0
+		 */
+		$events = apply_filters( 'suredonation_stripe_webhook_events', $events );
+
+		if ( ! is_array( $events ) ) {
+			return [];
+		}
+
+		return array_values( array_unique( array_filter( $events, 'is_string' ) ) );
+	}
+
+	/**
+	 * Reconcile webhook events for every connected account, once per event list.
+	 *
+	 * Keyed on a hash of the event list rather than a plugin version, so it runs
+	 * when the events actually change — including when Pro is activated and adds
+	 * its own — and stays quiet otherwise. Each pass is a couple of Stripe calls
+	 * per connected mode, on an admin request only.
+	 *
+	 * @return void
+	 * @since 1.4.0
+	 */
+	public function maybe_sync_webhook_events() {
+		// Context first. admin_init also fires on admin-ajax.php, before the
+		// nopriv dispatch, and the whole donation flow runs through nopriv ajax
+		// actions — so a donor's payment request reaches this method. Checking
+		// the signature first meant that request still paid for an option read
+		// and a hash of the event list before being turned away here, which is
+		// the cost this guard exists to avoid.
+		if ( wp_doing_ajax() || wp_doing_cron() || ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+
+		if ( get_option( self::WEBHOOK_SYNC_OPTION ) === self::get_webhook_events_signature() ) {
+			return;
+		}
+
+		// While the backoff is held the last run failed, and rescheduling on each
+		// pageview would queue an event that immediately returns — busy-waiting
+		// through cron until the transient expires.
+		if ( get_transient( self::WEBHOOK_SYNC_BACKOFF ) ) {
+			return;
+		}
+
+		if ( ! wp_next_scheduled( self::WEBHOOK_SYNC_HOOK ) ) {
+			wp_schedule_single_event( time(), self::WEBHOOK_SYNC_HOOK );
+		}
+	}
+
+	/**
+	 * Reconcile webhook events for every connected account.
+	 *
+	 * Runs on cron. The signature is recorded only when nothing failed, so a
+	 * transient Stripe error is retried rather than being remembered as done —
+	 * which would leave that site permanently without the events it is missing.
+	 * A short backoff keeps a persistent failure from retrying on every run.
+	 *
+	 * @return void
+	 * @since 1.4.0
+	 */
+	public function run_webhook_event_sync() {
+		if ( get_transient( self::WEBHOOK_SYNC_BACKOFF ) ) {
+			return;
+		}
+
+		$failed = false;
+
+		foreach ( Stripe_Helper::get_all_accounts() as $account_id => $account ) {
+			if ( ! is_array( $account ) ) {
+				continue;
+			}
+			foreach ( [ 'test', 'live' ] as $mode ) {
+				if ( is_wp_error( $this->sync_webhook_events( $mode, (string) $account_id ) ) ) {
+					$failed = true;
+				}
+			}
+		}
+
+		if ( $failed ) {
+			set_transient( self::WEBHOOK_SYNC_BACKOFF, true, HOUR_IN_SECONDS );
+			return;
+		}
+
+		update_option( self::WEBHOOK_SYNC_OPTION, self::get_webhook_events_signature(), false );
+	}
+
+	/**
+	 * Fingerprint of the current event list.
+	 *
+	 * Sorted before hashing so a filter that returns the same events in a
+	 * different order does not look like a change and re-trigger the sync.
+	 *
+	 * @return string Signature.
+	 * @since 1.4.0
+	 */
+	private static function get_webhook_events_signature() {
+		$events = self::get_webhook_events();
+		sort( $events );
+
+		return md5( (string) wp_json_encode( $events ) );
+	}
+
+	/**
+	 * Bring an existing webhook endpoint's event list up to date.
+	 *
+	 * The event list is otherwise only applied when the endpoint is created, so
+	 * a site that connected Stripe before an event was added never receives it.
+	 * Reconciling on read means those sites pick up new events without having to
+	 * disconnect and reconnect, which would invalidate the stored signing secret.
+	 *
+	 * Returns a WP_Error only for a genuine API failure. Every other outcome —
+	 * no account, no endpoint yet, an endpoint already current, or one
+	 * subscribed to everything — is a legitimate no-op and must not be treated
+	 * as a failure, or one such account would block the whole run from being
+	 * recorded as done.
+	 *
+	 * @param string      $mode       Payment mode.
+	 * @param string|null $account_id Account id; the default account is used when empty.
+	 * @return bool|WP_Error True when updated, false when no action was needed, WP_Error on API failure.
+	 * @since 1.4.0
+	 */
+	public function sync_webhook_events( $mode, $account_id = null ) {
+		if ( empty( $account_id ) ) {
+			$account_id = Stripe_Helper::get_default_account_id();
+		}
+		if ( empty( $account_id ) ) {
+			return false;
+		}
+
+		$account = Stripe_Helper::get_account( $account_id );
+		if ( ! is_array( $account ) ) {
+			return false;
+		}
+
+		$webhook_id = isset( $account[ $mode . '_webhook_id' ] ) && is_string( $account[ $mode . '_webhook_id' ] )
+			? $account[ $mode . '_webhook_id' ]
+			: '';
+
+		if ( '' === $webhook_id ) {
+			return false;
+		}
+
+		$existing = Stripe_Helper::stripe_api_request(
+			'webhook_endpoints/' . $webhook_id,
+			'GET',
+			[],
+			[
+				'mode'       => $mode,
+				'account_id' => $account_id,
+			]
+		);
+
+		if ( is_wp_error( $existing ) ) {
+			return $existing;
+		}
+
+		$current = isset( $existing['enabled_events'] ) && is_array( $existing['enabled_events'] )
+			? array_values( array_filter( $existing['enabled_events'], 'is_string' ) )
+			: [];
+		$wanted  = self::get_webhook_events();
+
+		// Stripe accepts '*' as "every event"; leave such an endpoint alone
+		// rather than narrowing what it already receives.
+		if ( in_array( '*', $current, true ) || ! array_diff( $wanted, $current ) ) {
+			return false;
+		}
+
+		$updated = Stripe_Helper::stripe_api_request(
+			'webhook_endpoints/' . $webhook_id,
+			'POST',
+			// Merged, not replaced, so events added by hand in the Stripe
+			// dashboard survive. This also makes the events filter additive:
+			// removing an entry from it will not unsubscribe an existing endpoint.
+			[ 'enabled_events' => array_values( array_unique( array_merge( $current, $wanted ) ) ) ],
+			[
+				'mode'       => $mode,
+				'account_id' => $account_id,
+			]
+		);
+
+		if ( is_wp_error( $updated ) ) {
+			return $updated;
+		}
+
+		return true;
+	}
+
+	/**
+	 * Create Stripe webhook for a mode.
 	 *
 	 * @param string      $mode       Payment mode.
 	 * @param string|null $account_id Account id; the default account is used when empty.
@@ -817,24 +1061,8 @@ class Stripe_Settings {
 			);
 		}
 
-		$webhook_url = Stripe_Helper::get_webhook_url( $mode );
-
-		// Events to listen to.
-		$enabled_events = [
-			'charge.succeeded',
-			'charge.failed',
-			'charge.refunded',
-			'charge.refund.updated',
-			'charge.dispute.created',
-			'charge.dispute.closed',
-			'invoice.payment_succeeded',
-			'customer.subscription.created',
-			'customer.subscription.updated',
-			'customer.subscription.deleted',
-			'payment_intent.succeeded',
-			'payment_intent.payment_failed',
-			'payment_intent.canceled',
-		];
+		$webhook_url    = Stripe_Helper::get_webhook_url( $mode );
+		$enabled_events = self::get_webhook_events();
 
 		$webhook_data = [
 			'url'            => $webhook_url,

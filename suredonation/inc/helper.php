@@ -204,6 +204,38 @@ class Helper {
 	}
 
 	/**
+	 * Whether a (possibly nested) block tree contains a block of the given name.
+	 *
+	 * Walks parse_blocks() output, descending into innerBlocks so a block nested
+	 * inside a layout wrapper (Group/Columns) is still found. Note that a block
+	 * inside a synced pattern is not reachable: those parse as `core/block` with
+	 * no innerBlocks.
+	 *
+	 * Lives here rather than on Form_Renderer or Payment_Helper — both need it,
+	 * they sit in unrelated namespaces, and this is a generic block utility with
+	 * no rendering or payment semantics.
+	 *
+	 * @param array<int|string, mixed> $blocks Parsed blocks (parse_blocks output).
+	 * @param string                   $target Block name to look for.
+	 * @return bool
+	 * @since 1.4.0
+	 */
+	public static function block_tree_contains( $blocks, $target ) {
+		foreach ( $blocks as $block ) {
+			if ( ! is_array( $block ) ) {
+				continue;
+			}
+			if ( isset( $block['blockName'] ) && $block['blockName'] === $target ) {
+				return true;
+			}
+			if ( ! empty( $block['innerBlocks'] ) && is_array( $block['innerBlocks'] ) && self::block_tree_contains( $block['innerBlocks'], $target ) ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
 	 * Checks if current value is string or else returns default value
 	 *
 	 * @param mixed $data data which need to be checked if is string.
@@ -1003,7 +1035,7 @@ class Helper {
 			],
 		];
 
-		return [
+		$smart_tags = [
 			'confirmation'         => $confirmation_tags,
 			'email'                => array_merge(
 				$confirmation_tags,
@@ -1019,14 +1051,6 @@ class Helper {
 					[
 						'tag'   => '{admin_url}',
 						'title' => __( 'Admin URL', 'suredonation' ),
-					],
-					[
-						'tag'   => '{subscription_id}',
-						'title' => __( 'Subscription ID', 'suredonation' ),
-					],
-					[
-						'tag'   => '{subscription_interval}',
-						'title' => __( 'Subscription Interval', 'suredonation' ),
 					],
 					[
 						'tag'   => '{offline_instructions}',
@@ -1065,14 +1089,6 @@ class Helper {
 						[
 							'tag'   => '{payment_method}',
 							'title' => __( 'Payment Method', 'suredonation' ),
-						],
-						[
-							'tag'   => '{subscription_id}',
-							'title' => __( 'Subscription ID', 'suredonation' ),
-						],
-						[
-							'tag'   => '{subscription_interval}',
-							'title' => __( 'Subscription Interval', 'suredonation' ),
 						],
 						[
 							'tag'   => '{refund_amount}',
@@ -1125,6 +1141,53 @@ class Helper {
 				],
 			],
 		];
+
+		// Recurring tags resolve to nothing without Pro, so a free-only site was
+		// being offered two tags it could never use. They stay here rather than
+		// moving into Pro so that activating Pro does not depend on shipping a
+		// matching Pro release; anything Pro adds beyond these comes through the
+		// filter below.
+		if ( defined( 'SUREDONATION_PRO_VER' ) ) {
+			$smart_tags['email_grouped'][0]['tags'][] = [
+				'tag'   => '{subscription_id}',
+				'title' => __( 'Recurring Donation ID', 'suredonation' ),
+			];
+			$smart_tags['email_grouped'][0]['tags'][] = [
+				'tag'   => '{subscription_interval}',
+				'title' => __( 'Frequency', 'suredonation' ),
+			];
+		}
+
+		/**
+		 * Filter the grouped smart tags offered in the email notification editor.
+		 *
+		 * The list is what an admin can insert, so anything registering a tag
+		 * resolver via `suredonation_email_smart_tags` needs to advertise it here
+		 * too. Without this, Pro could resolve recurring tags but had no way to
+		 * surface them, and free listed subscription tags that could never
+		 * resolve for a free-only site.
+		 *
+		 * @param array<int, array<string, mixed>> $groups Grouped tag definitions.
+		 * @since 1.4.0
+		 */
+		$grouped = apply_filters( 'suredonation_email_smart_tag_groups', $smart_tags['email_grouped'] );
+
+		// The filter feeds the editor's tag picker, which iterates groups and
+		// their tags. A callback returning a non-array — or groups without a
+		// `tags` array — would fatal there rather than in whatever added it, so
+		// the shape is re-checked before it is handed on.
+		if ( is_array( $grouped ) ) {
+			$smart_tags['email_grouped'] = array_values(
+				array_filter(
+					$grouped,
+					static function ( $group ) {
+						return is_array( $group ) && isset( $group['tags'] ) && is_array( $group['tags'] );
+					}
+				)
+			);
+		}
+
+		return $smart_tags;
 	}
 
 	/**
@@ -1310,14 +1373,25 @@ class Helper {
 	 * Build the rendered confirmation/thank-you HTML for a donation.
 	 *
 	 * Resolves the form's confirmation message template against the donation's
-	 * real data (smart tags) so the frontend can display the receipt.
+	 * real data (smart tags) so the frontend can display the receipt. The
+	 * billing interval is lifted out of the nested donation_data column, which
+	 * is the only field of the set that is not stored as a column of its own.
 	 *
-	 * @param int $donation_id Donation ID.
+	 * @param int                       $donation_id Donation ID.
+	 * @param array<string, mixed>|null $donation    Donation row to render from.
+	 *                                               Defaults to reading it. Pass one
+	 *                                               when the caller already holds the
+	 *                                               row, or when the row on disk does
+	 *                                               not yet reflect the state being
+	 *                                               reported to the donor.
 	 * @return string Sanitized confirmation HTML, or '' on failure.
 	 * @since 1.0.0
 	 */
-	public static function render_confirmation_message( $donation_id ) {
-		$donation = Donations::get( $donation_id );
+	public static function render_confirmation_message( $donation_id, $donation = null ) {
+		if ( ! is_array( $donation ) ) {
+			$donation = Donations::get( $donation_id );
+		}
+
 		if ( ! is_array( $donation ) ) {
 			return '';
 		}
@@ -1328,17 +1402,30 @@ class Helper {
 		$settings = self::get_form_confirmation_settings( $form_id );
 		$template = ! empty( $settings['message'] ) ? $settings['message'] : self::get_default_confirmation_message();
 
+		// The billing interval is the one field the donation row does not carry
+		// as a column; it is written a level down inside donation_data, so it
+		// has to be lifted out before the tag map can see it.
+		$stored = $donation['donation_data'] ?? [];
+		if ( is_string( $stored ) && '' !== $stored ) {
+			$stored = json_decode( $stored, true );
+		}
+		$stored = is_array( $stored ) ? $stored : [];
+
 		$donation_data = [
-			'id'             => $donation_id,
-			'donor_name'     => $donation['donor_name'] ?? '',
-			'donor_email'    => $donation['donor_email'] ?? '',
-			'amount'         => $donation['amount'] ?? 0,
-			'fees_covered'   => $donation['fees_covered'] ?? 0,
-			'currency'       => $donation['currency'] ?? Payment_Helper::get_currency(),
-			'gateway'        => $donation['gateway'] ?? '',
-			'payment_status' => $donation['payment_status'] ?? '',
-			'transaction_id' => $donation['transaction_id'] ?? '',
-			'donation_type'  => $donation['donation_type'] ?? 'one-time',
+			'id'                    => $donation_id,
+			'donor_name'            => $donation['donor_name'] ?? '',
+			'donor_email'           => $donation['donor_email'] ?? '',
+			'amount'                => $donation['amount'] ?? 0,
+			'fees_covered'          => $donation['fees_covered'] ?? 0,
+			'currency'              => $donation['currency'] ?? Payment_Helper::get_currency(),
+			'gateway'               => $donation['gateway'] ?? '',
+			'payment_status'        => $donation['payment_status'] ?? '',
+			'transaction_id'        => $donation['transaction_id'] ?? '',
+			'donation_type'         => $donation['donation_type'] ?? 'one-time',
+			// Recurring donations resolve these two; a one-time donation has
+			// neither, and the tag map already renders a missing value as empty.
+			'subscription_id'       => $donation['subscription_id'] ?? '',
+			'subscription_interval' => $stored['subscription_interval'] ?? '',
 		];
 
 		$campaign = $campaign_id ? get_post( $campaign_id ) : null;

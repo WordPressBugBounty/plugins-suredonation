@@ -85,7 +85,7 @@ class PayPal_Frontend {
 		/**
 		 * Extract validated form data.
 		 *
-		 * @phpstan-var array{currency: string, amount: float, base_amount: float, fees_covered: float, donor_email: string, donor_name: string, donor_phone: string, campaign_id: int, form_id: int, campaign_title: string} $data
+		 * @phpstan-var array{currency: string, amount: float, base_amount: float, fees_covered: float, donor_email: string, donor_name: string, donor_phone: string, is_anonymous: bool, campaign_id: int, form_id: int, campaign_title: string} $data
 		 */
 		$currency       = $data['currency'];
 		$amount         = $data['amount'];
@@ -94,6 +94,7 @@ class PayPal_Frontend {
 		$donor_email    = $data['donor_email'];
 		$donor_name     = $data['donor_name'];
 		$donor_phone    = $data['donor_phone'];
+		$is_anonymous   = $data['is_anonymous'];
 		$campaign_id    = $data['campaign_id'];
 		$form_id        = $data['form_id'];
 		$campaign_title = $data['campaign_title'];
@@ -140,7 +141,14 @@ class PayPal_Frontend {
 		$result = PayPal_Helper::middleware_request( 'orders/create', $order_data );
 
 		if ( is_wp_error( $result ) ) {
-			wp_send_json_error( [ 'message' => esc_html( $result->get_error_message() ) ] );
+			// The gateway's own wording is appended by middleware_request(), which
+			// is useful to an admin reading a webhook log but not here: this
+			// endpoint answers an unauthenticated donor mid-checkout, and PayPal's
+			// internal error names and per-field issue strings do not belong in
+			// that UI. Every other middleware_request() caller is admin-scoped.
+			wp_send_json_error(
+				[ 'message' => __( 'We could not start your payment. Please try again.', 'suredonation' ) ]
+			);
 		}
 
 		if ( empty( $result['id'] ) ) {
@@ -172,6 +180,7 @@ class PayPal_Frontend {
 				'donor_name'     => $donor_name,
 				'donor_email'    => $donor_email,
 				'donor_phone'    => $donor_phone,
+				'is_anonymous'   => $is_anonymous ? 1 : 0,
 				'donation_type'  => 'one-time',
 				'transaction_id' => $order_id,
 				'form_id'        => $form_id,
@@ -420,6 +429,9 @@ class PayPal_Frontend {
 		// unvalidated $_POST['donor_phone'] (see Payment_Helper::get_mapped_donor_phone).
 		$donor_phone = Payment_Helper::get_mapped_donor_phone( $form_id );
 		$block_id    = isset( $_POST['block_id'] ) ? sanitize_text_field( wp_unslash( $_POST['block_id'] ) ) : '';
+		// Display-only flag: the donor's real name/email/phone are still stored
+		// and only public surfaces mask them.
+		$is_anonymous = Payment_Helper::get_submitted_is_anonymous( $form_id );
 		// phpcs:enable WordPress.Security.NonceVerification.Missing
 
 		$fees_covered = 0.0;
@@ -542,6 +554,7 @@ class PayPal_Frontend {
 			'donor_email'    => $donor_email,
 			'donor_name'     => $donor_name,
 			'donor_phone'    => $donor_phone,
+			'is_anonymous'   => $is_anonymous,
 			'form_id'        => $form_id,
 			'block_id'       => $block_id,
 			'fees_covered'   => $fees_covered,

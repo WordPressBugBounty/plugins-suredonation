@@ -91,34 +91,38 @@ class Form_Styling {
 	 */
 	public static function get_defaults() {
 		return [
-			'bgType'             => 'color',
-			'bgColor'            => '',
-			'bgGradient'         => 'linear-gradient(90deg,#FFC9B2 0%,#C7CBFF 100%)',
-			'bgImage'            => '',
-			'bgImageId'          => 0,
-			'bgImageSize'        => 'cover',
-			'bgImagePosition'    => 'center center',
-			'bgImageRepeat'      => 'no-repeat',
+			'bgType'                 => 'color',
+			'bgColor'                => '',
+			'bgGradient'             => 'linear-gradient(90deg,#FFC9B2 0%,#C7CBFF 100%)',
+			'bgImage'                => '',
+			'bgImageId'              => 0,
+			'bgImageSize'            => 'cover',
+			'bgImagePosition'        => 'center center',
+			'bgImageRepeat'          => 'no-repeat',
 			// Colors default to empty here so unset values fall through to the
 			// :root defaults in _variables.scss (the editor's STYLE_DEFAULTS seeds
 			// the actual hex values instead, only to populate the panel swatches).
-			'primaryColor'       => '',
-			'textColor'          => '',
-			'textOnPrimaryColor' => '',
-			'padding'            => [
+			'primaryColor'           => '',
+			'textColor'              => '',
+			'textOnPrimaryColor'     => '',
+			'padding'                => [
 				'top'    => '',
 				'right'  => '',
 				'bottom' => '',
 				'left'   => '',
 			],
-			'borderRadius'       => [
+			'borderRadius'           => [
 				'top'    => '',
 				'right'  => '',
 				'bottom' => '',
 				'left'   => '',
 			],
-			'fieldSpacing'       => 'medium',
-			'buttonAlignment'    => 'justify',
+			'fieldSpacing'           => 'medium',
+			'buttonAlignment'        => 'justify',
+			// When true the form renders without the SureDonation stylesheet and
+			// inline CSS variables so the site's own CSS fully controls its
+			// appearance (mirrors SureForms' disable_default_styles).
+			'disable_default_styles' => false,
 		];
 	}
 
@@ -188,8 +192,47 @@ class Form_Styling {
 		$clean['fieldSpacing']       = in_array( $decoded['fieldSpacing'] ?? '', [ 'small', 'medium', 'large' ], true ) ? $decoded['fieldSpacing'] : 'medium';
 		$clean['buttonAlignment']    = in_array( $decoded['buttonAlignment'] ?? '', [ 'left', 'center', 'right', 'justify' ], true ) ? $decoded['buttonAlignment'] : 'justify';
 
+		// Boolean flag, not a style value — must survive sanitization or an
+		// editor save silently re-enables the default styling.
+		$clean['disable_default_styles'] = ! empty( $decoded['disable_default_styles'] );
+
 		$encoded = wp_json_encode( $clean );
 		return is_string( $encoded ) ? $encoded : '';
+	}
+
+	/**
+	 * Check whether the form renders without SureDonation's default styling.
+	 *
+	 * When enabled the frontend stylesheet is not enqueued for the form and the
+	 * inline CSS-variable style attribute is omitted, so the site's own CSS
+	 * fully controls the form's appearance. The container is stamped with an
+	 * `sd-styling-none` marker class so custom CSS can target the state.
+	 *
+	 * @param int $form_id Form post ID.
+	 * @return bool True when default styling is disabled for the form.
+	 * @since 1.4.0
+	 */
+	public static function is_default_styling_disabled( $form_id ) {
+		$form_id = absint( $form_id );
+		if ( ! $form_id ) {
+			return false;
+		}
+
+		$settings = self::get_settings( $form_id );
+		$disabled = ! empty( $settings['disable_default_styles'] );
+
+		/**
+		 * Filters whether SureDonation's default frontend styling is disabled for a form.
+		 *
+		 * Lets themes/plugins toggle the unstyled mode programmatically, overriding
+		 * the stored per-form meta. Return true to render the form without the
+		 * SureDonation stylesheet and inline CSS variables.
+		 *
+		 * @param bool $disabled Whether default styling is disabled (from meta).
+		 * @param int  $form_id  Form post ID.
+		 * @since 1.4.0
+		 */
+		return (bool) apply_filters( 'suredonation_disable_default_styles', $disabled, $form_id );
 	}
 
 	/**
@@ -204,6 +247,12 @@ class Form_Styling {
 	 * @since 1.0.0
 	 */
 	public static function get_style_attr( $form_id ) {
+		// Unstyled mode: no inline CSS variables either — an inline style on the
+		// container would override any site/custom CSS that themes the form.
+		if ( self::is_default_styling_disabled( $form_id ) ) {
+			return '';
+		}
+
 		$settings = self::get_settings( $form_id );
 		$vars     = [];
 

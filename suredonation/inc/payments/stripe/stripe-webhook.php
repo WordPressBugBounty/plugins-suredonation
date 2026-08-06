@@ -46,6 +46,14 @@ class Stripe_Webhook {
 	 * @since 0.0.1
 	 */
 	public function register_routes() {
+		// Real Stripe deliveries never send `mode` (it falls back to the route
+		// default), so this only rejects a caller-supplied value that is not an
+		// allowed mode — preventing it from reaching the interpolated transient
+		// key in log_webhook_event() before the signature is verified.
+		$validate_mode = static function ( $value ) {
+			return in_array( $value, [ 'test', 'live' ], true );
+		};
+
 		// Test mode webhook.
 		register_rest_route(
 			'suredonation',
@@ -56,7 +64,10 @@ class Stripe_Webhook {
 				'permission_callback' => '__return_true', // Stripe signature validation handles security.
 				'args'                => [
 					'mode' => [
-						'default' => 'test',
+						'default'           => 'test',
+						'type'              => 'string',
+						'enum'              => [ 'test', 'live' ],
+						'validate_callback' => $validate_mode,
 					],
 				],
 			]
@@ -72,7 +83,10 @@ class Stripe_Webhook {
 				'permission_callback' => '__return_true', // Stripe signature validation handles security.
 				'args'                => [
 					'mode' => [
-						'default' => 'live',
+						'default'           => 'live',
+						'type'              => 'string',
+						'enum'              => [ 'test', 'live' ],
+						'validate_callback' => $validate_mode,
 					],
 				],
 			]

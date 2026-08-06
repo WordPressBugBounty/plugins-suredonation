@@ -92,15 +92,17 @@ class Donation_Handler {
 		}
 
 		// Get form data.
-		$amount        = isset( $_POST['amount'] ) ? floatval( $_POST['amount'] ) : 0;
-		$cover_fees    = isset( $_POST['cover_fees'] ) && 'true' === $_POST['cover_fees'];
-		$is_anonymous  = isset( $_POST['is_anonymous'] ) ? true : false;
-		$donor_name    = $is_anonymous ? __( 'Anonymous', 'suredonation' ) : sanitize_text_field( wp_unslash( $_POST['donor_name'] ?? '' ) );
+		$amount     = isset( $_POST['amount'] ) ? floatval( $_POST['amount'] ) : 0;
+		$cover_fees = isset( $_POST['cover_fees'] ) && 'true' === $_POST['cover_fees'];
+		// The anonymous flag is display-only: the donor's real name is stored as
+		// usual below and only public surfaces mask it.
+		$donor_name    = sanitize_text_field( wp_unslash( $_POST['donor_name'] ?? '' ) );
 		$donor_email   = sanitize_email( wp_unslash( $_POST['donor_email'] ?? '' ) );
 		$donor_comment = sanitize_textarea_field( wp_unslash( $_POST['donor_comment'] ?? '' ) );
 
 		// Get form_id and block_id for amount validation.
-		$form_id = isset( $_POST['form_id'] ) ? absint( $_POST['form_id'] ) : 0;
+		$form_id      = isset( $_POST['form_id'] ) ? absint( $_POST['form_id'] ) : 0;
+		$is_anonymous = Payment_Helper::get_submitted_is_anonymous( $form_id );
 		// Derive the donor phone from the validated mapped field, not a separate
 		// unvalidated $_POST['donor_phone'] (see Payment_Helper::get_mapped_donor_phone).
 		$donor_phone = Payment_Helper::get_mapped_donor_phone( $form_id );
@@ -124,13 +126,15 @@ class Donation_Handler {
 			wp_send_json_error( esc_html( $validation_result['message'] ) );
 		}
 
-		if ( ! $is_anonymous ) {
-			if ( empty( $donor_name ) ) {
-				wp_send_json_error( __( 'Donor name is required', 'suredonation' ) );
-			}
-			if ( empty( $donor_email ) || ! is_email( $donor_email ) ) {
-				wp_send_json_error( __( 'Valid email address is required', 'suredonation' ) );
-			}
+		// Name and email are required whether or not the donation is anonymous —
+		// the flag only masks the name on public surfaces, so there still has to
+		// be a real name to mask (matches the gateway handlers, which validate
+		// these through validate_submission() regardless of the flag).
+		if ( empty( $donor_name ) ) {
+			wp_send_json_error( __( 'Donor name is required', 'suredonation' ) );
+		}
+		if ( empty( $donor_email ) || ! is_email( $donor_email ) ) {
+			wp_send_json_error( __( 'Valid email address is required', 'suredonation' ) );
 		}
 
 		// Server-side fee calculation — ignore client-supplied base_amount to prevent manipulation.
@@ -151,11 +155,9 @@ class Donation_Handler {
 			}
 		}
 
-		// Get or create donor.
-		$donor_id = 0;
-		if ( ! empty( $donor_email ) ) {
-			$donor_id = Donors::get_or_create( $donor_email, $donor_name, $donor_phone );
-		}
+		// Get or create donor. The email is validated as non-empty above, so
+		// there is no guard here — anonymous or not, this path always has one.
+		$donor_id = Donors::get_or_create( $donor_email, $donor_name, $donor_phone );
 
 		// Get payment mode.
 		$payment_mode = 'live';

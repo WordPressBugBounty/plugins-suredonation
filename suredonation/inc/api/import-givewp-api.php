@@ -164,13 +164,38 @@ class Import_Givewp_API {
 	}
 
 	/**
-	 * Capability check.
+	 * Capability check. Write requests (POST/PUT/PATCH/DELETE) additionally
+	 * require a valid wp_rest nonce, matching Donors_API — these endpoints bulk
+	 * import into custom tables, so the write boundary is pinned explicitly.
 	 *
-	 * @return bool
+	 * @param \WP_REST_Request<array<string,mixed>>|null $request Current request.
+	 * @return bool|\WP_Error
 	 * @since  1.0.0
 	 */
-	public function check_permissions() {
-		return current_user_can( 'manage_options' );
+	public function check_permissions( $request = null ) {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return false;
+		}
+
+		if ( $request instanceof \WP_REST_Request ) {
+			$method = strtoupper( $request->get_method() );
+			if ( in_array( $method, [ 'POST', 'PUT', 'PATCH', 'DELETE' ], true ) ) {
+				$nonce = $request->get_header( 'X-WP-Nonce' );
+				if ( empty( $nonce ) ) {
+					$nonce_param = $request->get_param( '_wpnonce' );
+					$nonce       = is_string( $nonce_param ) ? $nonce_param : '';
+				}
+				if ( empty( $nonce ) || ! wp_verify_nonce( $nonce, 'wp_rest' ) ) {
+					return new \WP_Error(
+						'rest_forbidden',
+						__( 'Invalid or missing nonce.', 'suredonation' ),
+						[ 'status' => 403 ]
+					);
+				}
+			}
+		}
+
+		return true;
 	}
 
 	/**

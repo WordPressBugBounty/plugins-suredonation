@@ -75,6 +75,9 @@ class Offline_Frontend {
 		// unvalidated $_POST['donor_phone'] (see Payment_Helper::get_mapped_donor_phone).
 		$donor_phone = Payment_Helper::get_mapped_donor_phone( $form_id );
 		$block_id    = isset( $_POST['block_id'] ) ? sanitize_text_field( wp_unslash( $_POST['block_id'] ) ) : '';
+		// Display-only flag: the donor's real name/email/phone are still stored
+		// below and only public surfaces mask them.
+		$is_anonymous = Payment_Helper::get_submitted_is_anonymous( $form_id );
 		// phpcs:enable WordPress.Security.NonceVerification.Missing
 
 		// Standalone forms must not have a campaign.
@@ -146,6 +149,7 @@ class Offline_Frontend {
 				'donor_name'     => $donor_name,
 				'donor_email'    => $donor_email,
 				'donor_phone'    => $donor_phone,
+				'is_anonymous'   => $is_anonymous ? 1 : 0,
 				'donation_type'  => 'one-time',
 				'form_id'        => $form_id,
 				'ip_address'     => Helper::get_client_ip(),

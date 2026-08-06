@@ -14,6 +14,7 @@ use SureDonation\Inc\Admin\Analytics;
 use SureDonation\Inc\Admin\Notice_Manager;
 use SureDonation\Inc\Admin\Notices;
 use SureDonation\Inc\Ajax\Donation_Handler;
+use SureDonation\Inc\Emails\Email_Handler;
 use SureDonation\Inc\Assets\Register as Assets_Register;
 use SureDonation\Inc\Blocks\Register as Blocks_Register;
 use SureDonation\Inc\Campaigns\Campaign_Cpt;
@@ -127,6 +128,10 @@ final class Plugin_Loader {
 	public function load_plugin() {
 		// Initialize database tables.
 		Database_Register::init();
+
+		// Back-fill notification identities once, in admin context only — it
+		// writes, and the path it repairs runs during donor payment requests.
+		add_action( 'admin_init', [ Email_Handler::class, 'backfill_notification_keys' ] );
 
 		// Initialize Campaign CPT.
 		Campaign_Cpt::get_instance();
@@ -248,6 +253,10 @@ final class Plugin_Loader {
 			SUREDONATION_FILE,
 			static function () {
 				update_option( '__suredonation_do_redirect', false );
+
+				// Otherwise the webhook reconciliation stays in cron after the
+				// plugin is gone, firing at a callback that no longer exists.
+				wp_clear_scheduled_hook( Stripe_Settings::WEBHOOK_SYNC_HOOK );
 			}
 		);
 

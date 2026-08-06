@@ -131,6 +131,22 @@ class Donation_Form_Widget extends Base_Widget {
 			);
 		}
 
+		// Mirrors the Gutenberg block's "Edit Form" link: the fields, amounts and
+		// payment methods live in the form editor, not on the embed. No condition
+		// is attached because the selected form lives in one of N campaign-scoped
+		// controls (see above) — Elementor conditions cannot express "whichever
+		// one is active", so the handler resolves it and no-ops when unset.
+		$this->add_control(
+			'edit_form',
+			[
+				'label'     => esc_html__( 'Edit Form', 'suredonation' ),
+				'separator' => 'before',
+				'type'      => Controls_Manager::BUTTON,
+				'text'      => esc_html__( 'Edit', 'suredonation' ),
+				'event'     => 'suredonation:form:edit',
+			]
+		);
+
 		$this->end_controls_section();
 	}
 

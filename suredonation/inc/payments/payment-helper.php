@@ -963,6 +963,19 @@ class Payment_Helper {
 
 		$payment_config = $block_config[ $block_id ];
 
+		// The submitted block_id must reference an actual payment block. Every
+		// other field block (input/email/number/dropdown/phone/url/donation-
+		// amount/cover-fees) also has a config entry but carries no amount_type/
+		// fixed_amount — validating against one would silently collapse the
+		// checks below to their fallback defaults and let a caller pay an
+		// arbitrary (default) amount regardless of the block's real configuration.
+		if ( ! isset( $payment_config['block_name'] ) || 'suredonation/payment' !== $payment_config['block_name'] ) {
+			return [
+				'valid'   => false,
+				'message' => __( 'Payment configuration not found for this form.', 'suredonation' ),
+			];
+		}
+
 		// Validate currency matches global setting.
 		$global_currency    = strtolower( self::get_currency() );
 		$submitted_currency = strtolower( $currency );
@@ -980,8 +993,16 @@ class Payment_Helper {
 
 		// Validate based on amount type.
 		if ( 'fixed' === $amount_type ) {
-			// Fixed amount validation - must match exactly.
-			$configured_amount = isset( $payment_config['fixed_amount'] ) ? floatval( Helper::get_string_value( $payment_config['fixed_amount'] ) ) : 10.00;
+			// Fixed amount validation - must match exactly. A payment block with
+			// no configured fixed_amount fails closed rather than defaulting to a
+			// chargeable amount.
+			if ( ! isset( $payment_config['fixed_amount'] ) ) {
+				return [
+					'valid'   => false,
+					'message' => __( 'Payment configuration is incomplete for this form.', 'suredonation' ),
+				];
+			}
+			$configured_amount = floatval( Helper::get_string_value( $payment_config['fixed_amount'] ) );
 
 			// Allow one minor currency unit of tolerance for float rounding.
 			if ( abs( $amount - $configured_amount ) > self::get_amount_epsilon( $currency ) ) {
@@ -1351,6 +1372,50 @@ class Payment_Helper {
 
 		// Cap to the donor_phone column width to avoid truncation/abort on write.
 		return mb_substr( $value, 0, 50 );
+	}
+
+	/**
+	 * Resolve the anonymous-donation flag for storage from the request.
+	 *
+	 * The Anonymous Donation checkbox renders with a per-block name and no
+	 * data-slug, so it is not part of the submitted field set; the gateway JS
+	 * forwards it as a dedicated `is_anonymous` key instead (see
+	 * GatewayBase.appendAnonymousFlag). The flag is a display-only marker — the
+	 * donor's real name, email and phone are still stored and processed as usual,
+	 * and only the public donor wall / recent donations / top donors mask them.
+	 *
+	 * Whether the form offers the option is resolved from the saved form rather
+	 * than trusted from the request, matching how the mapped phone field and the
+	 * cover-fees configuration are derived server-side. A flag posted against a
+	 * form with no Anonymous Donation block is therefore ignored. The caller
+	 * verifies the nonce/HMAC token.
+	 *
+	 * @since 1.4.0
+	 * @param int $form_id The donation form post ID.
+	 * @return bool True when the donation should be flagged anonymous.
+	 */
+	public static function get_submitted_is_anonymous( $form_id ) {
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce/HMAC verified by the calling handler.
+		if ( empty( $_POST['is_anonymous'] ) ) {
+			return false;
+		}
+
+		$form_id = (int) $form_id;
+		if ( $form_id <= 0 || ! function_exists( 'parse_blocks' ) ) {
+			return false;
+		}
+
+		// form_id is attacker-chosen on a public endpoint, so confirm it really is
+		// a donation form before parsing its content — otherwise the request can
+		// aim a full block parse at any post in the database.
+		$post = get_post( $form_id );
+		if ( ! ( $post instanceof \WP_Post )
+			|| \SureDonation\Inc\Post_Types\Donation_Form::POST_TYPE !== $post->post_type
+			|| empty( $post->post_content ) ) {
+			return false;
+		}
+
+		return Helper::block_tree_contains( parse_blocks( $post->post_content ), 'suredonation/anonymous-donation' );
 	}
 
 	/**

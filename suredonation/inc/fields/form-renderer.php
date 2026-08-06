@@ -48,9 +48,16 @@ class Form_Renderer {
 		$nonce_action   = Helper::get_donation_nonce_action( $campaign_id );
 		$blocks         = parse_blocks( $form->post_content );
 
+		// Marker class when default styling is disabled, so custom CSS can
+		// target the unstyled state (get_style_attr already returned '').
+		$container_classes = 'sd-form-container';
+		if ( Form_Styling::is_default_styling_disabled( $form_id ) ) {
+			$container_classes .= ' sd-styling-none';
+		}
+
 		ob_start();
 		?>
-		<div id="<?php echo esc_attr( $unique_form_id ); ?>" class="sd-form-container" data-form-id="<?php echo esc_attr( (string) $form_id ); ?>" data-campaign-id="<?php echo esc_attr( (string) $campaign_id ); ?>"<?php echo '' !== $form_style ? ' style="' . esc_attr( $form_style ) . '"' : ''; ?>>
+		<div id="<?php echo esc_attr( $unique_form_id ); ?>" class="<?php echo esc_attr( $container_classes ); ?>" data-form-id="<?php echo esc_attr( (string) $form_id ); ?>" data-campaign-id="<?php echo esc_attr( (string) $campaign_id ); ?>"<?php echo '' !== $form_style ? ' style="' . esc_attr( $form_style ) . '"' : ''; ?>>
 			<form class="sd-form" method="post">
 				<?php wp_nonce_field( $nonce_action, 'suredonation_nonce' ); ?>
 				<input type="hidden" name="form_id" value="<?php echo esc_attr( (string) $form_id ); ?>">
@@ -70,14 +77,14 @@ class Form_Renderer {
 				// layout block (Group/Columns), so match the top-level block that either
 				// is, or contains, the anchor.
 				$privacy_fields   = \SureDonation\Inc\Privacy\Privacy_Frontend::render_form_fields();
-				$privacy_anchor   = self::block_tree_contains( $blocks, 'suredonation/donate-button' ) ? 'suredonation/donate-button' : 'suredonation/payment';
+				$privacy_anchor   = Helper::block_tree_contains( $blocks, 'suredonation/donate-button' ) ? 'suredonation/donate-button' : 'suredonation/payment';
 				$privacy_injected = false;
 				foreach ( $blocks as $block ) {
 					if ( empty( $block['blockName'] ) ) {
 						continue;
 					}
 					$is_anchor = $block['blockName'] === $privacy_anchor
-						|| ( ! empty( $block['innerBlocks'] ) && is_array( $block['innerBlocks'] ) && self::block_tree_contains( $block['innerBlocks'], $privacy_anchor ) );
+						|| ( ! empty( $block['innerBlocks'] ) && is_array( $block['innerBlocks'] ) && Helper::block_tree_contains( $block['innerBlocks'], $privacy_anchor ) );
 					if ( ! $privacy_injected && '' !== $privacy_fields && $is_anchor ) {
 						echo wp_kses( $privacy_fields, Helper::get_allowed_form_html() );
 						$privacy_injected = true;
@@ -100,28 +107,5 @@ class Form_Renderer {
 		<?php
 		$output = ob_get_clean();
 		return false !== $output ? $output : '';
-	}
-
-	/**
-	 * Whether a (possibly nested) block tree contains a block of the given name.
-	 *
-	 * @since 1.2.0
-	 * @param array<int|string, mixed> $blocks Parsed blocks (parse_blocks output).
-	 * @param string                   $target Block name to look for.
-	 * @return bool
-	 */
-	private static function block_tree_contains( $blocks, $target ) {
-		foreach ( $blocks as $block ) {
-			if ( ! is_array( $block ) ) {
-				continue;
-			}
-			if ( isset( $block['blockName'] ) && $block['blockName'] === $target ) {
-				return true;
-			}
-			if ( ! empty( $block['innerBlocks'] ) && is_array( $block['innerBlocks'] ) && self::block_tree_contains( $block['innerBlocks'], $target ) ) {
-				return true;
-			}
-		}
-		return false;
 	}
 }

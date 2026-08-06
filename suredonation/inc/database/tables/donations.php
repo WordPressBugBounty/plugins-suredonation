@@ -387,8 +387,9 @@ class Donations extends Base {
 				$donation    = self::get( $donation_id );
 				$donation    = is_array( $donation ) ? $donation : [];
 
-				// Curated, integration-safe payload (no PII/internal columns)
-				// shared by every hook below. See self::get_integration_payload().
+				// Curated payload (internal/gateway-only columns omitted; donor
+				// identity included, see the note in get_integration_payload())
+				// shared by every hook below.
 				$payload = self::get_integration_payload( $donation );
 
 				/**
@@ -470,8 +471,9 @@ class Donations extends Base {
 				Campaign_Stats::clear_cache( absint( Helper::get_string_value( $donation['campaign_id'] ) ) );
 			}
 
-			// Curated, integration-safe payload (no PII/internal columns) shared
-			// by every hook below. See self::get_integration_payload().
+			// Curated payload (internal/gateway-only columns omitted; donor
+			// identity included, see the note in get_integration_payload())
+			// shared by every hook below.
 			$payload = self::get_integration_payload( $donation );
 
 			if ( isset( $data['payment_status'] ) ) {
@@ -536,13 +538,20 @@ class Donations extends Base {
 	 * Build a curated donation payload for integration hooks.
 	 *
 	 * Trims the raw database row to the fields advertised in the OttoKit embed
-	 * `sample_response`, omitting internal and PII columns that must not leave
-	 * the site (ip_address, user_agent, referer_url, the admin `log`, the
-	 * gateway `customer_id`, and the full `donation_data` submission). Donor
-	 * identity is blanked for anonymous donations, and monetary values are cast
-	 * to float to match the sample the automation builder maps against (the raw
-	 * column is a DECIMAL string). Shared by every `do_action` in add()/update()
-	 * so no listener — OttoKit or otherwise — receives the raw row.
+	 * `sample_response`, omitting internal and gateway-only columns that must not
+	 * leave the site (ip_address, user_agent, referer_url, the admin `log`, the
+	 * gateway `customer_id`, and the full `donation_data` submission). Monetary
+	 * values are cast to float to match the sample the automation builder maps
+	 * against (the raw column is a DECIMAL string). Shared by every `do_action`
+	 * in add()/update() so no listener — OttoKit or otherwise — receives the raw
+	 * row.
+	 *
+	 * Anonymous donations carry their real donor identity here. The anonymous
+	 * checkbox is a display-only flag — the data is stored and processed as
+	 * usual, and only the public donor wall / recent donations / top donors mask
+	 * it. Automations that need to treat anonymous donors differently branch on
+	 * the `is_anonymous` field in this payload; blanking the identity instead
+	 * would silently break receipting and CRM sync for those donations.
 	 *
 	 * @param array<string,mixed> $donation Raw donation record from self::get().
 	 * @return array<string,mixed> Curated, integration-safe payload.
@@ -555,14 +564,14 @@ class Donations extends Base {
 
 		$is_anonymous = ! empty( $donation['is_anonymous'] );
 
-		return [
+		$payload = [
 			'id'                  => isset( $donation['id'] ) ? absint( Helper::get_string_value( $donation['id'] ) ) : 0,
 			'campaign_id'         => isset( $donation['campaign_id'] ) ? absint( Helper::get_string_value( $donation['campaign_id'] ) ) : 0,
 			'form_id'             => isset( $donation['form_id'] ) ? absint( Helper::get_string_value( $donation['form_id'] ) ) : 0,
 			'donor_id'            => isset( $donation['donor_id'] ) ? absint( Helper::get_string_value( $donation['donor_id'] ) ) : 0,
-			'donor_name'          => $is_anonymous ? '' : Helper::get_string_value( $donation['donor_name'] ?? '' ),
-			'donor_email'         => $is_anonymous ? '' : Helper::get_string_value( $donation['donor_email'] ?? '' ),
-			'donor_phone'         => $is_anonymous ? '' : Helper::get_string_value( $donation['donor_phone'] ?? '' ),
+			'donor_name'          => Helper::get_string_value( $donation['donor_name'] ?? '' ),
+			'donor_email'         => Helper::get_string_value( $donation['donor_email'] ?? '' ),
+			'donor_phone'         => Helper::get_string_value( $donation['donor_phone'] ?? '' ),
 			'amount'              => Helper::get_float_value( $donation['amount'] ?? 0 ),
 			'fees_covered'        => Helper::get_float_value( $donation['fees_covered'] ?? 0 ),
 			'refunded_amount'     => Helper::get_float_value( $donation['refunded_amount'] ?? 0 ),
@@ -574,11 +583,28 @@ class Donations extends Base {
 			'transaction_id'      => Helper::get_string_value( $donation['transaction_id'] ?? '' ),
 			'subscription_id'     => Helper::get_string_value( $donation['subscription_id'] ?? '' ),
 			'subscription_status' => Helper::get_string_value( $donation['subscription_status'] ?? '' ),
-			'donor_comment'       => $is_anonymous ? '' : Helper::get_string_value( $donation['donor_comment'] ?? '' ),
+			'donor_comment'       => Helper::get_string_value( $donation['donor_comment'] ?? '' ),
 			'is_anonymous'        => $is_anonymous,
 			'created_at'          => Helper::get_string_value( $donation['created_at'] ?? '' ),
 			'updated_at'          => Helper::get_string_value( $donation['updated_at'] ?? '' ),
 		];
+
+		/**
+		 * Filter the curated donation payload passed to every integration hook.
+		 *
+		 * The payload carries the donor's real identity even for anonymous
+		 * donations, because the anonymous checkbox only masks public donor
+		 * lists — automations still need a usable record, and they can branch on
+		 * the `is_anonymous` field. A site with a stricter policy (for example an
+		 * automation that posts donor names somewhere public) can use this filter
+		 * to blank or drop fields before they reach OttoKit or any third-party
+		 * listener.
+		 *
+		 * @param array<string,mixed> $payload  Curated payload.
+		 * @param array<string,mixed> $donation Raw donation record.
+		 * @since 1.4.0
+		 */
+		return apply_filters( 'suredonation_integration_payload', $payload, $donation );
 	}
 
 	/**
@@ -1292,6 +1318,48 @@ class Donations extends Base {
 				'SELECT * FROM %i WHERE transaction_id = %s LIMIT 1',
 				$instance->get_tablename(),
 				sanitize_text_field( $transaction_id )
+			),
+			ARRAY_A
+		);
+
+		if ( ! $result ) {
+			return null;
+		}
+
+		return $instance->decode_by_datatype( $result );
+	}
+
+	/**
+	 * Get donation by gateway subscription ID.
+	 *
+	 * Recurring handling lives in Pro, but the table (and its
+	 * `idx_subscription` index) belongs here, so free-side code that only needs
+	 * to resolve a row — such as the PayPal webhook listener recording why a
+	 * delivery was rejected — can look one up without depending on Pro.
+	 *
+	 * Renewals carry the same `subscription_id` as the subscription they belong
+	 * to, so the column is deliberately not unique. The parent row (the one with
+	 * no `parent_subscription_id`) is preferred and the oldest id breaks any
+	 * remaining tie, so the result does not depend on the query plan.
+	 *
+	 * @param string $subscription_id Gateway subscription ID.
+	 * @return array<string, mixed>|null Donation data or null if not found.
+	 * @since 1.4.0
+	 */
+	public static function get_by_subscription_id( $subscription_id ) {
+		if ( empty( $subscription_id ) ) {
+			return null;
+		}
+
+		$instance = self::get_instance();
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$result = $wpdb->get_row(
+			$wpdb->prepare(
+				'SELECT * FROM %i WHERE subscription_id = %s ORDER BY parent_subscription_id ASC, id ASC LIMIT 1',
+				$instance->get_tablename(),
+				sanitize_text_field( $subscription_id )
 			),
 			ARRAY_A
 		);

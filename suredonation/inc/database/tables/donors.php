@@ -447,10 +447,11 @@ class Donors extends Base {
 	 * Get or create donor by email.
 	 *
 	 * @param string $email Donor email.
-	 * @param string $name  Donor name.
-	 * @param string $phone Donor phone.
+	 * @param string $name  Donor name. Stored when creating a new donor, or backfilled onto an existing donor only when its stored name is empty; never overwrites a populated value.
+	 * @param string $phone Donor phone. Stored when creating a new donor, or backfilled onto an existing donor only when its stored phone is empty; never overwrites a populated value.
 	 * @return int|false Donor ID or false on error.
 	 * @since 0.0.1
+	 * @since 1.4.0 A subsequent donation no longer overwrites an existing donor's name/phone; missing values are backfilled, populated ones are left intact.
 	 */
 	public static function get_or_create( $email, $name = '', $phone = '' ) {
 		if ( empty( $email ) ) {
@@ -460,25 +461,29 @@ class Donors extends Base {
 		$existing = self::get_by_email( $email );
 
 		if ( $existing ) {
-			// Update name/phone if provided and different.
-			$updates = [];
+			$existing_id = isset( $existing['id'] ) && is_numeric( $existing['id'] ) ? (int) $existing['id'] : 0;
 
-			if ( ! empty( $name ) && $name !== $existing['name'] ) {
+			// Backfill name/phone only when the stored value is empty — a later
+			// donation never overwrites a populated donor name/phone. This closes
+			// the unauthenticated-tampering vector (an attacker who knows a
+			// donor's email cannot change that donor's existing name/phone on a
+			// bare, unverified match) while still letting genuinely missing
+			// details fill in from a later donation — e.g. an optional-name
+			// gateway, or a phone field mapped after the donor's first donation.
+			// The name/phone entered for each donation are always captured on the
+			// donation row regardless, and admins can edit a donor directly via
+			// the donor management endpoints.
+			$updates = [];
+			if ( ! empty( $name ) && '' === (string) ( $existing['name'] ?? '' ) ) {
 				$updates['name'] = $name;
 			}
-
-			if ( ! empty( $phone ) && $phone !== $existing['phone'] ) {
+			if ( ! empty( $phone ) && '' === (string) ( $existing['phone'] ?? '' ) ) {
 				$updates['phone'] = $phone;
 			}
-
-			if ( ! empty( $updates ) && isset( $existing['id'] ) ) {
-				$existing_id = is_numeric( $existing['id'] ) ? (int) $existing['id'] : 0;
-				if ( $existing_id > 0 ) {
-					self::update( $existing_id, $updates );
-				}
+			if ( ! empty( $updates ) && $existing_id > 0 ) {
+				self::update( $existing_id, $updates );
 			}
 
-			$existing_id = isset( $existing['id'] ) && is_numeric( $existing['id'] ) ? (int) $existing['id'] : 0;
 			return $existing_id > 0 ? $existing_id : false;
 		}
 

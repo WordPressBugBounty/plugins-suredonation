@@ -110,6 +110,7 @@ class Stripe_Frontend {
 		$donor_email  = $data['donor_email'];
 		$donor_name   = $data['donor_name'];
 		$donor_phone  = $data['donor_phone'];
+		$is_anonymous = $data['is_anonymous'];
 		$fees_covered = $data['fees_covered'];
 		$currency     = $data['currency'];
 		$customer_id  = $data['customer_id'];
@@ -178,16 +179,19 @@ class Stripe_Frontend {
 
 		// Create pending donation record with transaction ID and customer ID.
 		$donation_id = $this->create_pending_donation(
-			$campaign_id,
-			$amount,
-			$donor_email,
-			$donor_name,
-			$payment_intent_id,
-			$customer_id,
-			$fees_covered,
-			$form_id,
-			$donor_phone,
-			$stripe_account_id
+			[
+				'campaign_id'       => $campaign_id,
+				'amount'            => $amount,
+				'donor_email'       => $donor_email,
+				'donor_name'        => $donor_name,
+				'transaction_id'    => $payment_intent_id,
+				'customer_id'       => $customer_id,
+				'fees_covered'      => $fees_covered,
+				'form_id'           => $form_id,
+				'donor_phone'       => $donor_phone,
+				'is_anonymous'      => $is_anonymous,
+				'stripe_account_id' => $stripe_account_id,
+			]
 		);
 
 		if ( is_wp_error( $donation_id ) ) {
@@ -433,7 +437,7 @@ class Stripe_Frontend {
 	 *
 	 * Calls wp_send_json_error() and exits on validation failure.
 	 *
-	 * @return array{campaign_id: int, is_standalone: bool, amount: float, base_amount: float, cover_fees: bool, donor_email: string, donor_name: string, donor_phone: string, form_id: int, block_id: string, fees_covered: float, currency: string, customer_id: string, stripe_account_id: string, campaign: \WP_Post|null} Validated form data.
+	 * @return array{campaign_id: int, is_standalone: bool, amount: float, base_amount: float, cover_fees: bool, donor_email: string, donor_name: string, donor_phone: string, is_anonymous: bool, form_id: int, block_id: string, fees_covered: float, currency: string, customer_id: string, stripe_account_id: string, campaign: \WP_Post|null} Validated form data.
 	 * @since 1.0.0
 	 */
 	private function extract_donation_form_data() {
@@ -451,6 +455,9 @@ class Stripe_Frontend {
 		// unvalidated $_POST['donor_phone'] (see Payment_Helper::get_mapped_donor_phone).
 		$donor_phone = Payment_Helper::get_mapped_donor_phone( $form_id );
 		$block_id    = isset( $_POST['block_id'] ) ? sanitize_text_field( wp_unslash( $_POST['block_id'] ) ) : '';
+		// Display-only flag: the donor's real name/email/phone are still stored
+		// and only public surfaces mask them.
+		$is_anonymous = Payment_Helper::get_submitted_is_anonymous( $form_id );
 		// phpcs:enable WordPress.Security.NonceVerification.Missing
 
 		// Standalone forms must not have a campaign.
@@ -561,6 +568,7 @@ class Stripe_Frontend {
 			'donor_email',
 			'donor_name',
 			'donor_phone',
+			'is_anonymous',
 			'form_id',
 			'block_id',
 			'fees_covered',
@@ -574,20 +582,39 @@ class Stripe_Frontend {
 	/**
 	 * Create pending donation record in database table
 	 *
-	 * @param int    $campaign_id    Campaign ID.
-	 * @param float  $amount         Donation amount (total including fees if covered).
-	 * @param string $donor_email    Donor email.
-	 * @param string $donor_name     Donor name.
-	 * @param string $transaction_id Stripe payment intent ID.
-	 * @param string $customer_id    Stripe customer ID.
-	 * @param float  $fees_covered   Transaction fees covered by donor.
-	 * @param int    $form_id           Donation form post ID.
-	 * @param string $donor_phone       Donor phone number.
-	 * @param string $stripe_account_id Connected Stripe account that processed this donation.
+	 * Takes an argument array rather than a positional list — the set had grown
+	 * past the point where call sites stayed readable. The shape below is
+	 * declared precisely rather than as array<string, mixed> so a missing or
+	 * misnamed required key is a static-analysis failure, not a silently
+	 * defaulted value: an empty transaction_id would produce a pending donation
+	 * that neither complete_donation() nor the webhook can ever match, leaving a
+	 * charged donor with a permanently pending record.
+	 *
+	 * @param array{campaign_id: int, amount: float, donor_email: string, donor_name: string, transaction_id: string, customer_id: string, fees_covered?: float, form_id?: int, donor_phone?: string, is_anonymous?: bool, stripe_account_id?: string} $args Donation arguments.
 	 * @return int|\WP_Error Donation ID or error.
 	 * @since 0.0.1
 	 */
-	private function create_pending_donation( $campaign_id, $amount, $donor_email, $donor_name, $transaction_id, $customer_id, $fees_covered = 0.0, $form_id = 0, $donor_phone = '', $stripe_account_id = '' ) {
+	private function create_pending_donation( array $args ) {
+		$campaign_id       = absint( $args['campaign_id'] );
+		$amount            = (float) $args['amount'];
+		$donor_email       = $args['donor_email'];
+		$donor_name        = $args['donor_name'];
+		$transaction_id    = $args['transaction_id'];
+		$customer_id       = $args['customer_id'];
+		$fees_covered      = (float) ( $args['fees_covered'] ?? 0.0 );
+		$form_id           = absint( $args['form_id'] ?? 0 );
+		$donor_phone       = $args['donor_phone'] ?? '';
+		$is_anonymous      = ! empty( $args['is_anonymous'] );
+		$stripe_account_id = $args['stripe_account_id'] ?? '';
+
+		// Belt-and-braces for the two values with no safe default. The declared
+		// shape makes omitting them a static error, but a runtime empty value
+		// would still orphan the donation against the charge, so refuse rather
+		// than insert an unmatchable row.
+		if ( '' === $transaction_id || '' === $donor_email ) {
+			return new \WP_Error( 'donation_failed', __( 'Failed to create donation record', 'suredonation' ) );
+		}
+
 		// Get or create donor.
 		$donor_id = Donors::get_or_create( $donor_email, $donor_name, $donor_phone );
 
@@ -610,6 +637,7 @@ class Stripe_Frontend {
 				'donor_name'        => $donor_name,
 				'donor_email'       => $donor_email,
 				'donor_phone'       => $donor_phone,
+				'is_anonymous'      => $is_anonymous ? 1 : 0,
 				'donation_type'     => 'one-time',
 				'transaction_id'    => $transaction_id,
 				'customer_id'       => $customer_id,

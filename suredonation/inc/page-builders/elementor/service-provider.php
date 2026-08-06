@@ -53,6 +53,35 @@ class Service_Provider {
 		add_action( 'elementor/elements/categories_registered', [ $this, 'register_category' ] );
 		add_action( 'elementor/widgets/register', [ $this, 'register_widgets' ] );
 		add_action( 'elementor/preview/enqueue_styles', [ $this, 'enqueue_preview_assets' ] );
+		add_action( 'elementor/editor/before_enqueue_scripts', [ $this, 'enqueue_editor_assets' ] );
+	}
+
+	/**
+	 * Load the editor-panel script that backs the Donation Form widget's
+	 * "Edit Form" button.
+	 *
+	 * Runs in the Elementor editor panel (not the preview iframe), which is
+	 * where the control's `event` is broadcast on `elementor.channels.editor`.
+	 *
+	 * @since 1.4.0
+	 * @return void
+	 */
+	public function enqueue_editor_assets() {
+		wp_enqueue_script(
+			'suredonation-elementor-editor',
+			plugins_url( 'assets/editor.js', __FILE__ ),
+			[],
+			SUREDONATION_VER,
+			true
+		);
+
+		wp_localize_script(
+			'suredonation-elementor-editor',
+			'suredonationElementorData',
+			[
+				'adminUrl' => admin_url(),
+			]
+		);
 	}
 
 	/**

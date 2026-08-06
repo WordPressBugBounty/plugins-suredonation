@@ -105,15 +105,34 @@ class PayPal_Webhook_Listener {
 			return new WP_REST_Response( [ 'error' => 'Invalid payload' ], 400 );
 		}
 
+		$event_type = isset( $event['event_type'] ) && is_string( $event['event_type'] ) ? $event['event_type'] : '';
+		$resource   = isset( $event['resource'] ) && is_array( $event['resource'] ) ? $event['resource'] : [];
+		$event_id   = isset( $event['id'] ) && is_string( $event['id'] ) ? $event['id'] : '';
+
 		// Verify webhook signature.
 		$verified = $this->validate_webhook_signature( $request, $mode );
 		if ( is_wp_error( $verified ) ) {
-			return new WP_REST_Response( [ 'error' => 'Signature verification failed' ], 400 );
-		}
+			// A rejected delivery used to vanish without a trace, which is the
+			// worst possible failure mode: the donor has been charged and
+			// nothing anywhere records why nothing happened. Record the reason
+			// against the donation before responding.
+			$this->log_rejected_webhook( $verified, $event_type, $resource, $event_id, $mode );
 
-		// Process event.
-		$event_type = isset( $event['event_type'] ) && is_string( $event['event_type'] ) ? $event['event_type'] : '';
-		$resource   = isset( $event['resource'] ) && is_array( $event['resource'] ) ? $event['resource'] : [];
+			$response = [ 'error' => 'Signature verification failed' ];
+
+			// This route is unauthenticated, so nothing beyond a fixed string is
+			// returned by default: the error code alone would tell an anonymous
+			// prober whether PayPal is configured for this mode, and the reason
+			// can carry the middleware's own transport errors. Both are available
+			// on the donation's activity log, and echoed here only while
+			// debugging.
+			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+				$response['code']    = $verified->get_error_code();
+				$response['message'] = $verified->get_error_message();
+			}
+
+			return new WP_REST_Response( $response, 400 );
+		}
 
 		$result = $this->process_event( $event_type, $resource, $mode );
 
@@ -152,34 +171,330 @@ class PayPal_Webhook_Listener {
 
 		$mode_environment = PayPal_Helper::get_middleware_environment( $mode );
 
+		$signature_headers = [
+			'auth_algo'         => $headers['paypal_auth_algo'][0] ?? '',
+			'cert_url'          => $headers['paypal_cert_url'][0] ?? '',
+			'transmission_id'   => $headers['paypal_transmission_id'][0] ?? '',
+			'transmission_sig'  => $headers['paypal_transmission_sig'][0] ?? '',
+			'transmission_time' => $headers['paypal_transmission_time'][0] ?? '',
+		];
+
+		// The middleware rejects the call with a generic 400 if any of these is
+		// empty, which is indistinguishable from a genuinely bad signature. Some
+		// proxies strip or rename custom headers, so name the missing ones here
+		// instead of letting them surface as an opaque verification failure.
+		$missing = [];
+		foreach ( $signature_headers as $header_key => $header_value ) {
+			if ( '' === $header_value ) {
+				$missing[] = $header_key;
+			}
+		}
+
+		if ( ! empty( $missing ) ) {
+			return new \WP_Error(
+				'missing_signature_headers',
+				sprintf(
+					/* translators: %s: comma-separated list of missing PayPal header names. */
+					__( 'PayPal signature headers missing from the request: %s.', 'suredonation' ),
+					implode( ', ', $missing )
+				),
+				[ 'missing_headers' => $missing ]
+			);
+		}
+
 		// GIT-33: /webhooks/verify-signature is an open middleware endpoint
 		// (doesn't act on a merchant's behalf) — skip HMAC signing.
 		$result = PayPal_Helper::middleware_request(
 			'webhooks/verify-signature',
-			[
-				'environment'       => $mode_environment,
-				'webhook_id'        => $webhook_id,
-				'auth_algo'         => $headers['paypal_auth_algo'][0] ?? '',
-				'cert_url'          => $headers['paypal_cert_url'][0] ?? '',
-				'transmission_id'   => $headers['paypal_transmission_id'][0] ?? '',
-				'transmission_sig'  => $headers['paypal_transmission_sig'][0] ?? '',
-				'transmission_time' => $headers['paypal_transmission_time'][0] ?? '',
-				'webhook_event'     => json_decode( $request->get_body(), true ),
-			],
+			array_merge(
+				[
+					'environment'   => $mode_environment,
+					'webhook_id'    => $webhook_id,
+					'webhook_event' => json_decode( $request->get_body(), true ),
+				],
+				$signature_headers
+			),
 			false
 		);
 
+		// Propagate the middleware's own code and message rather than flattening
+		// them: the create path made the same change and it turned a useless
+		// "Failed to create webhook." into an actionable
+		// WEBHOOK_URL_ALREADY_EXISTS. A dropped payment webhook deserves at
+		// least as much.
 		if ( is_wp_error( $result ) ) {
-			return new \WP_Error( 'verification_failed', __( 'Webhook signature verification failed.', 'suredonation' ) );
+			return new \WP_Error(
+				'verification_request_failed',
+				sprintf(
+					/* translators: 1: middleware error code, 2: middleware error message. */
+					__( 'Webhook signature verification request failed (%1$s): %2$s', 'suredonation' ),
+					$result->get_error_code(),
+					$result->get_error_message()
+				),
+				$result->get_error_data()
+			);
 		}
 
-		$verification_status = $result['verification_status'] ?? '';
+		$verification_status = isset( $result['verification_status'] ) && is_string( $result['verification_status'] ) ? $result['verification_status'] : '';
 
 		if ( 'SUCCESS' !== $verification_status ) {
-			return new \WP_Error( 'verification_failed', __( 'Webhook signature is invalid.', 'suredonation' ) );
+			// PayPal answers a malformed verify call with an error body instead
+			// of a verification_status, and the middleware passes that through
+			// as a success, so report whatever actually came back.
+			return new \WP_Error(
+				'verification_status_not_success',
+				sprintf(
+					/* translators: %s: verification status reported by PayPal. */
+					__( 'PayPal reported webhook verification status: %s', 'suredonation' ),
+					'' !== $verification_status ? $verification_status : __( 'none returned', 'suredonation' )
+				),
+				[
+					'verification_status' => $verification_status,
+					'response'            => $result,
+					'webhook_id'          => $webhook_id,
+					'environment'         => $mode_environment,
+				]
+			);
 		}
 
 		return true;
+	}
+
+	/**
+	 * Maximum rejection entries kept on a single donation's activity log.
+	 *
+	 * PayPal retries a delivery a handful of times, so a genuine problem needs
+	 * only a few entries to be legible. The cap is what stops this route — which
+	 * is unauthenticated by necessity — from being used to grow the `log` column
+	 * without bound.
+	 *
+	 * @since 1.4.0
+	 */
+	private const MAX_REJECTION_LOGS = 5;
+
+	/**
+	 * Maximum stored length of a value taken from the webhook payload.
+	 *
+	 * @since 1.4.0
+	 */
+	private const MAX_LOGGED_VALUE_LENGTH = 200;
+
+	/**
+	 * Record a webhook that was rejected before it could be processed.
+	 *
+	 * Attaches the reason to the donation the event refers to, so it shows up in
+	 * that donation's activity log. When no donation matches there is nothing to
+	 * record against and the rejection is not logged: the payload is unverified
+	 * at this point, so writing it anywhere an anonymous caller can reach would
+	 * hand them an unbounded log.
+	 *
+	 * @param \WP_Error            $error          Rejection reason.
+	 * @param string               $event_type     Event type from the payload.
+	 * @param array<string, mixed> $event_resource Event resource from the payload.
+	 * @param string               $event_id       PayPal event id from the payload.
+	 * @param string               $mode           Payment mode.
+	 * @return void
+	 * @since 1.4.0
+	 */
+	private function log_rejected_webhook( $error, $event_type, $event_resource, $event_id, $mode ) {
+		$donation = $this->find_donation_for_event( $event_type, $event_resource, $mode );
+
+		if ( ! is_array( $donation ) || ! isset( $donation['id'] ) || ! is_numeric( $donation['id'] ) ) {
+			return;
+		}
+
+		$donation_id = absint( $donation['id'] );
+		$code        = $error->get_error_code();
+
+		// One entry per donation per reason per minute. A repeated delivery of
+		// the same broken event is the common case and does not need recording
+		// twice; PayPal's own retries collapse into one line.
+		$lock_key = 'suredonation_paypal_reject_' . md5( $donation_id . '|' . $code );
+		if ( get_transient( $lock_key ) ) {
+			return;
+		}
+
+		if ( $this->rejection_log_count( $donation ) >= self::MAX_REJECTION_LOGS ) {
+			return;
+		}
+
+		set_transient( $lock_key, true, MINUTE_IN_SECONDS );
+
+		// The activity log renders each data value as text, so a nested payload
+		// would show up as "[object Object]" — exactly the reason that got lost
+		// before. Flatten it to JSON so it stays readable, and keep it bounded:
+		// the middleware response it can carry is not size-limited.
+		$detail = $error->get_error_data();
+		if ( null !== $detail && ! is_string( $detail ) ) {
+			$encoded = wp_json_encode( $detail );
+			$detail  = is_string( $encoded ) ? $encoded : '';
+		}
+
+		Donations::add_log(
+			$donation_id,
+			'webhook_rejected',
+			__( 'PayPal webhook rejected before processing', 'suredonation' ),
+			[
+				// event_type and event_id come from an unverified request body,
+				// so they are sanitised and capped before being stored.
+				'event_type' => $this->clean_logged_value( $event_type ),
+				'event_id'   => $this->clean_logged_value( $event_id ),
+				'mode'       => $mode,
+				'code'       => $code,
+				// Capped like the rest: middleware_request() now appends the
+				// gateway's own error text to this message, which is unbounded
+				// and lands in the donations log column.
+				'reason'     => $this->clean_logged_value( $error->get_error_message() ),
+				'detail'     => $this->clean_logged_value( $detail ),
+			]
+		);
+	}
+
+	/**
+	 * Read the originating capture id off a refund resource.
+	 *
+	 * A refund's own `resource.id` is the refund id, so the capture it reverses
+	 * has to be taken from the `up` link.
+	 *
+	 * @param array<string, mixed> $event_resource Refund resource data.
+	 * @return string Capture id, or an empty string when the link is absent.
+	 * @since 1.4.0
+	 */
+	private static function extract_capture_id_from_refund( $event_resource ) {
+		$links = $event_resource['links'] ?? [];
+
+		if ( ! is_array( $links ) ) {
+			return '';
+		}
+
+		foreach ( $links as $link ) {
+			if ( ! is_array( $link ) || ! isset( $link['rel'] ) || 'up' !== $link['rel'] ) {
+				continue;
+			}
+
+			// Typed rather than merely non-empty. This runs before the signature
+			// is verified — find_donation_for_event() is reached from
+			// log_rejected_webhook() — so the body is unauthenticated input, and
+			// `! empty()` is satisfied by an array, which rtrim() then fatals on.
+			// Every sibling branch below already checks the type.
+			if ( empty( $link['href'] ) || ! is_string( $link['href'] ) ) {
+				continue;
+			}
+
+			// Extract capture ID from URL.
+			$parts = explode( '/', rtrim( $link['href'], '/' ) );
+			return (string) end( $parts );
+		}
+
+		return '';
+	}
+
+	/**
+	 * Count the rejection entries already recorded on a donation.
+	 *
+	 * Uses the row that was just fetched rather than re-reading it, so the cap
+	 * costs no extra query.
+	 *
+	 * @param array<string, mixed> $donation Donation row.
+	 * @return int Number of existing rejection entries.
+	 * @since 1.4.0
+	 */
+	private function rejection_log_count( $donation ) {
+		$log = $donation['log'] ?? [];
+
+		if ( is_string( $log ) && '' !== $log ) {
+			$log = json_decode( $log, true );
+		}
+
+		if ( ! is_array( $log ) ) {
+			return 0;
+		}
+
+		$count = 0;
+		foreach ( $log as $entry ) {
+			if ( is_array( $entry ) && 'webhook_rejected' === ( $entry['action'] ?? '' ) ) {
+				++$count;
+			}
+		}
+
+		return $count;
+	}
+
+	/**
+	 * Sanitise and cap a value pulled from an unverified webhook payload.
+	 *
+	 * @param mixed $value Raw value.
+	 * @return string Value safe to store.
+	 * @since 1.4.0
+	 */
+	private function clean_logged_value( $value ) {
+		if ( ! is_string( $value ) || '' === $value ) {
+			return '';
+		}
+
+		$value = sanitize_text_field( $value );
+
+		return mb_substr( $value, 0, self::MAX_LOGGED_VALUE_LENGTH );
+	}
+
+	/**
+	 * Resolve the donation a webhook event refers to.
+	 *
+	 * Subscription and sale events carry a subscription id; other events are
+	 * matched on the id stored as the donation's transaction id. Refund events
+	 * are the exception — their `resource.id` is the refund's own id, so the
+	 * originating capture has to be read off the `up` link.
+	 *
+	 * The resolved row is confirmed to be a PayPal donation in this payment mode
+	 * before it is returned, because the ids arrive unverified and a bare id
+	 * lookup spans every gateway and both modes.
+	 *
+	 * @param string               $event_type     Event type.
+	 * @param array<string, mixed> $event_resource Event resource data.
+	 * @param string               $mode           Payment mode.
+	 * @return array<string, mixed>|null Donation row, or null when none matches.
+	 * @since 1.4.0
+	 */
+	private function find_donation_for_event( $event_type, $event_resource, $mode ) {
+		$donation = null;
+
+		if ( str_starts_with( $event_type, 'BILLING.SUBSCRIPTION.' ) ) {
+			// The resource *is* the subscription.
+			$subscription_id = isset( $event_resource['id'] ) && is_string( $event_resource['id'] ) ? $event_resource['id'] : '';
+			$donation        = Donations::get_by_subscription_id( $subscription_id );
+		} elseif ( 'PAYMENT.SALE.REFUNDED' === $event_type ) {
+			// A refunded renewal names the sale it reverses, not the agreement.
+			$sale_id  = isset( $event_resource['sale_id'] ) && is_string( $event_resource['sale_id'] ) ? $event_resource['sale_id'] : '';
+			$donation = Donations::get_by_transaction_id( $sale_id );
+		} elseif ( str_starts_with( $event_type, 'PAYMENT.SALE.' ) ) {
+			// A renewal charge, linked by billing agreement id.
+			$agreement_id = isset( $event_resource['billing_agreement_id'] ) && is_string( $event_resource['billing_agreement_id'] ) ? $event_resource['billing_agreement_id'] : '';
+			$donation     = Donations::get_by_subscription_id( $agreement_id );
+		} elseif ( 'PAYMENT.CAPTURE.REFUNDED' === $event_type ) {
+			$donation = Donations::get_by_transaction_id( self::extract_capture_id_from_refund( $event_resource ) );
+		} else {
+			// Capture and order events carry the id stored as transaction_id.
+			$transaction_id = isset( $event_resource['id'] ) && is_string( $event_resource['id'] ) ? $event_resource['id'] : '';
+			$donation       = Donations::get_by_transaction_id( $transaction_id );
+		}
+
+		if ( ! is_array( $donation ) ) {
+			return null;
+		}
+
+		// Only reject on a positive mismatch: rows written before these columns
+		// were populated leave them empty, and those should still be annotated.
+		$gateway = is_string( $donation['gateway'] ?? null ) ? $donation['gateway'] : '';
+		if ( '' !== $gateway && 'paypal' !== $gateway ) {
+			return null;
+		}
+
+		$donation_mode = is_string( $donation['payment_mode'] ?? null ) ? $donation['payment_mode'] : '';
+		if ( '' !== $donation_mode && $mode !== $donation_mode ) {
+			return null;
+		}
+
+		return $donation;
 	}
 
 	/**
@@ -351,19 +666,7 @@ class PayPal_Webhook_Listener {
 	 */
 	private function handle_capture_refunded( $event_resource ) {
 		// The refund resource links back to the capture.
-		$links      = $event_resource['links'] ?? [];
-		$capture_id = '';
-
-		if ( is_array( $links ) ) {
-			foreach ( $links as $link ) {
-				if ( isset( $link['rel'] ) && 'up' === $link['rel'] && ! empty( $link['href'] ) ) {
-					// Extract capture ID from URL.
-					$parts      = explode( '/', rtrim( $link['href'], '/' ) );
-					$capture_id = end( $parts );
-					break;
-				}
-			}
-		}
+		$capture_id = self::extract_capture_id_from_refund( $event_resource );
 
 		if ( empty( $capture_id ) ) {
 			return true;

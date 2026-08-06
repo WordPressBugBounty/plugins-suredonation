@@ -364,10 +364,87 @@ class PayPal_Helper {
 		}
 
 		if ( $status_code >= 400 ) {
-			$message = $decoded['message'] ?? __( 'Middleware request failed.', 'suredonation' );
-			return new \WP_Error( $decoded['error'] ?? 'middleware_error', $message );
+			// `?? ` only guards null, and this is a decoded remote response — a
+			// non-string `message` would be concatenated with the detail below
+			// and handed to WP_Error, which expects a string.
+			$message = isset( $decoded['message'] ) && is_string( $decoded['message'] ) && '' !== $decoded['message']
+				? $decoded['message']
+				: __( 'Middleware request failed.', 'suredonation' );
+
+			// The middleware forwards the gateway's own error under `data`, and
+			// dropping it left the admin with a generic failure message and no way
+			// to tell an expired token from a duplicate webhook URL or an exceeded
+			// account limit. Surface the reason PayPal actually gave.
+			$detail = '';
+			if ( isset( $decoded['data'] ) ) {
+				$detail = self::extract_error_detail( $decoded['data'] );
+			}
+
+			if ( '' !== $detail ) {
+				$message = sprintf(
+					/* translators: 1: middleware error message, 2: reason reported by PayPal. */
+					__( '%1$s (PayPal: %2$s)', 'suredonation' ),
+					$message,
+					$detail
+				);
+			}
+
+			return new \WP_Error(
+				is_string( $decoded['error'] ?? null ) ? $decoded['error'] : 'middleware_error',
+				$message,
+				[ 'detail' => $decoded['data'] ?? null ]
+			);
 		}
 
 		return $decoded;
+	}
+
+	/**
+	 * Pull a readable reason out of a gateway error payload.
+	 *
+	 * PayPal reports failures either as a top-level name/message or as a list of
+	 * per-field issues, so both shapes are flattened to something an admin can
+	 * act on.
+	 *
+	 * @param mixed $data Error payload forwarded by the middleware.
+	 * @return string Reason, or an empty string when none could be read.
+	 * @since 1.4.0
+	 */
+	private static function extract_error_detail( $data ) {
+		if ( is_string( $data ) ) {
+			return $data;
+		}
+
+		if ( ! is_array( $data ) ) {
+			return '';
+		}
+
+		$parts = [];
+
+		foreach ( [ 'name', 'message' ] as $field ) {
+			if ( isset( $data[ $field ] ) && is_string( $data[ $field ] ) && '' !== $data[ $field ] ) {
+				$parts[] = $data[ $field ];
+			}
+		}
+
+		if ( isset( $data['details'] ) && is_array( $data['details'] ) ) {
+			foreach ( $data['details'] as $issue ) {
+				if ( ! is_array( $issue ) ) {
+					continue;
+				}
+				$text = '';
+				if ( isset( $issue['issue'] ) && is_string( $issue['issue'] ) ) {
+					$text = $issue['issue'];
+				}
+				if ( isset( $issue['description'] ) && is_string( $issue['description'] ) ) {
+					$text = '' !== $text ? $text . ': ' . $issue['description'] : $issue['description'];
+				}
+				if ( '' !== $text ) {
+					$parts[] = $text;
+				}
+			}
+		}
+
+		return implode( ' — ', array_unique( $parts ) );
 	}
 }

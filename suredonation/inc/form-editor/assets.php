@@ -103,6 +103,11 @@ class Assets {
 			'smartTags'                 => Helper::get_smart_tags()['confirmation'],
 			'emailSmartTags'            => Helper::get_smart_tags()['email_grouped'],
 			'defaultEmailNotifications' => $this->get_default_email_notifications(),
+			// The recurring payment type is a Pro control, but the block attribute
+			// it sets is registered in free and persists in post content. Without
+			// this, deactivating Pro leaves the recurring notifications on screen
+			// and editable while nothing can send them.
+			'isProActive'               => defined( 'SUREDONATION_PRO_VER' ),
 			'currency'                  => $global_currency,
 			'currencySymbol'            => Payment_Helper::get_currency_symbol( $global_currency ),
 			// OttoKit integration: embed config + lazy-loaded builder script.
@@ -207,6 +212,7 @@ class Assets {
 		$defaults = [
 			// --- Donor Emails ---
 			[
+				'key'        => 'donation_receipt',
 				'id'         => 1,
 				'status'     => true,
 				'name'       => __( 'Donation Receipt', 'suredonation' ),
@@ -227,6 +233,7 @@ class Assets {
 				'trigger'    => 'donation_completed',
 			],
 			[
+				'key'        => 'donation_processing',
 				'id'         => 2,
 				'status'     => true,
 				'name'       => __( 'Donation Processing', 'suredonation' ),
@@ -246,6 +253,7 @@ class Assets {
 				'trigger'    => 'donation_processing',
 			],
 			[
+				'key'        => 'donation_failed',
 				'id'         => 3,
 				'status'     => true,
 				'name'       => __( 'Donation Failed', 'suredonation' ),
@@ -261,6 +269,7 @@ class Assets {
 				'trigger'    => 'donation_failed',
 			],
 			[
+				'key'        => 'refund_processed',
 				'id'         => 4,
 				'status'     => true,
 				'name'       => __( 'Refund Processed', 'suredonation' ),
@@ -282,6 +291,7 @@ class Assets {
 
 			// --- Admin Emails ---
 			[
+				'key'        => 'donation_receipt_admin',
 				'id'         => 9,
 				'status'     => true,
 				'name'       => __( 'New Donation (Admin)', 'suredonation' ),
@@ -302,6 +312,7 @@ class Assets {
 				'trigger'    => 'donation_completed',
 			],
 			[
+				'key'        => 'donation_failed_admin',
 				'id'         => 10,
 				'status'     => true,
 				'name'       => __( 'Donation Failed (Admin)', 'suredonation' ),
@@ -321,6 +332,7 @@ class Assets {
 				'trigger'    => 'donation_failed',
 			],
 			[
+				'key'        => 'refund_processed_admin',
 				'id'         => 11,
 				'status'     => true,
 				'name'       => __( 'Refund Processed (Admin)', 'suredonation' ),
@@ -406,7 +418,28 @@ class Assets {
 				continue;
 			}
 
+			$trigger = isset( $notification['trigger'] ) && is_string( $notification['trigger'] ) ? $notification['trigger'] : '';
+
+			// Preserve the trigger verbatim rather than validating against the
+			// registered list. 'all' means "send on every event", so coercing an
+			// unrecognised trigger to it silently rewires that notification to
+			// fire on every donation event. Saving a form while Pro is inactive
+			// did exactly that to the recurring templates: the trigger was not
+			// registered, so a customised "Subscription Created" became a message
+			// sent on completed, failed, processing and refunded donations, and
+			// the editor stopped recognising it as recurring and appended a
+			// duplicate set.
+			//
+			// An unregistered trigger is already inert: dispatch is an equality
+			// match against an event name, and the code that fires the recurring
+			// events does not load while Pro is inactive. Preserving the value
+			// costs nothing and lets the notification resume working, with its
+			// customisations, as soon as Pro is active again.
 			$sanitized[] = [
+				// Stable machine identity. `id` is reassigned when a set is
+				// re-seeded and `name` is user-editable and translated, so neither
+				// survives as a way to recognise a notification later.
+				'key'        => isset( $notification['key'] ) && is_string( $notification['key'] ) ? sanitize_key( $notification['key'] ) : '',
 				'id'         => isset( $notification['id'] ) ? absint( $notification['id'] ) : 0,
 				'status'     => isset( $notification['status'] ) ? (bool) $notification['status'] : true,
 				'name'       => isset( $notification['name'] ) ? sanitize_text_field( $notification['name'] ) : '',
@@ -416,20 +449,18 @@ class Assets {
 				'from_name'  => isset( $notification['from_name'] ) ? sanitize_text_field( $notification['from_name'] ) : '',
 				'from_email' => isset( $notification['from_email'] ) ? sanitize_text_field( $notification['from_email'] ) : '',
 				'reply_to'   => isset( $notification['reply_to'] ) ? sanitize_text_field( $notification['reply_to'] ) : '',
-				'trigger'    => isset( $notification['trigger'] ) && in_array(
-					$notification['trigger'],
-					apply_filters(
-						'suredonation_email_notification_triggers',
-						[ 'all', 'donation_completed', 'donation_processing', 'donation_failed', 'refund_processed' ]
-					),
-					true
-				) ? $notification['trigger'] : 'all',
+				// A missing trigger must stay inert. Dispatch skips an empty
+				// trigger but treats 'all' as "fire on every event", so falling
+				// back to 'all' routes the unknown case to the most permissive
+				// outcome — the opposite of what a missing value should mean.
+				'trigger'    => '' !== $trigger ? sanitize_key( $trigger ) : '',
 			];
 		}
 
 		$encoded = wp_json_encode( $sanitized );
 		return is_string( $encoded ) ? $encoded : '';
 	}
+
 
 	/**
 	 * Sanitize form confirmation settings.

@@ -219,7 +219,13 @@ class Import_Export_API {
 				$donation['subscription_id'] ?? '',
 				$donation['subscription_status'] ?? '',
 				! empty( $donation['parent_subscription_id'] ) ? $donation['parent_subscription_id'] : '',
-				! empty( $donation['is_anonymous'] ) ? __( 'Yes', 'suredonation' ) : __( 'No', 'suredonation' ),
+				// Untranslated on purpose: this is interchange data, not display
+				// copy, and the importer's to_bool() matches English tokens. A
+				// translated "Ja"/"Oui" here silently imported back as not
+				// anonymous, so an export/import round trip un-masked every
+				// anonymous donor on a localised site. Every other value in this
+				// row is raw for the same reason.
+				! empty( $donation['is_anonymous'] ) ? 'yes' : 'no',
 				$donation['donor_comment'] ?? '',
 				$donation['ip_address'] ?? '',
 				$donation['created_at'] ?? '',

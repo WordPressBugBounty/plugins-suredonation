@@ -206,9 +206,10 @@ class Analytics {
 			[
 				'methods'             => \WP_REST_Server::CREATABLE,
 				'callback'            => [ $this, 'handle_track_notice_event' ],
-				'permission_callback' => static function () {
-					return current_user_can( 'manage_options' );
-				},
+				// A named method rather than a closure: the capability guard in
+				// tests/unit/inc/test-rest-api.php introspects every write
+				// route's permission_callback, and a closure is opaque to it.
+				'permission_callback' => [ $this, 'check_permissions' ],
 				'args'                => [
 					'event' => [
 						'type'     => 'string',
@@ -217,6 +218,19 @@ class Analytics {
 				],
 			]
 		);
+	}
+
+	/**
+	 * Whether the current user may record notice events.
+	 *
+	 * Named check_permissions to match the other REST controllers, which is also
+	 * what the write-route capability guard asserts on.
+	 *
+	 * @return bool True when the user can manage options.
+	 * @since 1.4.0
+	 */
+	public function check_permissions() {
+		return current_user_can( 'manage_options' );
 	}
 
 	/**
@@ -481,6 +495,7 @@ class Analytics {
 		$defaults = [
 			'total'                  => 0,
 			'completed'              => 0,
+			'completed_live'         => 0,
 			'recurring'              => 0,
 			'anonymous_completed'    => 0,
 			'fees_covered_completed' => 0,
@@ -492,6 +507,7 @@ class Analytics {
 			$wpdb->prepare(
 				"SELECT COUNT(*) AS total,
 					COALESCE(SUM(payment_status = 'completed'),0) AS completed,
+					COALESCE(SUM(payment_status = 'completed' AND payment_mode = 'live'),0) AS completed_live,
 					COALESCE(SUM(subscription_id IS NOT NULL AND subscription_id <> ''),0) AS recurring,
 					COALESCE(SUM(is_anonymous = 1 AND payment_status = 'completed'),0) AS anonymous_completed,
 					COALESCE(SUM(fees_covered > 0 AND payment_status = 'completed'),0) AS fees_covered_completed,
@@ -916,6 +932,23 @@ class Analytics {
 					'payment_mode'       => $mode,
 				]
 			);
+
+			// first_live_donation_received: first completed LIVE donation. A
+			// separate event with its own dedup key — first_donation_received
+			// almost always fires on a test donation (sites start in test
+			// mode) and the name-only dedup then suppresses it forever, so
+			// the live milestone would otherwise never be visible. Gated on
+			// the donation rows' own payment_mode, not the mode at detection
+			// time, so a later mode switch can't skew the signal.
+			if ( $aggregates['completed_live'] > 0 ) {
+				$events->track(
+					'first_live_donation_received',
+					Payment_Helper::get_currency(),
+					[
+						'days_since_install' => (string) $days_since_install,
+					]
+				);
+			}
 		}
 
 		// anonymous_donation_submitted: at least one completed anonymous donation.

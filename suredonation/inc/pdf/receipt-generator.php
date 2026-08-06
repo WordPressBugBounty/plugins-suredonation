@@ -191,17 +191,22 @@ class Receipt_Generator {
 		$site_name = esc_html( get_bloginfo( 'name' ) );
 		$site_url  = esc_url( site_url() );
 
-		$donation_id    = Helper::get_integer_value( $donation['id'] ?? 0 );
-		$donor_name     = esc_html( Helper::get_string_value( $donor['name'] ?? '' ) );
-		$donor_email    = esc_html( Helper::get_string_value( $donor['email'] ?? '' ) );
-		$payment_status = esc_html( ucfirst( Helper::get_string_value( $donation['payment_status'] ?? '' ) ) );
-		$payment_method = esc_html( ucfirst( Helper::get_string_value( $donation['gateway'] ?? '' ) ) );
-		$transaction_id = esc_html( Helper::get_string_value( $donation['transaction_id'] ?? '' ) );
-		$currency       = Helper::get_string_value( $donation['currency'] ?? 'USD' );
-		$total          = Helper::get_float_value( $donation['amount'] ?? 0 );
-		$fees_covered   = Helper::get_float_value( $donation['fees_covered'] ?? 0 );
-		$amount         = $total - $fees_covered;
-		$date           = Helper::get_string_value( $donation['created_at'] ?? '' );
+		$donation_id = Helper::get_integer_value( $donation['id'] ?? 0 );
+		// Prefer the name captured on this specific donation — it is the correct
+		// identity for a tax receipt and is unaffected by the donor record being
+		// set-once. Fall back to the donor record only when the donation itself
+		// carries no name.
+		$donation_donor_name = Helper::get_string_value( $donation['donor_name'] ?? '' );
+		$donor_name          = esc_html( '' !== $donation_donor_name ? $donation_donor_name : Helper::get_string_value( $donor['name'] ?? '' ) );
+		$donor_email         = esc_html( Helper::get_string_value( $donor['email'] ?? '' ) );
+		$payment_status      = esc_html( ucfirst( Helper::get_string_value( $donation['payment_status'] ?? '' ) ) );
+		$payment_method      = esc_html( ucfirst( Helper::get_string_value( $donation['gateway'] ?? '' ) ) );
+		$transaction_id      = esc_html( Helper::get_string_value( $donation['transaction_id'] ?? '' ) );
+		$currency            = Helper::get_string_value( $donation['currency'] ?? 'USD' );
+		$total               = Helper::get_float_value( $donation['amount'] ?? 0 );
+		$fees_covered        = Helper::get_float_value( $donation['fees_covered'] ?? 0 );
+		$amount              = $total - $fees_covered;
+		$date                = Helper::get_string_value( $donation['created_at'] ?? '' );
 
 		if ( ! empty( $date ) ) {
 			$date_format    = Helper::get_string_value( get_option( 'date_format' ) );

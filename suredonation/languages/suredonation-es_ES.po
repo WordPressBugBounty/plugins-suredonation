@@ -20,9 +20,9 @@ msgstr ""
 #: inc/abilities/runtime.php:58
 #: inc/admin/admin.php:355
 #: inc/admin/admin.php:356
-#: inc/blocks/register.php:147
+#: inc/blocks/register.php:263
 #: inc/page-builders/bricks/service-provider.php:85
-#: inc/page-builders/elementor/service-provider.php:73
+#: inc/page-builders/elementor/service-provider.php:102
 #: assets/build/admin/onboarding/index.js:1
 #: assets/build/blocks/donation-form/editor.js:2
 #: assets/build/editor/editor.js:1
@@ -98,36 +98,38 @@ msgstr "La verificación de seguridad falló"
 
 #: inc/ajax/donation-handler.php:85
 #: inc/ajax/donation-handler.php:90
-#: inc/payments/stripe/stripe-frontend.php:471
-#: inc/payments/stripe/stripe-frontend.php:516
+#: inc/payments/stripe/stripe-frontend.php:478
+#: inc/payments/stripe/stripe-frontend.php:523
 msgid "Invalid campaign"
 msgstr "Campaña inválida"
 
-#: inc/ajax/donation-handler.php:98
 #: inc/blocks/campaign-donations/block.php:91
 #: inc/blocks/campaign-donors/block.php:75
 #: inc/import-export/import/column-map.php:130
-#: inc/import-export/import/column-map.php:388
+#: inc/import-export/import/column-map.php:436
+#: assets/build/admin.js:1
+#: assets/build/admin.js:38
+#: assets/build/admin.js:52
 msgid "Anonymous"
 msgstr "Anónimo"
 
-#: inc/ajax/donation-handler.php:111
+#: inc/ajax/donation-handler.php:113
 msgid "Invalid donation amount"
 msgstr "Cantidad de donación no válida"
 
-#: inc/ajax/donation-handler.php:129
+#: inc/ajax/donation-handler.php:134
 msgid "Donor name is required"
 msgstr "Se requiere el nombre del donante"
 
-#: inc/ajax/donation-handler.php:132
+#: inc/ajax/donation-handler.php:137
 msgid "Valid email address is required"
 msgstr "Se requiere una dirección de correo electrónico válida"
 
-#: inc/ajax/donation-handler.php:191
+#: inc/ajax/donation-handler.php:193
 msgid "Failed to create donation"
 msgstr "Error al crear la donación"
 
-#: inc/ajax/donation-handler.php:219
+#: inc/ajax/donation-handler.php:221
 msgid "Your generous contribution will make a real difference. A confirmation email has been sent to you."
 msgstr "Su generosa contribución marcará una verdadera diferencia. Se le ha enviado un correo electrónico de confirmación."
 
@@ -214,7 +216,7 @@ msgstr "Acción masiva completada. Éxito: %1$d, Fallidos: %2$d"
 #: inc/api/donations-api.php:978
 #: inc/api/donations-api.php:1014
 #: inc/api/donations-api.php:1057
-#: inc/payments/pay-pal/pay-pal-frontend.php:248
+#: inc/payments/pay-pal/pay-pal-frontend.php:257
 msgid "Donation not found."
 msgstr "Donación no encontrada."
 
@@ -263,12 +265,12 @@ msgid "Refund amount exceeds maximum refundable amount of %s."
 msgstr "El monto del reembolso excede el monto máximo reembolsable de %s."
 
 #: inc/api/donations-api.php:829
-#: inc/payments/stripe/stripe-webhook.php:635
+#: inc/payments/stripe/stripe-webhook.php:664
 msgid "Full"
 msgstr "Completo"
 
 #: inc/api/donations-api.php:830
-#: inc/payments/stripe/stripe-webhook.php:636
+#: inc/payments/stripe/stripe-webhook.php:665
 msgid "Partial"
 msgstr "Parcial"
 
@@ -337,7 +339,7 @@ msgid "Form updated successfully."
 msgstr "Formulario actualizado con éxito."
 
 #: inc/api/forms-api.php:358
-#: inc/payments/pay-pal/pay-pal-frontend.php:242
+#: inc/payments/pay-pal/pay-pal-frontend.php:251
 msgid "Missing required parameters."
 msgstr "Faltan parámetros requeridos."
 
@@ -354,100 +356,100 @@ msgid "Operation failed."
 msgstr "La operación falló."
 
 #: inc/api/settings-api.php:380
-#: inc/payments/stripe/stripe-settings.php:257
+#: inc/payments/stripe/stripe-settings.php:282
 msgid "Invalid settings provided"
 msgstr "Configuración inválida proporcionada"
 
 #: inc/api/settings-api.php:419
-#: inc/payments/stripe/stripe-settings.php:368
+#: inc/payments/stripe/stripe-settings.php:393
 msgid "Failed to update settings"
 msgstr "Error al actualizar la configuración"
 
 #: inc/api/settings-api.php:427
-#: inc/payments/stripe/stripe-settings.php:376
+#: inc/payments/stripe/stripe-settings.php:401
 msgid "Settings updated successfully"
 msgstr "Configuraciones actualizadas con éxito"
 
-#: inc/form-editor/assets.php:212
-#: inc/helper.php:998
-#: inc/helper.php:1287
-#: inc/pdf/receipt-generator.php:246
+#: inc/form-editor/assets.php:218
+#: inc/helper.php:1030
+#: inc/helper.php:1350
+#: inc/pdf/receipt-generator.php:251
 msgid "Donation Receipt"
 msgstr "Recibo de Donación"
 
-#: inc/helper.php:894
+#: inc/helper.php:926
 msgid "Thank you for your donation!"
 msgstr "¡Gracias por tu donación!"
 
-#: inc/form-editor/assets.php:287
+#: inc/form-editor/assets.php:297
 msgid "New Donation (Admin)"
 msgstr "Nueva Donación (Admin)"
 
-#: inc/form-editor/assets.php:217
+#: inc/form-editor/assets.php:223
 msgid "Donation Details:"
 msgstr "Detalles de la donación:"
 
-#: inc/form-editor/assets.php:219
-#: inc/form-editor/assets.php:238
-#: inc/form-editor/assets.php:273
-#: inc/form-editor/assets.php:295
-#: inc/form-editor/assets.php:314
-#: inc/form-editor/assets.php:333
+#: inc/form-editor/assets.php:225
+#: inc/form-editor/assets.php:245
+#: inc/form-editor/assets.php:282
+#: inc/form-editor/assets.php:305
+#: inc/form-editor/assets.php:325
+#: inc/form-editor/assets.php:345
 msgid "Amount:"
 msgstr "Cantidad:"
 
-#: inc/form-editor/assets.php:272
-#: inc/form-editor/assets.php:294
-#: inc/form-editor/assets.php:313
-#: inc/form-editor/assets.php:332
+#: inc/form-editor/assets.php:281
+#: inc/form-editor/assets.php:304
+#: inc/form-editor/assets.php:324
+#: inc/form-editor/assets.php:344
 msgid "Campaign:"
 msgstr "Campaña:"
 
-#: inc/form-editor/assets.php:220
-#: inc/form-editor/assets.php:239
-#: inc/form-editor/assets.php:296
-#: inc/form-editor/assets.php:315
+#: inc/form-editor/assets.php:226
+#: inc/form-editor/assets.php:246
+#: inc/form-editor/assets.php:306
+#: inc/form-editor/assets.php:326
 msgid "Date:"
 msgstr "Fecha:"
 
-#: inc/form-editor/assets.php:221
+#: inc/form-editor/assets.php:227
 msgid "Transaction ID:"
 msgstr "ID de transacción:"
 
-#: inc/form-editor/assets.php:292
-#: inc/form-editor/assets.php:312
-#: inc/form-editor/assets.php:331
+#: inc/form-editor/assets.php:302
+#: inc/form-editor/assets.php:323
+#: inc/form-editor/assets.php:343
 msgid "Donor:"
 msgstr "Donante:"
 
-#: inc/blocks/donation-form/block.php:48
+#: inc/blocks/donation-form/block.php:49
 msgid "Please select a donation form in the block settings."
 msgstr "Por favor, seleccione un formulario de donación en la configuración del bloque."
 
-#: inc/blocks/donation-form/block.php:68
+#: inc/blocks/donation-form/block.php:69
 msgid "Invalid form selected."
 msgstr "Formulario no válido seleccionado."
 
-#: inc/blocks/donation-form/block.php:73
+#: inc/blocks/donation-form/block.php:74
 msgid "This form is not available."
 msgstr "Este formulario no está disponible."
 
-#: inc/blocks/donation-form/block.php:86
+#: inc/blocks/donation-form/block.php:87
 msgid "Invalid campaign selected."
 msgstr "Campaña seleccionada no válida."
 
-#: inc/blocks/donation-form/block.php:92
-#: inc/payments/offline/offline-frontend.php:111
-#: inc/payments/pay-pal/pay-pal-frontend.php:478
-#: inc/payments/stripe/stripe-frontend.php:525
+#: inc/blocks/donation-form/block.php:100
+#: inc/payments/offline/offline-frontend.php:114
+#: inc/payments/pay-pal/pay-pal-frontend.php:490
+#: inc/payments/stripe/stripe-frontend.php:532
 msgid "This campaign is not currently accepting donations."
 msgstr "Esta campaña no está aceptando donaciones actualmente."
 
-#: inc/helper.php:899
+#: inc/helper.php:931
 msgid "Thank You!"
 msgstr "¡Gracias!"
 
-#: inc/blocks/register.php:131
+#: inc/blocks/register.php:247
 msgid "General Fields"
 msgstr "Campos Generales"
 
@@ -575,7 +577,7 @@ msgstr "Campañas de recaudación de fondos"
 msgid "Consolidated campaign settings."
 msgstr "Configuración consolidada de la campaña."
 
-#: inc/database/tables/donations.php:2058
+#: inc/database/tables/donations.php:2140
 msgid "System"
 msgstr "Sistema"
 
@@ -595,9 +597,9 @@ msgstr "La publicación especificada no es un formulario de donación."
 msgid "Failed to create duplicate form."
 msgstr "Error al crear un formulario duplicado."
 
-#: inc/emails/email-handler.php:315
-#: plugin-loader.php:239
-#: plugin-loader.php:261
+#: inc/emails/email-handler.php:779
+#: plugin-loader.php:244
+#: plugin-loader.php:270
 #: assets/build/admin.js:1
 #: assets/build/admin.js:38
 #: assets/build/admin.js:70
@@ -636,69 +638,69 @@ msgid "Subscription Plan"
 msgstr "Plan de suscripción"
 
 #. translators: 1: Amount with currency, 2: Interval (day/week/month/quarter/year)
-#: inc/fields/payment-markup.php:499
+#: inc/fields/payment-markup.php:503
 msgid "%1$s per %2$s (until cancelled)"
 msgstr "%1$s por %2$s (hasta que se cancele)"
 
 #. translators: 1: Amount with currency, 2: Interval (day/week/month/quarter/year), 3: Number of billing cycles
-#: inc/fields/payment-markup.php:508
+#: inc/fields/payment-markup.php:512
 msgid "%1$s per %2$s (%3$s payments)"
 msgstr "%1$s por %2$s (%3$s pagos)"
 
 #. translators: 1: Amount with currency, 2: Interval (day/week/month/quarter/year)
-#: inc/fields/payment-markup.php:518
+#: inc/fields/payment-markup.php:522
 msgid "%1$s per %2$s"
 msgstr "%1$s por %2$s"
 
 #. translators: 1: Amount with currency placeholder, 2: Interval (day/week/month/quarter/year)
-#: inc/fields/payment-markup.php:547
+#: inc/fields/payment-markup.php:551
 msgid "{amount} per %s (until cancelled)"
 msgstr "{amount} por %s (hasta que se cancele)"
 
 #. translators: 1: Amount with currency placeholder, 2: Interval (day/week/month/quarter/year), 3: Number of billing cycles
-#: inc/fields/payment-markup.php:550
+#: inc/fields/payment-markup.php:554
 msgid "{amount} per %1$s (%2$s payments)"
 msgstr "{amount} por %1$s (%2$s pagos)"
 
 #. translators: 1: Amount with currency placeholder, 2: Interval (day/week/month/quarter/year)
-#: inc/fields/payment-markup.php:553
+#: inc/fields/payment-markup.php:557
 msgid "{amount} per %s"
 msgstr "{amount} por %s"
 
 #. translators: %s: Minimum amount with currency
-#: inc/fields/payment-markup.php:567
+#: inc/fields/payment-markup.php:571
 msgid "Minimum amount: %s"
 msgstr "Monto mínimo: %s"
 
-#: inc/fields/payment-markup.php:630
+#: inc/fields/payment-markup.php:634
 #: assets/build/admin.js:38
 msgid "day"
 msgstr "día"
 
-#: inc/fields/payment-markup.php:631
+#: inc/fields/payment-markup.php:635
 #: assets/build/admin.js:38
 msgid "week"
 msgstr "semana"
 
-#: inc/fields/payment-markup.php:632
+#: inc/fields/payment-markup.php:636
 #: assets/build/admin.js:38
 msgid "month"
 msgstr "mes"
 
-#: inc/fields/payment-markup.php:633
+#: inc/fields/payment-markup.php:637
 msgid "quarter"
 msgstr "trimestre"
 
-#: inc/fields/payment-markup.php:634
+#: inc/fields/payment-markup.php:638
 #: assets/build/admin.js:38
 msgid "year"
 msgstr "año"
 
-#: inc/fields/payment-markup.php:659
+#: inc/fields/payment-markup.php:663
 msgid "Test mode is enabled:"
 msgstr "El modo de prueba está habilitado:"
 
-#: inc/fields/payment-markup.php:661
+#: inc/fields/payment-markup.php:665
 msgid "Click here to enable live mode and accept payment"
 msgstr "Haz clic aquí para activar el modo en vivo y aceptar pagos"
 
@@ -858,8 +860,8 @@ msgstr "Franco CFA de África Occidental"
 msgid "CFP Franc"
 msgstr "Franco CFP"
 
-#: inc/blocks/register.php:408
-#: inc/helper.php:1145
+#: inc/blocks/register.php:565
+#: inc/helper.php:1208
 #: inc/payments/payment-helper.php:898
 #: assets/build/admin.js:71
 msgid "Stripe"
@@ -869,141 +871,143 @@ msgstr "Stripe"
 msgid "Accept payments via Stripe"
 msgstr "Aceptar pagos a través de Stripe"
 
-#: inc/ajax/donation-handler.php:116
-#: inc/payments/offline/offline-frontend.php:117
-#: inc/payments/pay-pal/pay-pal-frontend.php:448
+#: inc/ajax/donation-handler.php:118
+#: inc/payments/offline/offline-frontend.php:120
+#: inc/payments/pay-pal/pay-pal-frontend.php:460
 #: inc/payments/payment-helper.php:952
-#: inc/payments/stripe/stripe-frontend.php:485
+#: inc/payments/stripe/stripe-frontend.php:492
 msgid "Invalid form configuration."
 msgstr "Configuración de formulario no válida."
 
 #: inc/payments/payment-helper.php:960
+#: inc/payments/payment-helper.php:975
 msgid "Payment configuration not found for this form."
 msgstr "No se encontró la configuración de pago para este formulario."
 
 #. translators: 1: expected currency, 2: received currency
-#: inc/payments/payment-helper.php:973
+#: inc/payments/payment-helper.php:986
 msgid "Currency mismatch: expected %1$s, received %2$s."
 msgstr "Desajuste de moneda: se esperaba %1$s, se recibió %2$s."
 
 #. translators: %s: expected amount with currency
-#: inc/payments/payment-helper.php:991
+#: inc/payments/payment-helper.php:1012
 msgid "Payment amount must be exactly %s."
 msgstr "El importe del pago debe ser exactamente %s."
 
 #. translators: %s: minimum amount with currency
 #. translators: %s: minimum amount
-#: inc/payments/payment-helper.php:1003
-#: inc/payments/payment-helper.php:1033
-#: inc/payments/payment-helper.php:1574
-#: inc/payments/payment-helper.php:1661
+#: inc/payments/payment-helper.php:1024
+#: inc/payments/payment-helper.php:1054
+#: inc/payments/payment-helper.php:1639
+#: inc/payments/payment-helper.php:1726
 msgid "Payment amount must be at least %s."
 msgstr "El monto del pago debe ser al menos %s."
 
 #. translators: 1: expected currency, 2: actual currency
-#: inc/payments/payment-helper.php:1457
+#: inc/payments/payment-helper.php:1522
 msgid "Currency mismatch. Expected %1$s but received %2$s."
 msgstr "Desajuste de moneda. Se esperaba %1$s pero se recibió %2$s."
 
 #. translators: 1: expected amount, 2: actual amount
-#: inc/payments/payment-helper.php:1473
+#: inc/payments/payment-helper.php:1538
 msgid "Amount mismatch detected. Expected %1$s but received %2$s. Possible payment manipulation."
 msgstr "Se detectó una discrepancia en el monto. Se esperaba %1$s pero se recibió %2$s. Posible manipulación de pago."
 
 #. translators: %s: maximum amount with currency
-#: inc/payments/payment-helper.php:1586
-#: inc/payments/payment-helper.php:1669
+#: inc/payments/payment-helper.php:1651
+#: inc/payments/payment-helper.php:1734
 msgid "Payment amount cannot exceed %s."
 msgstr "El monto del pago no puede exceder %s."
 
-#: inc/payments/payment-helper.php:1560
-#: inc/payments/payment-helper.php:1608
+#: inc/payments/payment-helper.php:1625
+#: inc/payments/payment-helper.php:1673
 msgid "Variable amount field configuration not found."
 msgstr "No se encontró la configuración del campo de cantidad variable."
 
-#: inc/payments/payment-helper.php:1640
+#: inc/payments/payment-helper.php:1705
 msgid "No payment options are configured for this field."
 msgstr "No se han configurado opciones de pago para este campo."
 
-#: inc/payments/payment-helper.php:1645
+#: inc/payments/payment-helper.php:1710
 msgid "Invalid payment amount. Please select a valid amount from the available options."
 msgstr "Cantidad de pago no válida. Por favor, seleccione una cantidad válida de las opciones disponibles."
 
-#: inc/payments/stripe/stripe-frontend.php:475
+#: inc/payments/stripe/stripe-frontend.php:482
 msgid "Email address is required"
 msgstr "Se requiere la dirección de correo electrónico"
 
-#: inc/payments/stripe/stripe-frontend.php:500
+#: inc/payments/stripe/stripe-frontend.php:507
 msgid "Payment gateway not configured"
 msgstr "Pasarela de pago no configurada"
 
-#: inc/payments/offline/offline-frontend.php:106
-#: inc/payments/pay-pal/pay-pal-frontend.php:473
-#: inc/payments/stripe/stripe-frontend.php:520
+#: inc/payments/offline/offline-frontend.php:109
+#: inc/payments/pay-pal/pay-pal-frontend.php:485
+#: inc/payments/stripe/stripe-frontend.php:527
 msgid "This campaign is not available for donations."
 msgstr "Esta campaña no está disponible para donaciones."
 
 #. translators: %s is the campaign title.
-#: inc/payments/pay-pal/pay-pal-frontend.php:122
-#: inc/payments/stripe/stripe-frontend.php:139
+#: inc/payments/pay-pal/pay-pal-frontend.php:123
+#: inc/payments/stripe/stripe-frontend.php:140
 msgid "Donation to %s"
 msgstr "Donación a %s"
 
-#: inc/payments/stripe/stripe-frontend.php:164
+#: inc/payments/stripe/stripe-frontend.php:165
 msgid "Invalid payment intent response."
 msgstr "Respuesta de intención de pago no válida."
 
-#: inc/payments/stripe/stripe-frontend.php:243
-#: inc/payments/stripe/stripe-helper.php:943
+#: inc/payments/stripe/stripe-frontend.php:247
+#: inc/payments/stripe/stripe-helper.php:945
 msgid "Payment intent ID is required"
 msgstr "Se requiere el ID de intención de pago"
 
-#: inc/payments/stripe/stripe-frontend.php:247
+#: inc/payments/stripe/stripe-frontend.php:251
 msgid "Donation ID is required"
 msgstr "Se requiere el ID de donación"
 
-#: inc/payments/stripe/stripe-frontend.php:252
+#: inc/payments/stripe/stripe-frontend.php:256
 msgid "Invalid payment intent ID"
 msgstr "ID de intención de pago no válido"
 
-#: inc/payments/stripe/stripe-frontend.php:258
+#: inc/payments/stripe/stripe-frontend.php:262
 #: assets/build/admin.js:55
 msgid "Donation not found"
 msgstr "Donación no encontrada"
 
-#: inc/payments/stripe/stripe-frontend.php:263
+#: inc/payments/stripe/stripe-frontend.php:267
 msgid "Payment verification failed"
 msgstr "La verificación de pago falló"
 
-#: inc/payments/stripe/stripe-frontend.php:283
-#: inc/payments/stripe/stripe-helper.php:981
+#: inc/payments/stripe/stripe-frontend.php:287
+#: inc/payments/stripe/stripe-helper.php:983
 msgid "Payment capture failed"
 msgstr "La captura de pago falló"
 
-#: inc/payments/pay-pal/pay-pal-frontend.php:319
-#: inc/payments/stripe/stripe-frontend.php:300
+#: inc/payments/pay-pal/pay-pal-frontend.php:328
+#: inc/payments/stripe/stripe-frontend.php:304
 msgid "Payment captured but donation status update failed"
 msgstr "Pago capturado pero la actualización del estado de la donación falló"
 
-#: inc/payments/stripe/stripe-frontend.php:310
+#: inc/payments/stripe/stripe-frontend.php:314
 msgid "Payment captured and donation completed"
 msgstr "Pago capturado y donación completada"
 
-#: inc/payments/stripe/stripe-frontend.php:419
+#: inc/payments/stripe/stripe-frontend.php:423
 msgid "Failed to create customer"
 msgstr "Error al crear el cliente"
 
-#: inc/payments/stripe/stripe-frontend.php:625
+#: inc/payments/stripe/stripe-frontend.php:615
+#: inc/payments/stripe/stripe-frontend.php:653
 msgid "Failed to create donation record"
 msgstr "Error al crear el registro de donación"
 
-#: inc/payments/stripe/stripe-frontend.php:635
+#: inc/payments/stripe/stripe-frontend.php:663
 msgid "Donation created with pending payment"
 msgstr "Donación creada con pago pendiente"
 
 #: inc/payments/stripe/stripe-helper.php:626
-#: inc/payments/stripe/stripe-helper.php:828
-#: inc/payments/stripe/stripe-helper.php:939
+#: inc/payments/stripe/stripe-helper.php:830
+#: inc/payments/stripe/stripe-helper.php:941
 msgid "Stripe secret key not configured"
 msgstr "Clave secreta de Stripe no configurada"
 
@@ -1015,104 +1019,104 @@ msgstr "Error desconocido"
 msgid "Invalid response from Stripe API"
 msgstr "Respuesta no válida de la API de Stripe"
 
-#: inc/payments/stripe/stripe-helper.php:849
+#: inc/payments/stripe/stripe-helper.php:851
 msgid "SureDonation Payment"
 msgstr "Pago de SureDonation"
 
-#: inc/payments/stripe/stripe-helper.php:900
-#: inc/payments/stripe/stripe-helper.php:970
+#: inc/payments/stripe/stripe-helper.php:902
+#: inc/payments/stripe/stripe-helper.php:972
 msgid "Failed to connect to payment processor"
 msgstr "Error al conectar con el procesador de pagos"
 
-#: inc/payments/stripe/stripe-helper.php:907
-#: inc/payments/stripe/stripe-helper.php:977
+#: inc/payments/stripe/stripe-helper.php:909
+#: inc/payments/stripe/stripe-helper.php:979
 msgid "Invalid response from payment processor"
 msgstr "Respuesta no válida del procesador de pagos"
 
-#: inc/payments/stripe/stripe-helper.php:912
+#: inc/payments/stripe/stripe-helper.php:914
 msgid "Payment processing failed"
 msgstr "El procesamiento del pago falló"
 
-#: inc/payments/stripe/stripe-helper.php:918
+#: inc/payments/stripe/stripe-helper.php:920
 msgid "Missing required payment data"
 msgstr "Faltan datos de pago requeridos"
 
-#: inc/payments/stripe/stripe-settings.php:447
+#: inc/payments/stripe/stripe-settings.php:472
 msgid "Stripe account disconnected successfully"
 msgstr "Cuenta de Stripe desconectada con éxito"
 
 #. translators: %s is the mode (test or live).
-#: inc/payments/stripe/stripe-settings.php:618
+#: inc/payments/stripe/stripe-settings.php:658
 msgid "Webhook created successfully for %s mode"
 msgstr "Webhook creado con éxito para el modo %s"
 
 #. translators: %s is the mode (test or live).
-#: inc/payments/stripe/stripe-settings.php:646
+#: inc/payments/stripe/stripe-settings.php:690
 msgid "Webhook deleted successfully for %s mode"
 msgstr "Webhook eliminado con éxito para el modo %s"
 
-#: inc/payments/stripe/stripe-settings.php:692
+#: inc/payments/stripe/stripe-settings.php:736
 msgid "Security verification failed. Invalid nonce."
 msgstr "La verificación de seguridad falló. Nonce inválido."
 
-#: inc/payments/stripe/stripe-settings.php:693
-#: inc/payments/stripe/stripe-settings.php:704
-#: inc/payments/stripe/stripe-settings.php:950
-#: inc/payments/stripe/stripe-settings.php:963
+#: inc/payments/stripe/stripe-settings.php:737
+#: inc/payments/stripe/stripe-settings.php:748
+#: inc/payments/stripe/stripe-settings.php:1217
+#: inc/payments/stripe/stripe-settings.php:1230
 msgid "Stripe Connect Error"
 msgstr "Error de Stripe Connect"
 
-#: inc/payments/stripe/stripe-settings.php:703
+#: inc/payments/stripe/stripe-settings.php:747
 msgid "Security verification failed. OAuth session expired or nonce mismatch."
 msgstr "La verificación de seguridad falló. La sesión de OAuth expiró o hay una discrepancia de nonce."
 
-#: inc/payments/stripe/stripe-settings.php:915
+#: inc/payments/stripe/stripe-settings.php:1182
 msgid "OAuth callback missing response data."
 msgstr "Faltan datos de respuesta en la devolución de llamada de OAuth."
 
-#: inc/payments/stripe/stripe-settings.php:949
+#: inc/payments/stripe/stripe-settings.php:1216
 msgid "Invalid OAuth response format."
 msgstr "Formato de respuesta OAuth no válido."
 
-#: inc/payments/stripe/stripe-settings.php:1016
+#: inc/payments/stripe/stripe-settings.php:1283
 msgid "You do not have permission to connect Stripe."
 msgstr "No tienes permiso para conectar Stripe."
 
-#: inc/payments/stripe/stripe-settings.php:1017
+#: inc/payments/stripe/stripe-settings.php:1284
 msgid "Permission Denied"
 msgstr "Permiso denegado"
 
-#: inc/payments/stripe/stripe-settings.php:1029
+#: inc/payments/stripe/stripe-settings.php:1296
 #: assets/build/admin.js:71
 msgid "Failed to connect to Stripe."
 msgstr "Error al conectar con Stripe."
 
-#: inc/payments/stripe/stripe-webhook.php:167
+#: inc/payments/stripe/stripe-webhook.php:189
 msgid "Webhook secret not configured"
 msgstr "Secreto del webhook no configurado"
 
-#: inc/payments/stripe/stripe-webhook.php:179
+#: inc/payments/stripe/stripe-webhook.php:202
 msgid "Webhook signature verification failed"
 msgstr "La verificación de la firma del webhook falló"
 
-#: inc/payments/stripe/stripe-webhook.php:407
+#: inc/payments/stripe/stripe-webhook.php:436
 msgid "Payment completed successfully via webhook"
 msgstr "Pago completado con éxito a través de webhook"
 
-#: inc/payments/stripe/stripe-webhook.php:489
+#: inc/payments/stripe/stripe-webhook.php:518
 msgid "Payment failed via webhook"
 msgstr "El pago falló a través del webhook"
 
 #. translators: %s: Refund type (Full/Partial)
-#: inc/payments/stripe/stripe-webhook.php:644
+#: inc/payments/stripe/stripe-webhook.php:673
 msgid "%s refund processed via webhook"
 msgstr "Reembolso de %s procesado a través de webhook"
 
-#: inc/payments/stripe/stripe-webhook.php:728
+#: inc/payments/stripe/stripe-webhook.php:757
 msgid "Refund canceled via webhook"
 msgstr "Reembolso cancelado a través del webhook"
 
-#: inc/payments/stripe/stripe-webhook.php:775
+#: inc/payments/stripe/stripe-webhook.php:804
 msgid "Payment canceled via webhook"
 msgstr "Pago cancelado a través de webhook"
 
@@ -1125,7 +1129,9 @@ msgstr "Agregar nuevo formulario"
 msgid "New Form"
 msgstr "Nuevo formulario"
 
+#: inc/page-builders/elementor/widgets/donation-form-widget.php:142
 #: inc/post-types/donation-form.php:120
+#: assets/build/blocks/donation-form/editor.js:2
 msgid "Edit Form"
 msgstr "Editar formulario"
 
@@ -1174,37 +1180,37 @@ msgid "Donation Form"
 msgstr "Formulario de Donación"
 
 #: inc/post-types/donation-form.php:705
-#: inc/post-types/donation-form.php:795
+#: inc/post-types/donation-form.php:799
 msgid "Select Donation Amount"
 msgstr "Seleccionar cantidad de donación"
 
 #: inc/post-types/donation-form.php:685
-#: inc/post-types/donation-form.php:771
+#: inc/post-types/donation-form.php:775
 msgid "Full Name"
 msgstr "Nombre completo"
 
 #: inc/post-types/donation-form.php:687
-#: inc/post-types/donation-form.php:773
+#: inc/post-types/donation-form.php:777
 msgid "Enter your full name"
 msgstr "Ingrese su nombre completo"
 
 #: inc/post-types/donation-form.php:695
-#: inc/post-types/donation-form.php:783
+#: inc/post-types/donation-form.php:787
 #: assets/build/admin.js:70
 #: assets/build/admin/onboarding/index.js:10
 msgid "Email Address"
 msgstr "Dirección de correo electrónico"
 
 #: inc/post-types/donation-form.php:697
-#: inc/post-types/donation-form.php:785
+#: inc/post-types/donation-form.php:789
 msgid "Enter your email"
 msgstr "Introduce tu correo electrónico"
 
-#: inc/shortcodes/donation-form.php:60
+#: inc/shortcodes/donation-form.php:61
 msgid "Please specify a form ID: [suredonation_form id=\"123\"]"
 msgstr "Por favor, especifique un ID de formulario: [suredonation_form id=\"123\"]"
 
-#: inc/shortcodes/donation-form.php:70
+#: inc/shortcodes/donation-form.php:71
 msgid "Invalid donation form ID."
 msgstr "ID de formulario de donación no válido."
 
@@ -1335,10 +1341,10 @@ msgid "Type"
 msgstr "Escribe"
 
 #: inc/api/donors-api.php:764
-#: inc/helper.php:982
-#: inc/helper.php:1067
-#: inc/helper.php:1262
-#: inc/pdf/receipt-generator.php:269
+#: inc/helper.php:1014
+#: inc/helper.php:1091
+#: inc/helper.php:1325
+#: inc/pdf/receipt-generator.php:274
 #: assets/build/admin.js:52
 msgid "Payment Method"
 msgstr "Método de pago"
@@ -1363,12 +1369,12 @@ msgstr "Cantidad Pagada"
 msgid "Status"
 msgstr "Estado"
 
-#: inc/helper.php:958
-#: inc/helper.php:1043
-#: inc/helper.php:1241
+#: inc/helper.php:990
+#: inc/helper.php:1067
+#: inc/helper.php:1304
 #: inc/import-export/import/column-map.php:55
-#: inc/import-export/import/column-map.php:373
-#: inc/pdf/receipt-generator.php:254
+#: inc/import-export/import/column-map.php:421
+#: inc/pdf/receipt-generator.php:259
 #: inc/privacy/privacy-data.php:132
 #: assets/build/admin.js:1
 #: assets/build/admin.js:52
@@ -1588,12 +1594,12 @@ msgstr "Copiar y reutilizar campañas para nuevas causas"
 msgid "Create Your First Campaign"
 msgstr "Crea tu primera campaña"
 
-#: inc/helper.php:970
-#: inc/helper.php:1055
-#: inc/helper.php:1112
-#: inc/helper.php:1252
-#: inc/import-export/import/column-map.php:369
-#: inc/pdf/receipt-generator.php:263
+#: inc/helper.php:1002
+#: inc/helper.php:1079
+#: inc/helper.php:1128
+#: inc/helper.php:1315
+#: inc/import-export/import/column-map.php:417
+#: inc/pdf/receipt-generator.php:268
 #: assets/build/admin.js:1
 #: assets/build/admin.js:10
 #: assets/build/admin.js:52
@@ -1630,6 +1636,7 @@ msgstr "Ver"
 msgid "Duplicate"
 msgstr "Duplicado"
 
+#: inc/page-builders/elementor/widgets/donation-form-widget.php:145
 #: assets/build/admin.js:13
 #: assets/build/admin.js:26
 #: assets/build/editor/editor.js:1
@@ -1836,7 +1843,7 @@ msgstr "¡Copiado!"
 msgid "Copy Shortcode"
 msgstr "Copiar código corto"
 
-#: inc/helper.php:1181
+#: inc/helper.php:1244
 #: assets/build/admin.js:1
 #: assets/build/admin.js:26
 #: assets/build/admin.js:39
@@ -1966,7 +1973,7 @@ msgstr "Eliminar"
 msgid "All Statuses"
 msgstr "Todos los estados"
 
-#: inc/helper.php:1185
+#: inc/helper.php:1248
 #: assets/build/admin.js:1
 #: assets/build/admin.js:39
 #: assets/build/admin/onboarding/index.js:1
@@ -1975,7 +1982,7 @@ msgstr "Todos los estados"
 msgid "Processing"
 msgstr "Procesando"
 
-#: inc/helper.php:1189
+#: inc/helper.php:1252
 #: assets/build/admin.js:1
 #: assets/build/admin.js:39
 #: assets/build/admin/onboarding/index.js:1
@@ -1984,7 +1991,7 @@ msgstr "Procesando"
 msgid "Failed"
 msgstr "Fallido"
 
-#: inc/helper.php:1193
+#: inc/helper.php:1256
 #: assets/build/admin.js:1
 #: assets/build/admin.js:39
 #: assets/build/admin/onboarding/index.js:1
@@ -2058,7 +2065,7 @@ msgstr "Reembolsar donación"
 msgid "Process refund for donation #%s. The refunded amount will be sent to the donor's original payment method."
 msgstr "Procesar reembolso para la donación #%s. El monto reembolsado se enviará al método de pago original del donante."
 
-#: inc/helper.php:1079
+#: inc/helper.php:1095
 #: assets/build/admin.js:49
 #: assets/build/admin.js:52
 msgid "Refund Amount"
@@ -2105,7 +2112,7 @@ msgstr "Detalles de la donación"
 
 #: inc/api/donors-api.php:760
 #: inc/import-export/import/column-map.php:50
-#: inc/import-export/import/column-map.php:376
+#: inc/import-export/import/column-map.php:424
 #: inc/privacy/privacy-data.php:128
 #: assets/build/admin.js:52
 #: assets/build/admin.js:70
@@ -2129,7 +2136,7 @@ msgid "Payment ID"
 msgstr "ID de pago"
 
 #: inc/import-export/import/column-map.php:110
-#: inc/import-export/import/column-map.php:382
+#: inc/import-export/import/column-map.php:430
 #: assets/build/admin.js:52
 #: assets/build/admin.js:70
 msgid "Payment Mode"
@@ -2182,11 +2189,11 @@ msgstr "Ver en Stripe"
 msgid "Payment Logs"
 msgstr "Registros de pagos"
 
-#: inc/helper.php:978
-#: inc/helper.php:1063
+#: inc/helper.php:1010
+#: inc/helper.php:1087
 #: inc/import-export/import/column-map.php:115
-#: inc/import-export/import/column-map.php:383
-#: inc/pdf/receipt-generator.php:226
+#: inc/import-export/import/column-map.php:431
+#: inc/pdf/receipt-generator.php:231
 #: assets/build/admin.js:52
 msgid "Transaction ID"
 msgstr "ID de transacción"
@@ -2221,15 +2228,15 @@ msgstr "Error"
 
 #: inc/api/donors-api.php:761
 #: inc/import-export/import/column-map.php:95
-#: inc/import-export/import/column-map.php:379
+#: inc/import-export/import/column-map.php:427
 #: inc/privacy/privacy-data.php:129
 #: assets/build/admin.js:52
 msgid "Currency"
 msgstr "Moneda"
 
 #: inc/import-export/import/column-map.php:120
-#: inc/import-export/import/column-map.php:377
-#: inc/pdf/receipt-generator.php:237
+#: inc/import-export/import/column-map.php:425
+#: inc/pdf/receipt-generator.php:242
 #: assets/build/admin.js:52
 msgid "Fees Covered"
 msgstr "Gastos Cubiertos"
@@ -2250,12 +2257,10 @@ msgstr "Cantidad Real"
 msgid "Cancellation Reason"
 msgstr "Motivo de cancelación"
 
-#: inc/api/import-export-api.php:222
 #: assets/build/admin.js:52
 msgid "Yes"
 msgstr "Sí"
 
-#: inc/api/import-export-api.php:222
 #: assets/build/admin.js:52
 msgid "No"
 msgstr "No"
@@ -2276,7 +2281,7 @@ msgstr "Pago fallido"
 msgid "Payment Canceled"
 msgstr "Pago cancelado"
 
-#: inc/form-editor/assets.php:266
+#: inc/form-editor/assets.php:275
 #: assets/build/admin.js:52
 msgid "Refund Processed"
 msgstr "Reembolso procesado"
@@ -2380,8 +2385,8 @@ msgstr "Enviar nota"
 msgid "Add an internal note about this transaction."
 msgstr "Agrega una nota interna sobre esta transacción."
 
-#: inc/payments/pay-pal/pay-pal-frontend.php:463
-#: inc/payments/stripe/stripe-frontend.php:142
+#: inc/payments/pay-pal/pay-pal-frontend.php:475
+#: inc/payments/stripe/stripe-frontend.php:143
 #: assets/build/admin.js:55
 msgid "Donation"
 msgstr "Donación"
@@ -2455,7 +2460,7 @@ msgstr "Webhook"
 msgid "Webhook created successfully!"
 msgstr "¡Webhook creado con éxito!"
 
-#: inc/payments/stripe/stripe-settings.php:593
+#: inc/payments/stripe/stripe-settings.php:623
 #: assets/build/admin.js:71
 msgid "Failed to create webhook."
 msgstr "Error al crear el webhook."
@@ -2567,15 +2572,6 @@ msgstr "Cargando formularios…"
 #: assets/build/blocks/donation-form/editor.js:2
 msgid "No donation forms found. Create one first."
 msgstr "No se encontraron formularios de donación. Cree uno primero."
-
-#. translators: %s is the campaign name
-#: assets/build/blocks/donation-form/editor.js:6
-msgid "Campaign: %s"
-msgstr "Campaña: %s"
-
-#: assets/build/blocks/donation-form/editor.js:6
-msgid "The form will be rendered on the frontend"
-msgstr "El formulario se mostrará en el frontend"
 
 #: assets/build/blocks.js:1
 #: assets/build/editor/editor.js:1
@@ -3356,21 +3352,23 @@ msgstr "No se pudo generar el CSV."
 
 #: inc/api/donors-api.php:765
 #: inc/import-export/import/column-map.php:165
-#: inc/import-export/import/column-map.php:391
-#: inc/pdf/receipt-generator.php:282
+#: inc/import-export/import/column-map.php:439
+#: inc/pdf/receipt-generator.php:287
 #: inc/privacy/privacy-data.php:131
 msgid "Date"
 msgstr "Fecha"
 
 #: inc/api/donors-api.php:839
 #: inc/api/import-export-api.php:138
+#: inc/api/import-givewp-api.php:191
+#: inc/api/onboarding-api.php:98
 msgid "Invalid or missing nonce."
 msgstr "Nonce no válido o faltante."
 
 #: inc/api/forms-api.php:239
-#: inc/payments/offline/offline-frontend.php:87
-#: inc/payments/offline/offline-frontend.php:102
-#: inc/payments/pay-pal/pay-pal-frontend.php:469
+#: inc/payments/offline/offline-frontend.php:90
+#: inc/payments/offline/offline-frontend.php:105
+#: inc/payments/pay-pal/pay-pal-frontend.php:481
 msgid "Invalid campaign."
 msgstr "Campaña no válida."
 
@@ -3403,32 +3401,32 @@ msgstr "Carga de archivo no válida."
 msgid "Only .csv files are supported."
 msgstr "Solo se admiten archivos .csv."
 
-#: inc/api/import-givewp-api.php:206
+#: inc/api/import-givewp-api.php:231
 msgid "No GiveWP data was found on this site — nothing to preview."
 msgstr "No se encontraron datos de GiveWP en este sitio — nada que previsualizar."
 
-#: inc/api/import-givewp-api.php:228
+#: inc/api/import-givewp-api.php:253
 msgid "No GiveWP data was found on this site — nothing to migrate."
 msgstr "No se encontraron datos de GiveWP en este sitio — nada que migrar."
 
-#: inc/api/import-givewp-api.php:241
+#: inc/api/import-givewp-api.php:266
 msgid "Select at least one campaign to migrate."
 msgstr "Seleccione al menos una campaña para migrar."
 
-#: inc/api/import-givewp-api.php:256
+#: inc/api/import-givewp-api.php:281
 msgid "No import phases were registered for this session."
 msgstr "No se registraron fases de importación para esta sesión."
 
-#: inc/api/import-givewp-api.php:285
+#: inc/api/import-givewp-api.php:310
 msgid "Import session not found or already completed."
 msgstr "Sesión de importación no encontrada o ya completada."
 
-#: inc/api/onboarding-api.php:139
+#: inc/api/onboarding-api.php:164
 #: assets/build/admin/onboarding/index.js:10
 msgid "Campaign name is required."
 msgstr "Se requiere el nombre de la campaña."
 
-#: inc/api/onboarding-api.php:176
+#: inc/api/onboarding-api.php:201
 #: assets/build/admin/onboarding/index.js:10
 msgid "Could not create the campaign."
 msgstr "No se pudo crear la campaña."
@@ -3447,8 +3445,8 @@ msgstr "Configuraciones de IA guardadas"
 #: inc/page-builders/elementor/widgets/campaign-donate-button-widget.php:87
 #: inc/page-builders/elementor/widgets/campaign-donations-widget.php:102
 #: inc/page-builders/elementor/widgets/campaign-donations-widget.php:122
-#: inc/post-types/donation-form.php:745
-#: inc/post-types/donation-form.php:839
+#: inc/post-types/donation-form.php:749
+#: inc/post-types/donation-form.php:847
 msgid "Donate"
 msgstr "Donar"
 
@@ -3517,7 +3515,7 @@ msgstr "Donación Más Alta"
 msgid "Average Donation"
 msgstr "Donación Promedio"
 
-#: inc/blocks/register.php:413
+#: inc/blocks/register.php:570
 #: inc/payments/payment-helper.php:904
 #: assets/build/admin.js:74
 #: assets/build/admin.js:91
@@ -3538,259 +3536,252 @@ msgstr "Página de campaña sin la firma del tema o imagen destacada duplicada."
 msgid "Enter custom amount"
 msgstr "Ingrese cantidad personalizada"
 
-#: inc/fields/payment-markup.php:335
+#: inc/fields/payment-markup.php:339
 msgid "Credit / Debit Card"
 msgstr "Tarjeta de Crédito / Débito"
 
-#: inc/fields/payment-markup.php:558
-#: inc/helper.php:909
+#: inc/fields/payment-markup.php:562
+#: inc/helper.php:941
 msgid "Complete the form to view the amount."
 msgstr "Complete el formulario para ver la cantidad."
 
-#: inc/form-editor/assets.php:165
+#: inc/form-editor/assets.php:170
 msgid "Form confirmation settings."
 msgstr "Configuraciones de confirmación del formulario."
 
-#: inc/form-editor/assets.php:203
+#: inc/form-editor/assets.php:208
 msgid "We truly appreciate your support"
 msgstr "Realmente apreciamos su apoyo"
 
-#: inc/form-editor/assets.php:214
+#: inc/form-editor/assets.php:220
 msgid "Thank you for your donation to {campaign_name}"
 msgstr "Gracias por su donación a {campaign_name}"
 
-#: inc/form-editor/assets.php:215
-#: inc/form-editor/assets.php:235
-#: inc/form-editor/assets.php:254
-#: inc/form-editor/assets.php:269
+#: inc/form-editor/assets.php:221
+#: inc/form-editor/assets.php:242
+#: inc/form-editor/assets.php:262
+#: inc/form-editor/assets.php:278
 msgid "Hi {donor_name},"
 msgstr "Hola {donor_name},"
 
-#: inc/form-editor/assets.php:216
+#: inc/form-editor/assets.php:222
 msgid "Thank you for supporting {campaign_name}. Your contribution means a lot."
 msgstr "Gracias por apoyar a {campaign_name}. Su contribución significa mucho."
 
-#: inc/form-editor/assets.php:232
+#: inc/form-editor/assets.php:239
 msgid "Donation Processing"
 msgstr "Procesamiento de Donación"
 
-#: inc/form-editor/assets.php:234
+#: inc/form-editor/assets.php:241
 msgid "Your donation is being processed"
 msgstr "Su donación está siendo procesada"
 
-#: inc/form-editor/assets.php:236
+#: inc/form-editor/assets.php:243
 msgid "Your donation to {campaign_name} is currently being processed."
 msgstr "Su donación a {campaign_name} está siendo procesada actualmente."
 
-#: inc/form-editor/assets.php:241
+#: inc/form-editor/assets.php:248
 msgid "We'll notify you once it's confirmed."
 msgstr "Le notificaremos una vez que esté confirmada."
 
-#: inc/form-editor/assets.php:251
+#: inc/form-editor/assets.php:259
 msgid "Donation Failed"
 msgstr "Donación Fallida"
 
-#: inc/form-editor/assets.php:253
+#: inc/form-editor/assets.php:261
 msgid "We couldn't process your donation"
 msgstr "No pudimos procesar su donación"
 
-#: inc/form-editor/assets.php:255
+#: inc/form-editor/assets.php:263
 msgid "Unfortunately, your donation to {campaign_name} could not be completed."
 msgstr "Desafortunadamente, su donación a {campaign_name} no pudo completarse."
 
-#: inc/form-editor/assets.php:256
+#: inc/form-editor/assets.php:264
 msgid "If you need help, feel free to contact us."
 msgstr "Si necesita ayuda, no dude en contactarnos."
 
-#: inc/form-editor/assets.php:268
+#: inc/form-editor/assets.php:277
 msgid "Your donation has been refunded"
 msgstr "Su donación ha sido reembolsada"
 
-#: inc/form-editor/assets.php:270
+#: inc/form-editor/assets.php:279
 msgid "Your donation has been refunded."
 msgstr "Su donación ha sido reembolsada."
 
-#: inc/form-editor/assets.php:275
+#: inc/form-editor/assets.php:284
 msgid "If you have any questions, feel free to reach out."
 msgstr "Si tiene alguna pregunta, no dude en comunicarse."
 
-#: inc/form-editor/assets.php:289
+#: inc/form-editor/assets.php:299
 msgid "New donation received"
 msgstr "Nueva donación recibida"
 
-#: inc/form-editor/assets.php:290
+#: inc/form-editor/assets.php:300
 msgid "A new donation has been received."
 msgstr "Se ha recibido una nueva donación."
 
-#: inc/form-editor/assets.php:293
+#: inc/form-editor/assets.php:303
 msgid "Email:"
 msgstr "Correo electrónico:"
 
-#: inc/form-editor/assets.php:298
-#: inc/form-editor/assets.php:335
+#: inc/form-editor/assets.php:308
+#: inc/form-editor/assets.php:347
 msgid "View details:"
 msgstr "Ver detalles:"
 
-#: inc/form-editor/assets.php:307
+#: inc/form-editor/assets.php:318
 msgid "Donation Failed (Admin)"
 msgstr "Donación Fallida (Admin)"
 
-#: inc/form-editor/assets.php:309
+#: inc/form-editor/assets.php:320
 msgid "Donation failed"
 msgstr "Donación fallida"
 
-#: inc/form-editor/assets.php:310
+#: inc/form-editor/assets.php:321
 msgid "A donation attempt has failed."
 msgstr "Un intento de donación ha fallado."
 
-#: inc/form-editor/assets.php:317
+#: inc/form-editor/assets.php:328
 msgid "Check details:"
 msgstr "Verificar detalles:"
 
-#: inc/form-editor/assets.php:326
+#: inc/form-editor/assets.php:338
 msgid "Refund Processed (Admin)"
 msgstr "Reembolso procesado (Admin)"
 
-#: inc/form-editor/assets.php:328
+#: inc/form-editor/assets.php:340
 msgid "Refund issued"
 msgstr "Reembolso emitido"
 
-#: inc/form-editor/assets.php:329
+#: inc/form-editor/assets.php:341
 msgid "A refund has been processed."
 msgstr "Se ha procesado un reembolso."
 
-#: inc/form-editor/assets.php:368
+#: inc/form-editor/assets.php:380
 msgid "Form email notification settings."
 msgstr "Configurar notificaciones por correo electrónico del formulario."
 
-#: inc/helper.php:904
+#: inc/helper.php:936
 msgid "Payment received. We are finalizing your donation and will email you a confirmation shortly. Please do not pay again."
 msgstr "Pago recibido. Estamos finalizando su donación y le enviaremos un correo electrónico de confirmación en breve. Por favor, no pague de nuevo."
 
 #. translators: %s: formatted fee amount with currency symbol.
-#: inc/helper.php:908
+#: inc/helper.php:940
 msgid "(includes %s processing fee)"
 msgstr "(incluye %s de tarifa de procesamiento)"
 
-#: inc/helper.php:962
-#: inc/helper.php:1047
-#: inc/helper.php:1245
+#: inc/helper.php:994
+#: inc/helper.php:1071
+#: inc/helper.php:1308
 #: inc/import-export/import/column-map.php:45
-#: inc/import-export/import/column-map.php:374
-#: inc/pdf/receipt-generator.php:257
+#: inc/import-export/import/column-map.php:422
+#: inc/pdf/receipt-generator.php:262
 #: inc/privacy/privacy-data.php:133
 #: assets/build/admin.js:52
 #: assets/build/admin.js:64
 msgid "Donor Email"
 msgstr "Correo Electrónico del Donante"
 
-#: inc/helper.php:966
-#: inc/helper.php:1051
-#: inc/helper.php:1266
-#: inc/pdf/receipt-generator.php:273
+#: inc/helper.php:998
+#: inc/helper.php:1075
+#: inc/helper.php:1329
+#: inc/pdf/receipt-generator.php:278
 msgid "Donation Amount"
 msgstr "Monto de la Donación"
 
-#: inc/helper.php:974
-#: inc/helper.php:1059
+#: inc/helper.php:1006
+#: inc/helper.php:1083
 msgid "Donation Date"
 msgstr "Fecha de la Donación"
 
-#: inc/helper.php:986
-#: inc/helper.php:1088
-#: inc/helper.php:1116
+#: inc/helper.php:1018
+#: inc/helper.php:1104
+#: inc/helper.php:1132
 msgid "Site Title"
 msgstr "Título del Sitio"
 
-#: inc/helper.php:990
-#: inc/helper.php:1281
-#: inc/pdf/receipt-generator.php:277
+#: inc/helper.php:1022
+#: inc/helper.php:1344
+#: inc/pdf/receipt-generator.php:282
 msgid "Donation Total"
 msgstr "Total de la Donación"
 
-#: inc/helper.php:994
-#: inc/helper.php:1258
+#: inc/helper.php:1026
+#: inc/helper.php:1321
 #: inc/import-export/import/column-map.php:105
-#: inc/import-export/import/column-map.php:381
-#: inc/pdf/receipt-generator.php:266
+#: inc/import-export/import/column-map.php:429
+#: inc/pdf/receipt-generator.php:271
 msgid "Payment Status"
 msgstr "Estado del Pago"
 
-#: inc/helper.php:1002
+#: inc/helper.php:1034
 msgid "Success Badge"
 msgstr "Insignia de Éxito"
 
-#: inc/helper.php:1013
-#: inc/helper.php:1092
-#: inc/helper.php:1124
+#: inc/helper.php:1045
+#: inc/helper.php:1108
+#: inc/helper.php:1140
 msgid "Admin Email"
 msgstr "Correo Electrónico del Administrador"
 
-#: inc/helper.php:1017
-#: inc/helper.php:1096
-#: inc/helper.php:1120
+#: inc/helper.php:1049
+#: inc/helper.php:1112
+#: inc/helper.php:1136
 msgid "Site URL"
 msgstr "URL del Sitio"
 
-#: inc/helper.php:1021
-#: inc/helper.php:1100
+#: inc/helper.php:1053
+#: inc/helper.php:1116
 msgid "Admin URL"
 msgstr "URL del Administrador"
 
-#: inc/helper.php:1025
-#: inc/helper.php:1071
 #: inc/import-export/import/column-map.php:140
-#: inc/import-export/import/column-map.php:385
+#: inc/import-export/import/column-map.php:433
 msgid "Subscription ID"
 msgstr "ID de Suscripción"
 
-#: inc/helper.php:1029
-#: inc/helper.php:1075
-msgid "Subscription Interval"
-msgstr "Intervalo de Suscripción"
-
-#: inc/helper.php:1033
-#: inc/helper.php:1104
+#: inc/helper.php:1057
+#: inc/helper.php:1120
 msgid "Offline Instructions"
 msgstr "Instrucciones Offline"
 
-#: inc/helper.php:1039
+#: inc/helper.php:1063
 msgid "Donation Tags"
 msgstr "Etiquetas de Donación"
 
-#: inc/helper.php:1084
+#: inc/helper.php:1100
 msgid "General Tags"
 msgstr "Etiquetas Generales"
 
-#: inc/helper.php:1140
-#: inc/payments/pay-pal/pay-pal-settings.php:121
-#: inc/payments/pay-pal/pay-pal-settings.php:140
-#: inc/payments/pay-pal/pay-pal-settings.php:178
+#: inc/helper.php:1203
+#: inc/payments/pay-pal/pay-pal-settings.php:155
+#: inc/payments/pay-pal/pay-pal-settings.php:174
+#: inc/payments/pay-pal/pay-pal-settings.php:212
 #: assets/build/admin.js:74
 msgid "PayPal"
 msgstr "PayPal"
 
-#: inc/fields/payment-markup.php:342
-#: inc/helper.php:1143
+#: inc/fields/payment-markup.php:346
+#: inc/helper.php:1206
 msgid "Offline Donation"
 msgstr "Donación Offline"
 
-#: inc/helper.php:1158
+#: inc/helper.php:1221
 msgid "Success"
 msgstr "Éxito"
 
-#: inc/helper.php:1173
-#: inc/helper.php:1177
-#: inc/helper.php:1199
+#: inc/helper.php:1236
+#: inc/helper.php:1240
+#: inc/helper.php:1262
 msgid "Complete"
 msgstr "Completo"
 
 #. translators: {donor_name} is a smart tag replaced with the donor's name.
-#: inc/helper.php:1302
+#: inc/helper.php:1365
 msgid "Thank you {donor_name} for your Donation"
 msgstr "Gracias {donor_name} por su Donación"
 
-#: inc/helper.php:1305
+#: inc/helper.php:1368
 msgid "Your contribution means a lot. We have sent an email to your registered account along with a receipt for your donation."
 msgstr "Su contribución significa mucho. Hemos enviado un correo electrónico a su cuenta registrada junto con un recibo de su donación."
 
@@ -3826,7 +3817,7 @@ msgid "Missing email or zero amount."
 msgstr "Falta el correo electrónico o el monto es cero."
 
 #: inc/import/givewp/csv-parser.php:217
-#: inc/import/givewp/donation-mapper.php:174
+#: inc/import/givewp/donation-mapper.php:176
 msgid "Failed to resolve donor."
 msgstr "No se pudo resolver al donante."
 
@@ -3835,26 +3826,26 @@ msgid "Failed to insert donation row."
 msgstr "No se pudo insertar la fila de donación."
 
 #. translators: %s: exception message
-#: inc/import/givewp/donation-mapper.php:97
+#: inc/import/givewp/donation-mapper.php:99
 msgid "Unhandled exception while processing donation: %s"
 msgstr "Excepción no manejada al procesar la donación: %s"
 
 #. translators: %s: raw value from GiveWP payment meta
-#: inc/import/givewp/donation-mapper.php:142
+#: inc/import/givewp/donation-mapper.php:144
 msgid "Missing donor email (got \"%s\")."
 msgstr "Falta el correo electrónico del donante (obtenido \"%s\")."
 
 #. translators: %s: raw value from GiveWP payment meta
-#: inc/import/givewp/donation-mapper.php:155
+#: inc/import/givewp/donation-mapper.php:157
 msgid "Donation amount is zero or missing (raw _give_payment_total \"%s\")."
 msgstr "El monto de la donación es cero o falta (valor bruto _give_payment_total \"%s\")."
 
-#: inc/import/givewp/donation-mapper.php:228
+#: inc/import/givewp/donation-mapper.php:236
 msgid "unknown DB error"
 msgstr "error desconocido de la base de datos"
 
 #. translators: 1: gateway slug, 2: amount, 3: DB error message
-#: inc/import/givewp/donation-mapper.php:234
+#: inc/import/givewp/donation-mapper.php:242
 msgid "Failed to insert donation row (gateway=%1$s, amount=%2$s): %3$s"
 msgstr "No se pudo insertar la fila de donación (gateway=%1$s, amount=%2$s): %3$s"
 
@@ -3862,23 +3853,23 @@ msgstr "No se pudo insertar la fila de donación (gateway=%1$s, amount=%2$s): %3
 msgid "Offline donations are not enabled."
 msgstr "Las donaciones offline no están habilitadas."
 
-#: inc/payments/offline/offline-frontend.php:91
+#: inc/payments/offline/offline-frontend.php:94
 msgid "Invalid donation amount."
 msgstr "Monto de donación no válido."
 
-#: inc/payments/offline/offline-frontend.php:95
-#: inc/payments/pay-pal/pay-pal-frontend.php:434
+#: inc/payments/offline/offline-frontend.php:98
+#: inc/payments/pay-pal/pay-pal-frontend.php:446
 #: assets/build/admin.js:70
 #: assets/build/admin/onboarding/index.js:10
 msgid "Email address is required."
 msgstr "Se requiere dirección de correo electrónico."
 
-#: inc/payments/offline/offline-frontend.php:158
-#: inc/payments/pay-pal/pay-pal-frontend.php:185
+#: inc/payments/offline/offline-frontend.php:162
+#: inc/payments/pay-pal/pay-pal-frontend.php:194
 msgid "Failed to create donation record."
 msgstr "No se pudo crear el registro de donación."
 
-#: inc/payments/offline/offline-frontend.php:168
+#: inc/payments/offline/offline-frontend.php:172
 msgid "Offline donation created — pending payment"
 msgstr "Donación offline creada — pendiente de pago"
 
@@ -3915,39 +3906,39 @@ msgid "Offline donation settings updated successfully."
 msgstr "Configuración de donaciones offline actualizada con éxito."
 
 #: inc/payments/pay-pal/pay-pal-frontend.php:82
-#: inc/payments/pay-pal/pay-pal-frontend.php:459
+#: inc/payments/pay-pal/pay-pal-frontend.php:471
 msgid "PayPal is not configured."
 msgstr "PayPal no está configurado."
 
-#: inc/payments/pay-pal/pay-pal-frontend.php:148
+#: inc/payments/pay-pal/pay-pal-frontend.php:156
 msgid "Failed to create PayPal order."
 msgstr "No se pudo crear el pedido de PayPal."
 
-#: inc/payments/pay-pal/pay-pal-frontend.php:252
+#: inc/payments/pay-pal/pay-pal-frontend.php:261
 msgid "Payment verification failed."
 msgstr "La verificación del pago falló."
 
-#: inc/payments/pay-pal/pay-pal-frontend.php:257
+#: inc/payments/pay-pal/pay-pal-frontend.php:266
 msgid "Donation is not in pending state."
 msgstr "La donación no está en estado pendiente."
 
-#: inc/payments/pay-pal/pay-pal-frontend.php:281
+#: inc/payments/pay-pal/pay-pal-frontend.php:290
 msgid "Payment capture failed."
 msgstr "La captura del pago falló."
 
-#: inc/payments/pay-pal/pay-pal-frontend.php:298
+#: inc/payments/pay-pal/pay-pal-frontend.php:307
 msgid "Captured amount does not match expected amount"
 msgstr "El monto capturado no coincide con el monto esperado"
 
-#: inc/payments/pay-pal/pay-pal-frontend.php:304
+#: inc/payments/pay-pal/pay-pal-frontend.php:313
 msgid "Payment amount verification failed."
 msgstr "La verificación del monto del pago falló."
 
-#: inc/payments/pay-pal/pay-pal-frontend.php:318
+#: inc/payments/pay-pal/pay-pal-frontend.php:327
 msgid "Payment Verification"
 msgstr "Verificación de Pago"
 
-#: inc/payments/pay-pal/pay-pal-frontend.php:441
+#: inc/payments/pay-pal/pay-pal-frontend.php:453
 msgid "Donation amount must be greater than zero."
 msgstr "La cantidad de la donación debe ser mayor que cero."
 
@@ -3959,99 +3950,91 @@ msgstr "PayPal no está conectado. Por favor, reconéctelo desde la configuraci�
 msgid "Invalid response from middleware."
 msgstr "Respuesta inválida del middleware."
 
-#: inc/payments/pay-pal/pay-pal-helper.php:367
+#: inc/payments/pay-pal/pay-pal-helper.php:372
 msgid "Middleware request failed."
 msgstr "La solicitud del middleware falló."
 
-#: inc/payments/pay-pal/pay-pal-settings.php:122
+#: inc/payments/pay-pal/pay-pal-settings.php:156
 msgid "Accept payments via PayPal"
 msgstr "Aceptar pagos a través de PayPal"
 
-#: inc/payments/pay-pal/pay-pal-settings.php:253
+#: inc/payments/pay-pal/pay-pal-settings.php:287
 msgid "An error occurred while processing your PayPal payment. Please try again."
 msgstr "Ocurrió un error al procesar su pago de PayPal. Por favor, inténtelo de nuevo."
 
-#: inc/payments/pay-pal/pay-pal-settings.php:254
+#: inc/payments/pay-pal/pay-pal-settings.php:288
 msgid "Payment was cancelled."
 msgstr "El pago fue cancelado."
 
-#: inc/payments/pay-pal/pay-pal-settings.php:255
+#: inc/payments/pay-pal/pay-pal-settings.php:289
 msgid "PayPal SDK failed to load. Please refresh the page."
 msgstr "El SDK de PayPal no se pudo cargar. Por favor, actualice la página."
 
-#: inc/payments/pay-pal/pay-pal-settings.php:471
+#: inc/payments/pay-pal/pay-pal-settings.php:510
 #: assets/build/admin.js:74
 msgid "Failed to get PayPal connect URL."
 msgstr "No se pudo obtener la URL de conexión de PayPal."
 
-#: inc/payments/pay-pal/pay-pal-settings.php:527
+#: inc/payments/pay-pal/pay-pal-settings.php:569
 msgid "Merchant ID is required."
 msgstr "Se requiere el ID del comerciante."
 
 #. translators: %s: comma-separated list of issues
-#: inc/payments/pay-pal/pay-pal-settings.php:557
+#: inc/payments/pay-pal/pay-pal-settings.php:599
 msgid "PayPal account setup incomplete: %s. Please complete your PayPal account setup and try again."
 msgstr "Configuración de la cuenta de PayPal incompleta: %s. Por favor, complete la configuración de su cuenta de PayPal e inténtelo de nuevo."
 
-#: inc/payments/pay-pal/pay-pal-settings.php:571
+#: inc/payments/pay-pal/pay-pal-settings.php:613
 #: assets/build/admin.js:74
 msgid "PayPal account connected successfully!"
 msgstr "¡Cuenta de PayPal conectada con éxito!"
 
-#: inc/payments/pay-pal/pay-pal-settings.php:598
+#: inc/payments/pay-pal/pay-pal-settings.php:640
 msgid "No pending onboarding."
 msgstr "No hay incorporación pendiente."
 
-#: inc/payments/pay-pal/pay-pal-settings.php:681
+#: inc/payments/pay-pal/pay-pal-settings.php:739
 msgid "PayPal disconnected."
 msgstr "PayPal desconectado."
 
-#: inc/payments/pay-pal/pay-pal-settings.php:734
+#: inc/payments/pay-pal/pay-pal-settings.php:806
 msgid "Webhook deleted."
 msgstr "Webhook eliminado."
 
-#: inc/payments/pay-pal/pay-pal-settings.php:786
+#: inc/payments/pay-pal/pay-pal-settings.php:858
 msgid "Account is not set up to receive payments"
 msgstr "La cuenta no está configurada para recibir pagos"
 
-#: inc/payments/pay-pal/pay-pal-settings.php:789
+#: inc/payments/pay-pal/pay-pal-settings.php:861
 msgid "Primary email is not confirmed"
 msgstr "El correo electrónico principal no está confirmado"
 
-#: inc/payments/pay-pal/pay-pal-webhook-listener.php:139
+#: inc/payments/pay-pal/pay-pal-webhook-listener.php:158
 msgid "Webhook ID not configured."
 msgstr "ID de webhook no configurado."
 
-#: inc/payments/pay-pal/pay-pal-webhook-listener.php:149
+#: inc/payments/pay-pal/pay-pal-webhook-listener.php:168
 msgid "Invalid PayPal certificate URL."
 msgstr "URL del certificado de PayPal inválido."
 
-#: inc/payments/pay-pal/pay-pal-webhook-listener.php:173
-msgid "Webhook signature verification failed."
-msgstr "La verificación de la firma del webhook falló."
-
-#: inc/payments/pay-pal/pay-pal-webhook-listener.php:179
-msgid "Webhook signature is invalid."
-msgstr "La firma del webhook es inválida."
-
-#: inc/payments/pay-pal/pay-pal-webhook-listener.php:224
-#: inc/payments/stripe/stripe-webhook.php:324
+#: inc/payments/pay-pal/pay-pal-webhook-listener.php:539
+#: inc/payments/stripe/stripe-webhook.php:353
 msgid "Webhook filter returned unexpected value"
 msgstr "El filtro del webhook devolvió un valor inesperado"
 
-#: inc/payments/pay-pal/pay-pal-webhook-listener.php:272
+#: inc/payments/pay-pal/pay-pal-webhook-listener.php:587
 msgid "Captured amount does not match expected amount — marked suspicious"
 msgstr "La cantidad capturada no coincide con la cantidad esperada — marcado como sospechoso"
 
-#: inc/payments/pay-pal/pay-pal-webhook-listener.php:285
+#: inc/payments/pay-pal/pay-pal-webhook-listener.php:600
 msgid "Payment confirmed via PayPal webhook"
 msgstr "Pago confirmado a través del webhook de PayPal"
 
-#: inc/payments/pay-pal/pay-pal-webhook-listener.php:338
+#: inc/payments/pay-pal/pay-pal-webhook-listener.php:653
 msgid "PayPal payment capture denied"
 msgstr "Captura de pago de PayPal denegada"
 
-#: inc/payments/pay-pal/pay-pal-webhook-listener.php:430
+#: inc/payments/pay-pal/pay-pal-webhook-listener.php:733
 msgid "Refund received via PayPal webhook"
 msgstr "Reembolso recibido a través del webhook de PayPal"
 
@@ -4067,19 +4050,19 @@ msgstr "No se encontró ningún webhook para eliminar."
 msgid "Accept offline donations"
 msgstr "Aceptar donaciones offline"
 
-#: inc/payments/payment-helper.php:1010
+#: inc/payments/payment-helper.php:1031
 msgid "Payment amount must be greater than zero."
 msgstr "La cantidad del pago debe ser mayor que cero."
 
-#: inc/payments/payment-helper.php:1081
+#: inc/payments/payment-helper.php:1102
 msgid "Payment type mismatch. This form does not support the requested payment type."
 msgstr "Incompatibilidad de tipo de pago. Este formulario no admite el tipo de pago solicitado."
 
-#: inc/payments/payment-helper.php:1443
+#: inc/payments/payment-helper.php:1508
 msgid "Unable to verify the expected donation amount for this payment. Flagged for manual review."
 msgstr "No se pudo verificar la cantidad de donación esperada para este pago. Marcado para revisión manual."
 
-#: inc/payments/stripe/stripe-frontend.php:268
+#: inc/payments/stripe/stripe-frontend.php:272
 msgid "Donation is not in pending state"
 msgstr "La donación no está en estado pendiente"
 
@@ -4136,12 +4119,12 @@ msgstr "El archivo contiene una ruta que escapa del directorio de destino."
 msgid "Archive uncompressed size exceeds the safety limit."
 msgstr "El tamaño descomprimido del archivo excede el límite de seguridad."
 
-#: inc/pdf/receipt-generator.php:250
+#: inc/pdf/receipt-generator.php:255
 msgid "Receipt"
 msgstr "Recibo"
 
 #. translators: 1: Site name, 2: Site URL.
-#: inc/pdf/receipt-generator.php:288
+#: inc/pdf/receipt-generator.php:293
 msgid "Generated by %1$s · %2$s"
 msgstr "Generado por %1$s · %2$s"
 
@@ -4399,7 +4382,7 @@ msgid "%s interval"
 msgstr "Intervalo de %s"
 
 #: inc/import-export/import/column-map.php:135
-#: inc/import-export/import/column-map.php:384
+#: inc/import-export/import/column-map.php:432
 #: assets/build/admin.js:39
 msgid "Donation Type"
 msgstr "Tipo de Donación"
@@ -4437,7 +4420,7 @@ msgid "Billing Cycle"
 msgstr "Ciclo de Facturación"
 
 #: inc/import-export/import/column-map.php:181
-#: inc/import-export/import/column-map.php:372
+#: inc/import-export/import/column-map.php:420
 #: assets/build/admin.js:52
 #: assets/build/admin.js:64
 msgid "Donor ID"
@@ -5693,7 +5676,6 @@ msgstr "Seleccionar un formulario…"
 
 #. translators: %d: form post ID
 #: assets/build/blocks/donation-form/editor.js:2
-#: assets/build/blocks/donation-form/editor.js:3
 msgid "(Untitled) #%d"
 msgstr "(Sin título) #%d"
 
@@ -6088,7 +6070,7 @@ msgstr "Configuración del formulario"
 msgid "Close form settings"
 msgstr "Cerrar configuración del formulario"
 
-#: inc/import-export/import/column-map.php:371
+#: inc/import-export/import/column-map.php:419
 #: assets/build/editor/editor.js:1
 msgid "Form Title"
 msgstr "Título del formulario"
@@ -6127,9 +6109,9 @@ msgstr "El valor mínimo es %s."
 msgid "Maximum value is %s."
 msgstr "El valor máximo es %s."
 
-#: inc/payments/payment-helper.php:1121
-#: inc/payments/payment-helper.php:1134
-#: inc/payments/payment-helper.php:1150
+#: inc/payments/payment-helper.php:1142
+#: inc/payments/payment-helper.php:1155
+#: inc/payments/payment-helper.php:1171
 #: inc/payments/stripe/stripe-frontend.php:99
 msgid "Please correct the highlighted fields and try again."
 msgstr "Por favor, corrige los campos resaltados e inténtalo de nuevo."
@@ -6279,19 +6261,19 @@ msgstr "La dirección de correo electrónico no puede exceder %s caracteres."
 msgid "Select an option"
 msgstr "Seleccione una opción"
 
-#: inc/fields/payment-markup.php:720
+#: inc/fields/payment-markup.php:724
 msgid "Payment gateways are not configured. Please contact the site administrator."
 msgstr "Las pasarelas de pago no están configuradas. Por favor, contacte al administrador del sitio."
 
-#: inc/payments/payment-helper.php:1521
+#: inc/payments/payment-helper.php:1586
 msgid "Unable to verify the donation amount for this form. Please reload the page and try again."
 msgstr "No se puede verificar el monto de la donación para este formulario. Por favor, recargue la página e intente de nuevo."
 
-#: inc/payments/payment-helper.php:1540
+#: inc/payments/payment-helper.php:1605
 msgid "Unsupported variable amount field configuration."
 msgstr "Configuración de campo de cantidad variable no compatible."
 
-#: inc/payments/stripe/stripe-webhook.php:186
+#: inc/payments/stripe/stripe-webhook.php:209
 msgid "Invalid webhook payload"
 msgstr "Carga útil de webhook no válida"
 
@@ -6842,12 +6824,12 @@ msgid "Select a donation form"
 msgstr "Selecciona un formulario de donación"
 
 #: inc/page-builders/bricks/elements/donation-form.php:112
-#: inc/page-builders/elementor/widgets/donation-form-widget.php:150
+#: inc/page-builders/elementor/widgets/donation-form-widget.php:166
 msgid "Select a donation form to display."
 msgstr "Selecciona un formulario de donación para mostrar."
 
 #: inc/page-builders/bricks/elements/donation-form.php:123
-#: inc/page-builders/elementor/widgets/donation-form-widget.php:158
+#: inc/page-builders/elementor/widgets/donation-form-widget.php:174
 msgid "The selected donation form is unavailable."
 msgstr "El formulario de donación seleccionado no está disponible."
 
@@ -6876,7 +6858,7 @@ msgid "SureDonation Donor"
 msgstr "Donante de SureDonation"
 
 #: inc/import-export/import/column-map.php:70
-#: inc/import-export/import/column-map.php:375
+#: inc/import-export/import/column-map.php:423
 #: inc/privacy/privacy-data.php:134
 msgid "Donor Phone"
 msgstr "Teléfono del donante"
@@ -6886,7 +6868,7 @@ msgid "Comment"
 msgstr "Comentario"
 
 #: inc/import-export/import/column-map.php:160
-#: inc/import-export/import/column-map.php:390
+#: inc/import-export/import/column-map.php:438
 #: inc/privacy/privacy-data.php:136
 msgid "IP Address"
 msgstr "Dirección IP"
@@ -7210,118 +7192,114 @@ msgstr "Cambiar al modo en vivo"
 msgid "You are not allowed to import or export data."
 msgstr "No tienes permiso para importar o exportar datos."
 
-#: inc/api/import-export-api.php:386
+#: inc/api/import-export-api.php:392
 msgid "No file was uploaded."
 msgstr "No se subió ningún archivo."
 
-#: inc/api/import-export-api.php:391
+#: inc/api/import-export-api.php:397
 msgid "Please upload a .csv file."
 msgstr "Por favor, sube un archivo .csv."
 
-#: inc/api/import-export-api.php:396
+#: inc/api/import-export-api.php:402
 msgid "The file is empty or larger than 20 MB."
 msgstr "El archivo está vacío o es mayor de 20 MB."
 
-#: inc/api/import-export-api.php:401
+#: inc/api/import-export-api.php:407
 msgid "Could not process the uploaded file."
 msgstr "No se pudo procesar el archivo subido."
 
-#: inc/api/import-export-api.php:407
+#: inc/api/import-export-api.php:413
 msgid "The file has no header row."
 msgstr "El archivo no tiene fila de encabezado."
 
-#: inc/api/import-export-api.php:451
+#: inc/api/import-export-api.php:457
 msgid "The uploaded file could not be found. Please upload it again."
 msgstr "No se pudo encontrar el archivo subido. Por favor, súbelo de nuevo."
 
-#: inc/api/import-export-api.php:456
+#: inc/api/import-export-api.php:462
 msgid "Invalid import type."
 msgstr "Tipo de importación no válido."
 
 #. translators: %s: comma-separated required column labels.
-#: inc/api/import-export-api.php:471
+#: inc/api/import-export-api.php:477
 msgid "This does not look like a SureDonation export. Required columns were not found: %s. Please upload the CSV exported by SureDonation."
 msgstr "Esto no parece una exportación de SureDonation. No se encontraron las columnas requeridas: %s. Por favor, sube el CSV exportado por SureDonation."
 
-#: inc/api/import-export-api.php:488
+#: inc/api/import-export-api.php:494
 msgid "Please choose a campaign to import the donations into."
 msgstr "Por favor, elige una campaña para importar las donaciones."
 
-#: inc/api/import-export-api.php:518
-#: inc/api/import-export-api.php:525
+#: inc/api/import-export-api.php:524
+#: inc/api/import-export-api.php:531
 msgid "Import session not found or already finished."
 msgstr "Sesión de importación no encontrada o ya finalizada."
 
-#: inc/api/import-export-api.php:521
+#: inc/api/import-export-api.php:527
 msgid "You cannot modify an import started by another user."
 msgstr "No puedes modificar una importación iniciada por otro usuario."
 
-#: inc/api/import-export-api.php:557
+#: inc/api/import-export-api.php:563
 msgid "Import session not found."
 msgstr "Sesión de importación no encontrada."
 
-#: inc/api/import-export-api.php:560
+#: inc/api/import-export-api.php:566
 msgid "You cannot view an import started by another user."
 msgstr "No puedes ver una importación iniciada por otro usuario."
 
-#: inc/api/import-export-api.php:613
+#: inc/api/import-export-api.php:619
 msgid "No campaigns were found in the file."
 msgstr "No se encontraron campañas en el archivo."
 
-#. translators: 1: campaign count, 2: form count.
-#: inc/api/import-export-api.php:623
-msgid "Imported %1$d campaigns and %2$d forms as drafts."
-msgstr "Se importaron %1$d campañas y %2$d formularios como borradores."
-
-#: inc/api/import-export-api.php:649
+#: inc/api/import-export-api.php:655
 msgid "No settings were found in the file."
 msgstr "No se encontraron configuraciones en el archivo."
 
-#: inc/api/import-export-api.php:657
+#: inc/api/import-export-api.php:663
 #: assets/build/admin.js:94
 msgid "Settings imported."
 msgstr "Configuraciones importadas."
 
-#: inc/api/import-export-api.php:658
+#: inc/api/import-export-api.php:664
 msgid "Payment credentials were not imported. Reconnect your gateways under Settings → Payment Methods."
 msgstr "Las credenciales de pago no fueron importadas. Reconecta tus pasarelas en Configuración → Métodos de pago."
 
-#: inc/fields/payment-markup.php:700
+#: inc/fields/payment-markup.php:704
 msgid "Edit this form’s payment settings"
 msgstr "Edita la configuración de pago de este formulario"
 
-#: inc/fields/payment-markup.php:705
+#: inc/fields/payment-markup.php:709
+#: inc/fields/payment-markup.php:761
 #: assets/build/admin.js:1
 msgid "Configure payment gateway"
 msgstr "Configurar pasarela de pago"
 
 #: inc/import-export/import/column-map.php:40
-#: inc/import-export/import/column-map.php:367
+#: inc/import-export/import/column-map.php:415
 msgid "Donation ID"
 msgstr "ID de donación"
 
 #: inc/import-export/import/column-map.php:100
-#: inc/import-export/import/column-map.php:380
+#: inc/import-export/import/column-map.php:428
 msgid "Gateway"
 msgstr "Pasarela"
 
 #: inc/import-export/import/column-map.php:125
-#: inc/import-export/import/column-map.php:378
+#: inc/import-export/import/column-map.php:426
 msgid "Refunded Amount"
 msgstr "Monto reembolsado"
 
 #: inc/import-export/import/column-map.php:145
-#: inc/import-export/import/column-map.php:386
+#: inc/import-export/import/column-map.php:434
 msgid "Subscription Status"
 msgstr "Estado de la suscripción"
 
 #: inc/import-export/import/column-map.php:150
-#: inc/import-export/import/column-map.php:387
+#: inc/import-export/import/column-map.php:435
 msgid "Parent Subscription ID"
 msgstr "ID de suscripción principal"
 
 #: inc/import-export/import/column-map.php:155
-#: inc/import-export/import/column-map.php:389
+#: inc/import-export/import/column-map.php:437
 msgid "Donor Comment"
 msgstr "Comentario del donante"
 
@@ -7329,19 +7307,19 @@ msgstr "Comentario del donante"
 msgid "Tags"
 msgstr "Etiquetas"
 
-#: inc/import-export/import/column-map.php:368
+#: inc/import-export/import/column-map.php:416
 msgid "Campaign ID"
 msgstr "ID de campaña"
 
-#: inc/import-export/import/column-map.php:370
+#: inc/import-export/import/column-map.php:418
 msgid "Form ID"
 msgstr "ID de formulario"
 
-#: inc/import-export/import/column-map.php:392
+#: inc/import-export/import/column-map.php:440
 msgid "Import Source"
 msgstr "Fuente de importación"
 
-#: inc/import-export/import/column-map.php:393
+#: inc/import-export/import/column-map.php:441
 msgid "Import Source ID"
 msgstr "ID de fuente de importación"
 
@@ -7358,40 +7336,40 @@ msgid "Row skipped: missing or invalid email."
 msgstr "Fila omitida: correo electrónico faltante o no válido."
 
 #. translators: %s: provided mode value
-#: inc/payments/stripe/stripe-settings.php:149
+#: inc/payments/stripe/stripe-settings.php:174
 msgid "Invalid mode \"%s\". Must be \"all\", \"test\" or \"live\"."
 msgstr "Modo inválido \"%s\". Debe ser \"all\", \"test\" o \"live\"."
 
-#: inc/payments/stripe/stripe-settings.php:421
-#: inc/payments/stripe/stripe-settings.php:467
+#: inc/payments/stripe/stripe-settings.php:446
+#: inc/payments/stripe/stripe-settings.php:492
 msgid "Stripe account not found."
 msgstr "Cuenta de Stripe no encontrada."
 
-#: inc/payments/stripe/stripe-settings.php:431
+#: inc/payments/stripe/stripe-settings.php:456
 msgid "This Stripe account is still in use and cannot be disconnected."
 msgstr "Esta cuenta de Stripe todavía está en uso y no se puede desconectar."
 
-#: inc/payments/stripe/stripe-settings.php:475
+#: inc/payments/stripe/stripe-settings.php:500
 #: assets/build/admin.js:71
 msgid "Default Stripe account updated."
 msgstr "Cuenta de Stripe predeterminada actualizada."
 
 #. translators: %s: number of donation forms
-#: inc/payments/stripe/stripe-settings.php:559
+#: inc/payments/stripe/stripe-settings.php:584
 msgid "%s donation form is assigned to this account."
 msgid_plural "%s donation forms are assigned to this account."
 msgstr[0] "%s formulario de donación está asignado a esta cuenta."
 msgstr[1] ""
 
-#: inc/payments/stripe/stripe-settings.php:600
+#: inc/payments/stripe/stripe-settings.php:640
 msgid "Webhook created successfully."
 msgstr "Webhook creado con éxito."
 
-#: inc/payments/stripe/stripe-settings.php:778
+#: inc/payments/stripe/stripe-settings.php:1044
 msgid "No Stripe account to create a webhook for."
 msgstr "No hay cuenta de Stripe para crear un webhook."
 
-#: inc/payments/stripe/stripe-settings.php:962
+#: inc/payments/stripe/stripe-settings.php:1229
 msgid "Stripe did not return an account identifier."
 msgstr "Stripe no devolvió un identificador de cuenta."
 
@@ -7776,6 +7754,110 @@ msgstr "%s (predeterminado)"
 #: assets/build/blocks.js:4
 msgid "Choose which connected Stripe account receives donations from this form."
 msgstr "Elige qué cuenta de Stripe conectada recibe donaciones de este formulario."
+
+#. translators: 1: campaign count, 2: form count.
+#: inc/api/import-export-api.php:629
+msgid "Imported %1$d campaigns and %2$d forms."
+msgstr "Se importaron %1$d campañas y %2$d formularios."
+
+#: inc/blocks/donation-form/block.php:94
+msgid "This campaign is not available."
+msgstr "Esta campaña no está disponible."
+
+#: inc/fields/payment-markup.php:756
+msgid "No payment gateway is connected, so donors can only give using the offline method."
+msgstr "No hay ninguna pasarela de pago conectada, por lo que los donantes solo pueden donar usando el método offline."
+
+#: inc/helper.php:1153
+msgid "Recurring Donation ID"
+msgstr "ID de Donación Recurrente"
+
+#: inc/helper.php:1157
+msgid "Frequency"
+msgstr "Frecuencia"
+
+#: inc/import-export/import/import-runner.php:273
+msgid "The import stopped because of an unexpected error. Please try again."
+msgstr "La importación se detuvo debido a un error inesperado. Por favor, inténtelo de nuevo."
+
+#: inc/payments/pay-pal/pay-pal-frontend.php:150
+msgid "We could not start your payment. Please try again."
+msgstr "No pudimos iniciar su pago. Por favor, inténtelo de nuevo."
+
+#. translators: 1: middleware error message, 2: reason reported by PayPal.
+#: inc/payments/pay-pal/pay-pal-helper.php:386
+msgid "%1$s (PayPal: %2$s)"
+msgstr "%1$s (PayPal: %2$s)"
+
+#: inc/payments/pay-pal/pay-pal-settings.php:95
+msgid "Security verification failed. Please restart the PayPal connection from settings."
+msgstr "La verificación de seguridad falló. Por favor, reinicie la conexión de PayPal desde la configuración."
+
+#: inc/payments/pay-pal/pay-pal-settings.php:96
+msgid "PayPal Connect Error"
+msgstr "Error de Conexión de PayPal"
+
+#. translators: 1: PayPal webhook id, 2: reason reported by PayPal.
+#: inc/payments/pay-pal/pay-pal-settings.php:750
+msgid "PayPal disconnected, but its webhook (%1$s) could not be removed and still counts against your PayPal webhook limit. Delete it from your PayPal dashboard, or reconnect and disconnect again to retry. Reason: %2$s"
+msgstr "PayPal se desconectó, pero su webhook (%1$s) no pudo ser eliminado y aún cuenta contra su límite de webhooks de PayPal. Elimínelo desde su panel de PayPal, o reconéctelo y desconéctelo nuevamente para intentarlo de nuevo. Razón: %2$s"
+
+#: inc/payments/pay-pal/pay-pal-settings.php:751
+msgid "id unavailable"
+msgstr "id no disponible"
+
+#. translators: %s: comma-separated list of missing PayPal header names.
+#: inc/payments/pay-pal/pay-pal-webhook-listener.php:198
+msgid "PayPal signature headers missing from the request: %s."
+msgstr "Faltan encabezados de firma de PayPal en la solicitud: %s."
+
+#. translators: 1: middleware error code, 2: middleware error message.
+#: inc/payments/pay-pal/pay-pal-webhook-listener.php:230
+msgid "Webhook signature verification request failed (%1$s): %2$s"
+msgstr "La solicitud de verificación de firma del webhook falló (%1$s): %2$s"
+
+#. translators: %s: verification status reported by PayPal.
+#: inc/payments/pay-pal/pay-pal-webhook-listener.php:248
+msgid "PayPal reported webhook verification status: %s"
+msgstr "PayPal informó el estado de verificación del webhook: %s"
+
+#: inc/payments/pay-pal/pay-pal-webhook-listener.php:249
+msgid "none returned"
+msgstr "ninguno devuelto"
+
+#: inc/payments/pay-pal/pay-pal-webhook-listener.php:336
+msgid "PayPal webhook rejected before processing"
+msgstr "Webhook de PayPal rechazado antes de procesar"
+
+#: inc/payments/payment-helper.php:1002
+msgid "Payment configuration is incomplete for this form."
+msgstr "La configuración de pago está incompleta para este formulario."
+
+#. translators: %s: per-mode failure reasons, already prefixed with the mode name.
+#: inc/payments/stripe/stripe-settings.php:637
+msgid "Webhook created, but some modes failed. %s"
+msgstr "Webhook creado, pero algunos modos fallaron. %s"
+
+#: inc/payments/stripe/stripe-settings.php:1059
+msgid "A webhook is already configured for this mode."
+msgstr "Ya hay un webhook configurado para este modo."
+
+#. translators: 1: payment mode (test or live), 2: error message from Stripe.
+#: inc/payments/stripe/stripe-settings.php:1352
+msgid "%1$s: %2$s"
+msgstr "%1$s: %2$s"
+
+#: assets/build/admin.js:38
+msgid "Shown as \"Anonymous\" on public donor lists."
+msgstr "Mostrado como \"Anónimo\" en las listas públicas de donantes."
+
+#: assets/build/admin.js:52
+msgid "Webhook Rejected"
+msgstr "Webhook Rechazado"
+
+#: assets/build/blocks/donation-form/editor.js:2
+msgid "Nothing to preview yet."
+msgstr "Nada que previsualizar aún."
 
 #: inc/campaigns/campaign-cpt.php:60
 msgctxt "Post Type General Name"

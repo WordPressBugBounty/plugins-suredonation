@@ -309,6 +309,10 @@ class Payment_Markup extends Base {
 					echo wp_kses_post( $this->get_test_mode_notice() );
 				}
 
+				// Admin-only: the form renders (Offline is enabled) but no real
+				// gateway is connected.
+				echo wp_kses_post( $this->get_gateway_setup_notice() );
+
 				// Payment methods accordion ( $methods computed above ).
 				echo $this->render_payment_methods_accordion( $methods ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Method builds markup with esc_attr/esc_html on all dynamic values and wp_kses_post on content.
 				?>
@@ -718,19 +722,75 @@ class Payment_Markup extends Base {
 			<div class="sd-payment-field-wrapper">
 				<div class="sd-payment-notice" role="status">
 					<p><?php esc_html_e( 'Payment gateways are not configured. Please contact the site administrator.', 'suredonation' ); ?></p>
-					<?php if ( $is_admin && '' !== $configure_url ) { ?>
-						<a
-							class="sd-payment-notice__configure"
-							href="<?php echo esc_url( $configure_url ); ?>"
-							target="_blank"
-							rel="noopener noreferrer"
-						>
-							<?php echo esc_html( $configure_text ); ?>
-						</a>
-					<?php } ?>
+					<?php echo wp_kses_post( $is_admin ? $this->render_configure_link( $configure_url, $configure_text ) : '' ); ?>
 				</div>
 			</div>
 		</div>
+		<?php
+		$output = ob_get_clean();
+		return false !== $output ? $output : '';
+	}
+
+	/**
+	 * Render the admin-only notice shown when the payment field renders but no
+	 * real payment gateway is connected.
+	 *
+	 * Enabling Offline Donation makes the field render normally, so the
+	 * donor-facing "gateways are not configured" notice never fires — an admin
+	 * viewing the live form gets no signal that neither Stripe nor PayPal was
+	 * ever connected. Offline is a manual method, not a gateway, so the prompt
+	 * is still warranted. Donors see nothing: the form works for them.
+	 *
+	 * @return string Notice markup, or empty string when a gateway is connected
+	 *                or the viewer is not an administrator.
+	 * @since 1.4.0
+	 */
+	private function get_gateway_setup_notice() {
+		if ( ! current_user_can( 'manage_options' ) || Payment_Helper::is_any_gateway_connected() ) {
+			return '';
+		}
+
+		ob_start();
+		?>
+		<div class="sd-payment-notice sd-payment-notice--admin" role="status">
+			<p><?php esc_html_e( 'No payment gateway is connected, so donors can only give using the offline method.', 'suredonation' ); ?></p>
+			<?php
+			echo wp_kses_post(
+				$this->render_configure_link(
+					Payment_Helper::get_settings_url( 'stripe' ),
+					__( 'Configure payment gateway', 'suredonation' )
+				)
+			);
+			?>
+		</div>
+		<?php
+		$output = ob_get_clean();
+		return false !== $output ? $output : '';
+	}
+
+	/**
+	 * Render the actionable settings link shared by the payment notices.
+	 *
+	 * @param string $url  Target URL.
+	 * @param string $text Link text.
+	 * @return string Link markup, or empty string when there is nothing to link to.
+	 * @since 1.4.0
+	 */
+	private function render_configure_link( $url, $text ) {
+		if ( '' === $url || '' === $text ) {
+			return '';
+		}
+
+		ob_start();
+		?>
+		<a
+			class="sd-payment-notice__configure"
+			href="<?php echo esc_url( $url ); ?>"
+			target="_blank"
+			rel="noopener noreferrer"
+		>
+			<?php echo esc_html( $text ); ?>
+		</a>
 		<?php
 		$output = ob_get_clean();
 		return false !== $output ? $output : '';

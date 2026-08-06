@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+	Standalone (no-WordPress) unit suite. tests/unit/bootstrap.php shims the WP
+	functions and fakes the DB/collaborator classes the classes under test call,
+	so these run fast without a WordPress install. Kept separate from the
+	WordPress test-suite config (phpunit.xml.dist) because the two need opposite
+	environments (this one must NOT load WordPress).
+
+	Run with: composer test:unit
+-->
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/9.5/phpunit.xsd"
+	bootstrap="tests/unit/bootstrap.php"
+	colors="true"
+	beStrictAboutOutputDuringTests="true"
+	failOnWarning="true"
+>
+	<testsuites>
+		<testsuite name="unit">
+			<directory prefix="test-" suffix=".php">tests/unit/inc/privacy</directory>
+		</testsuite>
+	</testsuites>
+</phpunit>

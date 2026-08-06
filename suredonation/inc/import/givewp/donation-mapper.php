@@ -57,6 +57,8 @@ class Donation_Mapper {
 		'_give_donor_billing_zip',
 		'_give_donor_billing_country',
 		'_give_payment_customer_id',
+		// GiveWP's DonationMetaKeys::ANONYMOUS — maps to our is_anonymous column.
+		'_give_anonymous_donation',
 	];
 
 	/**
@@ -190,6 +192,11 @@ class Donation_Mapper {
 		$last_name  = isset( $meta['_give_donor_billing_last_name'] ) ? sanitize_text_field( $meta['_give_donor_billing_last_name'] ) : '';
 		$donor_name = trim( $first_name . ' ' . $last_name );
 
+		// GiveWP marks anonymous donations with '1'. Same display-only semantics
+		// as ours: the real donor name is imported either way, and only public
+		// donor lists mask it — so a migrated wall keeps hiding the same donors.
+		$is_anonymous = isset( $meta['_give_anonymous_donation'] ) && '1' === (string) $meta['_give_anonymous_donation'];
+
 		$donation_data = [
 			'givewp' => [
 				'source_id'    => $give_payment_id,
@@ -215,6 +222,7 @@ class Donation_Mapper {
 			'payment_mode'     => 'test' === $payment_mode ? 'test' : 'live',
 			'donor_name'       => $donor_name,
 			'donor_email'      => $email,
+			'is_anonymous'     => $is_anonymous ? 1 : 0,
 			'donation_type'    => 'one-time',
 			'donation_data'    => $donation_data,
 			'created_at'       => isset( $payment->post_date_gmt ) ? (string) $payment->post_date_gmt : current_time( 'mysql', true ),

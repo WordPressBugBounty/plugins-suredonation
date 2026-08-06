@@ -11,6 +11,7 @@ namespace SureDonation\Inc\Blocks\Donation_Form;
 use SureDonation\Inc\Blocks\Base;
 use SureDonation\Inc\Campaigns\Campaign_Page;
 use SureDonation\Inc\Fields\Form_Renderer;
+use SureDonation\Inc\Fields\Form_Styling;
 use SureDonation\Inc\Helper;
 use SureDonation\Inc\Post_Types\Donation_Form;
 
@@ -86,6 +87,13 @@ class Block extends Base {
 				return '<div class="suredonation-notice">' . esc_html__( 'Invalid campaign selected.', 'suredonation' ) . '</div>';
 			}
 
+			// Only reflect published campaigns (mirrors the form publish check
+			// above) so a draft/private campaign's details can't surface in the
+			// preview via a passed campaign ID.
+			if ( 'publish' !== $campaign->post_status ) {
+				return '<div class="suredonation-notice">' . esc_html__( 'This campaign is not available.', 'suredonation' ) . '</div>';
+			}
+
 			// Check campaign status.
 			$campaign_status = Helper::get_campaign_meta_value( $campaign_id, 'campaign_status', 'active' );
 			if ( 'paused' === $campaign_status || 'completed' === $campaign_status ) {
@@ -93,9 +101,13 @@ class Block extends Base {
 			}
 		}
 
-		// Enqueue frontend styles for custom form blocks.
+		// Enqueue frontend styles for custom form blocks. Skipped when the form
+		// has default styling disabled — the site's own CSS then controls the
+		// appearance (scripts always load so payment/validation keep working).
 		// Note: Frontend JS is handled by the payment block (form-frontend.js).
-		wp_enqueue_style( 'suredonation-donation-form' );
+		if ( ! Form_Styling::is_default_styling_disabled( $form_id ) ) {
+			wp_enqueue_style( 'suredonation-donation-form' );
+		}
 
 		// Enqueue form frontend script.
 		wp_enqueue_script( 'suredonation-form-frontend' );

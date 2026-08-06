@@ -62,8 +62,14 @@ class PayPal_Settings {
 	 * @since 1.0.0
 	 */
 	public function intercept_paypal_onboarding_callback() {
-		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- PayPal callback, verified via merchant status check below.
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- nonce verified explicitly below.
 		if ( ! isset( $_GET['paypal-process-onboard'] ) || '1' !== $_GET['paypal-process-onboard'] ) {
+			return;
+		}
+
+		// Only ever fires on our own settings screen, matching the return_url
+		// minted in get_connect_url().
+		if ( ! isset( $_GET['page'] ) || 'suredonation' !== sanitize_text_field( wp_unslash( $_GET['page'] ) ) ) {
 			return;
 		}
 
@@ -71,11 +77,39 @@ class PayPal_Settings {
 			return;
 		}
 
+		$nonce       = isset( $_GET['suredonation_paypal_nonce'] ) ? sanitize_text_field( wp_unslash( $_GET['suredonation_paypal_nonce'] ) ) : '';
 		$merchant_id = isset( $_GET['merchantIdInPayPal'] ) ? sanitize_text_field( wp_unslash( $_GET['merchantIdInPayPal'] ) ) : '';
 		$environment = isset( $_GET['environment'] ) ? sanitize_text_field( wp_unslash( $_GET['environment'] ) ) : 'sandbox';
 		// phpcs:enable WordPress.Security.NonceVerification.Recommended
 
+		// CSRF protection: this handler runs on admin_init (no REST cookie-nonce
+		// coupling), so a cross-site request in a logged-in admin's browser would
+		// otherwise reach it on the auth cookie alone. Require the nonce we minted
+		// into return_url, and confirm it belongs to this admin's in-flight
+		// onboarding session.
+		$nonce_transient_key = 'suredonation_paypal_connect_nonce_' . get_current_user_id();
+		if ( empty( $nonce )
+			|| ! wp_verify_nonce( $nonce, 'suredonation-paypal-connect' )
+			|| ! hash_equals( (string) get_transient( $nonce_transient_key ), $nonce ) ) {
+			wp_die(
+				esc_html__( 'Security verification failed. Please restart the PayPal connection from settings.', 'suredonation' ),
+				esc_html__( 'PayPal Connect Error', 'suredonation' ),
+				[ 'response' => 403 ]
+			);
+		}
+
+		// Single use — a failed or abandoned onboarding must be restarted.
+		delete_transient( $nonce_transient_key );
+
 		$redirect_url = PayPal_Helper::get_paypal_settings_url();
+
+		// `environment` selects which mode's merchant ID is written below, so it
+		// must be one of the known values rather than "anything but production
+		// means sandbox".
+		if ( ! in_array( $environment, [ 'sandbox', 'production' ], true ) ) {
+			wp_safe_redirect( add_query_arg( 'paypal_error', 'invalid_environment', $redirect_url ) );
+			exit;
+		}
 
 		if ( empty( $merchant_id ) ) {
 			wp_safe_redirect( add_query_arg( 'paypal_error', 'missing_merchant_id', $redirect_url ) );
@@ -425,14 +459,19 @@ class PayPal_Settings {
 		// create; every subsequent merchant-scoped call is signed with it.
 		$hmac_secret = bin2hex( random_bytes( 32 ) );
 
+		// Nonce that ties the returning onboarding redirect back to the admin
+		// who started it — verified in intercept_paypal_onboarding_callback().
+		$connect_nonce = wp_create_nonce( 'suredonation-paypal-connect' );
+
 		// THIRD_PARTY onboarding uses full-page redirect.
 		// PayPal appends merchantIdInPayPal as a query param to return_url.
 		// Use a clean admin URL without hash fragments — PayPal can't handle # in URLs.
 		$return_url = add_query_arg(
 			[
-				'page'                   => 'suredonation',
-				'paypal-process-onboard' => '1',
-				'environment'            => $environment,
+				'page'                      => 'suredonation',
+				'paypal-process-onboard'    => '1',
+				'environment'               => $environment,
+				'suredonation_paypal_nonce' => $connect_nonce,
 			],
 			admin_url( 'admin.php' )
 		);
@@ -498,6 +537,9 @@ class PayPal_Settings {
 		// know which onboarding is in flight).
 		set_transient( 'suredonation_paypal_onboard_tracking_id', $tracking_id, HOUR_IN_SECONDS );
 		set_transient( 'suredonation_paypal_onboard_environment', $environment, HOUR_IN_SECONDS );
+		// Bind the onboarding session to this admin so the returning redirect
+		// cannot be forged (CSRF) by a cross-site request in their browser.
+		set_transient( 'suredonation_paypal_connect_nonce_' . get_current_user_id(), $connect_nonce, HOUR_IN_SECONDS );
 
 		return new WP_REST_Response(
 			[
@@ -657,6 +699,23 @@ class PayPal_Settings {
 
 		$mode = Payment_Helper::get_payment_mode();
 
+		// Keep the id before deleting: delete_webhook() clears it either way, and
+		// naming it is the only way a merchant can find the leftover webhook in
+		// the PayPal dashboard if the deletion fails.
+		$webhook_id = PayPal_Helper::get_webhook_id( $mode );
+
+		// Delete the webhook at PayPal before anything is cleared locally.
+		// Clearing the stored id on its own left the webhook live at PayPal with
+		// nothing pointing at it, and since PayPal caps webhooks per application,
+		// every connect/disconnect cycle spent a slot that could not be reclaimed.
+		// This must run first because the call needs the stored webhook id and the
+		// merchant id, both of which the disconnect below wipes. (The tracking id
+		// and HMAC secret that sign the request survive a disconnect, so they are
+		// not what forces the ordering.) PayPal_Webhook::delete_webhook() clears
+		// the stored webhook fields itself, so the settings are read after it
+		// returns rather than before, or a stale copy would restore them.
+		$webhook_deleted = PayPal_Webhook::delete_webhook( $mode );
+
 		$settings = PayPal_Helper::get_all_paypal_settings();
 
 		if ( 'live' === $mode ) {
@@ -675,13 +734,26 @@ class PayPal_Settings {
 
 		PayPal_Helper::update_all_paypal_settings( $settings );
 
-		return new WP_REST_Response(
-			[
-				'success' => true,
-				'message' => __( 'PayPal disconnected.', 'suredonation' ),
-			],
-			200
-		);
+		$response = [
+			'success' => true,
+			'message' => __( 'PayPal disconnected.', 'suredonation' ),
+		];
+
+		// Disconnecting still succeeds when PayPal refuses the deletion — the
+		// merchant asked to disconnect and blocking that would be worse. But a
+		// failure here means a webhook is left behind at PayPal holding a slot,
+		// so say so rather than reporting a clean disconnect. 'no_webhook' just
+		// means there was nothing stored to delete, which is not a failure.
+		if ( is_wp_error( $webhook_deleted ) && 'no_webhook' !== $webhook_deleted->get_error_code() ) {
+			$response['warning'] = sprintf(
+				/* translators: 1: PayPal webhook id, 2: reason reported by PayPal. */
+				__( 'PayPal disconnected, but its webhook (%1$s) could not be removed and still counts against your PayPal webhook limit. Delete it from your PayPal dashboard, or reconnect and disconnect again to retry. Reason: %2$s', 'suredonation' ),
+				'' !== $webhook_id ? $webhook_id : __( 'id unavailable', 'suredonation' ),
+				$webhook_deleted->get_error_message()
+			);
+		}
+
+		return new WP_REST_Response( $response, 200 );
 	}
 
 	/**
