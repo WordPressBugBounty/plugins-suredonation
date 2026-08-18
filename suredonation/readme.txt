@@ -3,8 +3,8 @@ Contributors: brainstormforce
 Donate link: https://www.paypal.me/BrainstormForce
 Tags: donation, donation form, fundraising, nonprofit, recurring donations
 Requires at least: 6.4
-Tested up to: 7.0
-Stable tag: 1.4.0
+Tested up to: 7.1
+Stable tag: 1.5.0
 Requires PHP: 8.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -65,7 +65,7 @@ SureDonation is a WordPress donation plugin and fundraising plugin for nonprofit
 * Automatic email notifications for donors and site admins.
 * Customizable email templates with smart tags.
 * Confirmation messages with a clean donation receipt layout.
-* Optional PDF receipt support for downloadable donor receipts.
+* Optional PDF receipt support — donors can download receipts from the donor dashboard.
 
 = Donor Management =
 
@@ -143,7 +143,7 @@ Yes. Forms can include an anonymous donation option, and anonymous donors are hi
 
 = Does SureDonation send receipts? =
 
-Yes. SureDonation includes automatic email notifications with customizable templates and smart tags. It also supports optional PDF receipts.
+Yes. SureDonation includes automatic email notifications with customizable templates and smart tags. It also supports optional PDF receipts that donors can download from the donor dashboard.
 
 = Does it support recurring donations? =
 
@@ -186,6 +186,14 @@ This plugin connects to external services only when the related feature or payme
 
 == Changelog ==
 
+= 1.5.0 - 18th August 2026 =
+* New: Added campaign templates so you can start a campaign from a ready-made design for causes such as medical, education, animal rescue, disaster relief, and faith, or start from scratch.
+* New: Added a guided tour of the campaign screen for first-time setup.
+* New: Added a Custom CSS tab to the donation form settings, with syntax highlighting, so you can restyle an individual form without editing your theme.
+* Improvement: Added WordPress 7.1 Compatibility.
+* Improvement: Updated the previews shown in the block inserter for SureDonation field and campaign blocks.
+* Improvement: Expanded WordPress Abilities API coverage.
+
 = 1.4.0 - 6th August 2026 =
 * New: Added a live preview of the selected form in the Donation Form block editor.
 * New: Added quick access to the form editor from the Donation Form block and Elementor widget.
@@ -200,12 +208,5 @@ This plugin connects to external services only when the related feature or payme
 * New: Added the ability to import and export donations, donors, campaigns, and settings.
 * New: Added an Image field to the donation form editor.
 * New: Added a Currency Sign Position setting to General Settings.
-
-= 1.2.0 - 20th July 2026 =
-* New: Added OttoKit (formerly SureTriggers) integration to automate workflows when donations are created, completed, or refunded.
-* New: Added a Campaign Social Sharing block so supporters can share campaigns, along with social preview meta tags for shared campaign pages.
-* New: Added Elementor and Bricks support with campaign and donation form widgets.
-* New: Added compliance settings.
-* Fix: Onboarding now publishes the created campaign so its default donation form is generated and it appears in the Donation Form block.
 
 The full changelog is available [here](https://suredonation.com/whats-new/?utm_source=wordpress.org&utm_medium=whats_new).

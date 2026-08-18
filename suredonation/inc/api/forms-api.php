@@ -495,22 +495,8 @@ class Forms_API {
 	 * @since 1.0.0
 	 */
 	private function get_form_stats( $form_id ) {
-		global $wpdb;
-		$table = $wpdb->prefix . 'suredonation_donations';
-
-		$result = $wpdb->get_row( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
-			$wpdb->prepare(
-				'SELECT COUNT(*) as entries, COALESCE(SUM(amount - refunded_amount), 0) as revenue FROM %i WHERE form_id = %d AND payment_status = %s',
-				$table,
-				absint( $form_id ),
-				'completed'
-			),
-			ARRAY_A
-		);
-
-		return [
-			'entries' => is_array( $result ) ? (int) ( $result['entries'] ?? 0 ) : 0,
-			'revenue' => is_array( $result ) ? (float) ( $result['revenue'] ?? 0 ) : 0,
-		];
+		// Delegates to the donations table so this surface and the abilities
+		// report the same figures from one query.
+		return \SureDonation\Inc\Database\Tables\Donations::get_form_stats( $form_id );
 	}
 }

@@ -72,6 +72,11 @@ class Pdf_Utils {
 	/**
 	 * Ensure the receipts directory exists with security files.
 	 *
+	 * Note: the .htaccess deny rule only protects the directory on Apache;
+	 * nginx ignores .htaccess, so there protection relies on the unguessable
+	 * random receipt filenames plus delivery through the authenticated REST
+	 * streaming endpoint.
+	 *
 	 * @return bool True if directory exists or was created.
 	 * @since 1.0.0
 	 */

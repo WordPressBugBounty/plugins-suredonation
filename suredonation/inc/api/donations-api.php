@@ -356,7 +356,7 @@ class Donations_API {
 			);
 
 			// Get total count.
-			$total = Donations::get_total_donations_by_status( $status, ! empty( $campaign ) ? absint( $campaign ) : 0 );
+			$total = Donations::count_admin_list( $status, ! empty( $campaign ) ? absint( $campaign ) : 0, sanitize_text_field( $search ) );
 		}
 
 		// Format donations data.
@@ -1167,10 +1167,11 @@ class Donations_API {
 	 * @since 0.0.1
 	 */
 	private function amount_to_stripe_format( $amount, $currency ) {
-		$zero_decimal = [ 'BIF', 'CLP', 'DJF', 'GNF', 'JPY', 'KMF', 'KRW', 'MGA', 'PYG', 'RWF', 'UGX', 'VND', 'VUV', 'XAF', 'XOF', 'XPF' ];
-		return in_array( strtoupper( $currency ), $zero_decimal, true )
-			? (int) round( $amount )
-			: (int) round( $amount * 100 );
+		// Delegates rather than repeating the zero-decimal list: the abilities
+		// layer guards refunds with Payment_Helper, so a second hardcoded list
+		// here could disagree with the guard about what a currency's minor unit
+		// is. Payment_Helper derives it from the currency data table.
+		return Payment_Helper::amount_to_stripe_format( $amount, $currency );
 	}
 
 	/**
@@ -1182,10 +1183,7 @@ class Donations_API {
 	 * @since 0.0.1
 	 */
 	private function amount_from_stripe_format( $amount, $currency ) {
-		$zero_decimal = [ 'BIF', 'CLP', 'DJF', 'GNF', 'JPY', 'KMF', 'KRW', 'MGA', 'PYG', 'RWF', 'UGX', 'VND', 'VUV', 'XAF', 'XOF', 'XPF' ];
-		return in_array( strtoupper( $currency ), $zero_decimal, true )
-			? (float) $amount
-			: (float) $amount / 100;
+		return Payment_Helper::amount_from_stripe_format( $amount, $currency );
 	}
 
 	/**

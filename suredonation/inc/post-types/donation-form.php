@@ -46,6 +46,14 @@ class Donation_Form {
 	public const META_STYLING = '_suredonation_form_styling';
 
 	/**
+	 * Meta key for the per-form Custom CSS.
+	 *
+	 * @var string
+	 * @since 1.5.0
+	 */
+	public const META_CUSTOM_CSS = '_suredonation_form_custom_css';
+
+	/**
 	 * Constructor.
 	 *
 	 * @since 0.0.1
@@ -139,6 +147,14 @@ class Donation_Form {
 			'publicly_queryable' => false,
 			'show_ui'            => true,
 			'show_in_menu'       => 'suredonation',
+
+			/*
+			 * Keep forms out of the admin bar's "+ New" menu. Without this, core
+			 * derives the flag from show_in_menu (truthy) and offers a standalone
+			 * form, but forms belong to a campaign — they are created from the
+			 * campaign screen, which passes the campaign_id along.
+			 */
+			'show_in_admin_bar'  => false,
 			'query_var'          => false,
 			'rewrite'            => false,
 			'capability_type'    => 'post',
@@ -186,6 +202,29 @@ class Donation_Form {
 				'default'           => '',
 				'show_in_rest'      => true,
 				'sanitize_callback' => [ \SureDonation\Inc\Fields\Form_Styling::class, 'sanitize_json' ],
+				'auth_callback'     => static function () {
+					return current_user_can( 'manage_options' );
+				},
+			]
+		);
+
+		register_post_meta(
+			self::POST_TYPE,
+			self::META_CUSTOM_CSS,
+			[
+				'type'              => 'string',
+				'description'       => __( 'Per-form Custom CSS.', 'suredonation' ),
+				'single'            => true,
+				'default'           => '',
+				// Editor-only: the form editor reads meta from the `edit`
+				// context, and per-form CSS need not be publicly readable.
+				'show_in_rest'      => [
+					'schema' => [
+						'type'    => 'string',
+						'context' => [ 'edit' ],
+					],
+				],
+				'sanitize_callback' => [ \SureDonation\Inc\Fields\Form_Custom_CSS::class, 'sanitize' ],
 				'auth_callback'     => static function () {
 					return current_user_can( 'manage_options' );
 				},
@@ -577,6 +616,39 @@ class Donation_Form {
 	}
 
 	/**
+	 * Count donation forms matching the given query arguments.
+	 *
+	 * Companion to get_forms() for callers that need a total rather than the
+	 * rows — get_forms() goes through get_posts(), which sets no_found_rows, so
+	 * the only way to total it was to fetch every ID and count() them.
+	 *
+	 * @param array<string, mixed> $args Additional WP_Query arguments.
+	 * @return int Number of matching forms.
+	 * @since 1.5.0
+	 */
+	public static function count_forms( $args = [] ) {
+		$defaults = [
+			'post_type'   => self::POST_TYPE,
+			'post_status' => 'publish',
+		];
+
+		$query_args = wp_parse_args( $args, $defaults );
+
+		// One row is enough: the total comes from found_posts.
+		$query_args['posts_per_page']         = 1;
+		$query_args['paged']                  = 1;
+		$query_args['fields']                 = 'ids';
+		$query_args['no_found_rows']          = false;
+		$query_args['ignore_sticky_posts']    = true;
+		$query_args['update_post_meta_cache'] = false;
+		$query_args['update_post_term_cache'] = false;
+
+		$query = new \WP_Query( $query_args );
+
+		return (int) $query->found_posts;
+	}
+
+	/**
 	 * Get forms linked to a specific campaign.
 	 *
 	 * @param int $campaign_id Campaign ID.
@@ -628,12 +700,15 @@ class Donation_Form {
 	 * Creates a single-page form with all the essential fields matching
 	 * the hardcoded template structure.
 	 *
-	 * @param int    $campaign_id   Campaign ID to link the form to.
-	 * @param string $campaign_name Campaign name for the form title.
+	 * @param int         $campaign_id   Campaign ID to link the form to.
+	 * @param string      $campaign_name Campaign name for the form title.
+	 * @param string|null $form_blocks   Optional serialized block markup for the form
+	 *                                   content (e.g. from a campaign template). When
+	 *                                   null/empty, the standard default form is used.
 	 * @return int|false Form ID on success, false on failure.
 	 * @since 0.0.1
 	 */
-	public static function create_default_form_for_campaign( $campaign_id, $campaign_name = '' ) {
+	public static function create_default_form_for_campaign( $campaign_id, $campaign_name = '', $form_blocks = null ) {
 		if ( ! $campaign_id ) {
 			return false;
 		}
@@ -647,8 +722,11 @@ class Donation_Form {
 			)
 			: __( 'Donation Form', 'suredonation' );
 
-		// Build the block content.
-		$blocks_content = self::get_default_form_blocks_content();
+		// Build the block content — template-provided markup when given, else the
+		// standard default form.
+		$blocks_content = ( is_string( $form_blocks ) && '' !== $form_blocks )
+			? $form_blocks
+			: self::get_default_form_blocks_content();
 
 		// Create the form post.
 		$form_id = wp_insert_post(
@@ -765,7 +843,7 @@ class Donation_Form {
 	 * @return string Serialized block content.
 	 * @since 0.0.1
 	 */
-	private static function get_default_form_blocks_content() {
+	public static function get_default_form_blocks_content() {
 		$blocks = [];
 
 		// Donor name.

@@ -8,6 +8,8 @@
 namespace SureDonation\Inc\API;
 
 use SureDonation\Inc\Helper;
+use SureDonation\Inc\Campaign_Templates\Campaign_Templates;
+use SureDonation\Inc\Campaigns\Campaign_Cpt;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -86,7 +88,34 @@ class Campaigns_API {
 						'terms_text'      => [
 							'sanitize_callback' => 'sanitize_text_field',
 						],
+						'template_id'     => [
+							'sanitize_callback' => 'sanitize_key',
+							'validate_callback' => static function ( $value ) {
+								// Empty ⇒ scratch. Otherwise must resolve to a known template.
+								return '' === $value || Campaign_Templates::get_instance()->exists( $value );
+							},
+						],
 					],
+				],
+			],
+
+			// List campaign templates for the picker.
+			'/campaign-templates'                   => [
+				[
+					'methods'             => WP_REST_Server::READABLE,
+					'callback'            => [ $this, 'get_campaign_templates' ],
+					'permission_callback' => [ $this, 'check_permissions' ],
+				],
+			],
+
+			// Analytics ping fired when the template picker is opened. Separate
+			// from the listing route above because that one is fetched on every
+			// campaigns-page load, not on open, so it cannot stand in for intent.
+			'/campaign-templates/track-picker'      => [
+				[
+					'methods'             => WP_REST_Server::EDITABLE,
+					'callback'            => [ $this, 'track_template_picker' ],
+					'permission_callback' => [ $this, 'check_permissions' ],
 				],
 			],
 
@@ -410,6 +439,46 @@ class Campaigns_API {
 	}
 
 	/**
+	 * List the available campaign templates for the picker.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response Response object.
+	 * @since 1.5.0
+	 */
+	public function get_campaign_templates( $request ) {
+		unset( $request );
+
+		return new WP_REST_Response(
+			[
+				'templates' => Campaign_Templates::get_instance()->get_all(),
+			]
+		);
+	}
+
+	/**
+	 * Record that the campaign template picker was opened.
+	 *
+	 * The action fires on every call; the analytics listener dedups, so this only
+	 * ever records once per site. Cheap enough to call on each open.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response Response object.
+	 * @since 1.5.0
+	 */
+	public function track_template_picker( $request ) {
+		unset( $request );
+
+		/**
+		 * Fires when a user opens the campaign template picker.
+		 *
+		 * @since 1.5.0
+		 */
+		do_action( 'suredonation_campaign_template_picker_opened' );
+
+		return new WP_REST_Response( [ 'success' => true ] );
+	}
+
+	/**
 	 * Create a new campaign.
 	 *
 	 * @param WP_REST_Request $request Request object.
@@ -417,25 +486,37 @@ class Campaigns_API {
 	 * @since 0.0.1
 	 */
 	public function create_campaign( $request ) {
-		$title           = $request->get_param( 'title' );
-		$description     = $request->get_param( 'description' );
+		$title = $request->get_param( 'title' );
+		// Normalize to string so an omitted description does not become a null
+		// post_excerpt (the column is NOT NULL and would fail the insert).
+		$description     = Helper::get_string_value( $request->get_param( 'description' ) );
 		$goal_type       = $request->get_param( 'goal_type' ) ?? 'raised_amount';
 		$goal_amount     = $request->get_param( 'goal_amount' );
 		$campaign_status = $request->get_param( 'campaign_status' ) ?? 'active';
 		$featured_image  = $request->get_param( 'featured_image' );
+		$template_id     = (string) $request->get_param( 'template_id' );
 
-		// Create the campaign post. The description is stored as the excerpt so
+		// Build the insert args. The description is stored as the excerpt so
 		// post_content stays reserved for the campaign page layout.
-		$post_id = wp_insert_post(
-			[
-				'post_type'    => SUREDONATION_POST_TYPE,
-				'post_title'   => $title,
-				'post_excerpt' => $description,
-				'post_status'  => 'publish',
-				'post_author'  => get_current_user_id(),
-			],
-			true
-		);
+		$insert_args = [
+			'post_type'    => SUREDONATION_POST_TYPE,
+			'post_title'   => $title,
+			'post_excerpt' => $description,
+			'post_status'  => 'publish',
+			'post_author'  => get_current_user_id(),
+		];
+
+		// Record the chosen template via meta_input so it is set BEFORE the
+		// save_post seeding hooks fire (they run during wp_insert_post). A
+		// post-insert update_post_meta would be too late.
+		if ( '' !== $template_id ) {
+			$insert_args['meta_input'] = [
+				Campaign_Cpt::META_TEMPLATE_ID => $template_id,
+			];
+		}
+
+		// Create the campaign post.
+		$post_id = wp_insert_post( $insert_args, true );
 
 		if ( is_wp_error( $post_id ) ) {
 			return new WP_Error(
@@ -443,6 +524,20 @@ class Campaigns_API {
 				__( 'Failed to create campaign.', 'suredonation' ),
 				[ 'status' => 500 ]
 			);
+		}
+
+		if ( '' !== $template_id ) {
+			/**
+			 * Fires after a campaign is created from a template.
+			 *
+			 * The id has already been validated against the template registry by
+			 * the route's validate_callback, so listeners receive a known id.
+			 *
+			 * @param string $template_id Template the campaign was created from.
+			 * @param int    $post_id     The new campaign's post ID.
+			 * @since 1.5.0
+			 */
+			do_action( 'suredonation_campaign_created_from_template', $template_id, $post_id );
 		}
 
 		// Save campaign meta as single consolidated meta key.
@@ -866,19 +961,25 @@ class Campaigns_API {
 
 		// Search for posts containing the donation form block for this campaign.
 		// The block stores campaignId in its attributes like: "campaignId":123.
-		$search_pattern = '%"campaignId":' . $campaign_id . '%';
+		// Anchor on the value's terminator: without it campaign 12 also matches
+		// "campaignId":123. Block attributes are JSON, so the id is followed by
+		// a comma or the closing brace.
+		$escaped_id     = $wpdb->esc_like( '"campaignId":' . $campaign_id );
+		$search_pattern = '%' . $escaped_id . ',%';
+		$alt_pattern    = '%' . $escaped_id . '}%';
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
 		$posts = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT ID, post_title, post_type, post_status, post_modified
 				FROM %i
-				WHERE post_content LIKE %s
+				WHERE ( post_content LIKE %s OR post_content LIKE %s )
 				AND post_status IN ('publish', 'draft', 'pending', 'private')
 				AND post_type IN ('page', 'post', 'suredonation_cmpgn')
 				ORDER BY post_modified DESC",
 				$wpdb->posts,
-				$search_pattern
+				$search_pattern,
+				$alt_pattern
 			)
 		);
 

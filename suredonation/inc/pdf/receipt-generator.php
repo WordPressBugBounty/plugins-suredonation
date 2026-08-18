@@ -39,6 +39,10 @@ class Receipt_Generator {
 			return false;
 		}
 
+		if ( ! self::should_generate( $donation ) ) {
+			return false;
+		}
+
 		// Check if a cached PDF exists.
 		$existing_relative = $donation['receipt_pdf_url'] ?? '';
 
@@ -74,6 +78,10 @@ class Receipt_Generator {
 			return false;
 		}
 
+		if ( ! self::should_generate( $donation ) ) {
+			return false;
+		}
+
 		$donor_id = Helper::get_integer_value( $donation['donor_id'] ?? 0 );
 		$donor    = $donor_id ? Donors::get( $donor_id ) : null;
 
@@ -86,9 +94,12 @@ class Receipt_Generator {
 		/**
 		 * Filter the receipt HTML before PDF generation.
 		 *
-		 * SECURITY NOTE: The returned HTML is passed directly to mPDF's WriteHTML().
-		 * mPDF can process <img> tags with file:// URIs and load external resources.
-		 * Ensure any modifications only use trusted, escaped content.
+		 * SECURITY NOTE: The returned HTML is passed directly to mPDF's
+		 * WriteHTML(). Resource fetching is blocked at the mPDF level by the
+		 * empty 'whitelistStreamWrappers' in self::get_mpdf_config(), so an
+		 * `<img src>` cannot reach a remote host or a local file — but that is
+		 * the only guarantee. Everything else about the returned markup is
+		 * trusted, so only ever return escaped content.
 		 *
 		 * @param string     $html     Receipt HTML.
 		 * @param array      $donation Donation data.
@@ -100,12 +111,51 @@ class Receipt_Generator {
 		// Ensure receipts directory exists.
 		Pdf_Utils::ensure_receipts_dir();
 
-		$receipts_dir = Pdf_Utils::get_receipts_dir();
-		$filename     = sprintf( 'suredonation-receipt-%d-%s.pdf', $donation_id, wp_generate_password( 8, false ) );
-		$filepath     = $receipts_dir . '/' . $filename;
+		$receipts_dir     = Pdf_Utils::get_receipts_dir();
+		$default_filename = sprintf( 'suredonation-receipt-%d-%s.pdf', $donation_id, wp_generate_password( 8, false ) );
+
+		/**
+		 * Filter the receipt PDF filename.
+		 *
+		 * The default filename carries a random suffix; the receipts directory
+		 * is access-protected, but the suffix keeps individual filenames
+		 * unguessable as defense in depth. The filtered value is passed through
+		 * sanitize_file_name() and forced to a .pdf extension; an empty result
+		 * falls back to the default.
+		 *
+		 * @param string                    $default_filename Generated filename.
+		 * @param array<string, mixed>      $donation         Donation data.
+		 * @param array<string, mixed>|null $donor            Donor data.
+		 * @since 1.5.0
+		 */
+		$filename = apply_filters( 'suredonation_receipt_filename', $default_filename, $donation, $donor );
+		$filename = sanitize_file_name( Helper::get_string_value( $filename ) );
+
+		if ( '' === $filename ) {
+			$filename = $default_filename;
+		} elseif ( 'pdf' !== strtolower( pathinfo( $filename, PATHINFO_EXTENSION ) ) ) {
+			$filename .= '.pdf';
+		}
+
+		$filepath = $receipts_dir . '/' . $filename;
 
 		try {
-			$mpdf = new \Mpdf\Mpdf( self::get_mpdf_config() );
+			$mpdf = new \Mpdf\Mpdf( self::get_mpdf_config( $donation, $donor ) );
+
+			/**
+			 * Fires after the mPDF instance is created, before the receipt HTML is written.
+			 *
+			 * Allows instance-level configuration the constructor config cannot
+			 * express — e.g. SetProtection() for password-protected receipts or
+			 * SetTitle()/SetAuthor() document metadata.
+			 *
+			 * @param \Mpdf\Mpdf                $mpdf     mPDF instance.
+			 * @param array<string, mixed>      $donation Donation data.
+			 * @param array<string, mixed>|null $donor    Donor data.
+			 * @since 1.5.0
+			 */
+			do_action( 'suredonation_receipt_mpdf_instance', $mpdf, $donation, $donor );
+
 			$mpdf->WriteHTML( $html );
 			$mpdf->Output( $filepath, \Mpdf\Output\Destination::FILE );
 		} catch ( \Exception $e ) {
@@ -117,7 +167,40 @@ class Receipt_Generator {
 		$relative_path = str_replace( $upload_dir['basedir'] . '/', '', $filepath );
 		Donations::update( $donation_id, [ 'receipt_pdf_url' => $relative_path ] );
 
+		/**
+		 * Fires after a receipt PDF has been generated and stored.
+		 *
+		 * @param int                  $donation_id Donation ID.
+		 * @param string               $filepath    Absolute path to the generated PDF.
+		 * @param array<string, mixed> $donation    Donation data.
+		 * @since 1.5.0
+		 */
+		do_action( 'suredonation_receipt_generated', $donation_id, $filepath, $donation );
+
 		return $filepath;
+	}
+
+	/**
+	 * Whether a receipt should be generated or served for a donation.
+	 *
+	 * @param array<string, mixed> $donation Donation data.
+	 * @return bool
+	 * @since 1.5.0
+	 */
+	private static function should_generate( $donation ) {
+		/**
+		 * Short-circuit filter to disable receipt generation for a donation.
+		 *
+		 * Return false to prevent generating a new receipt PDF and to stop a
+		 * previously cached one from being served. Lets extensions disable
+		 * receipts selectively — e.g. a per-form "disable PDF receipt"
+		 * setting keyed on the donation's form_id.
+		 *
+		 * @param bool                 $should_generate Whether to generate/serve the receipt. Default true.
+		 * @param array<string, mixed> $donation        Donation data.
+		 * @since 1.5.0
+		 */
+		return (bool) apply_filters( 'suredonation_should_generate_receipt', true, $donation );
 	}
 
 	/**
@@ -151,31 +234,68 @@ class Receipt_Generator {
 	/**
 	 * Get the mPDF configuration.
 	 *
+	 * @param array<string, mixed>      $donation Donation data.
+	 * @param array<string, mixed>|null $donor    Donor data.
 	 * @return array<string,mixed>
 	 * @since 1.0.0
 	 */
-	private static function get_mpdf_config() {
-		return [
-			'mode'                                 => 'utf-8',
-			'format'                               => 'A4',
-			'orientation'                          => 'P',
-			'margin_left'                          => 15,
-			'margin_right'                         => 15,
-			'margin_top'                           => 15,
-			'margin_bottom'                        => 15,
-			'default_font'                         => 'dejavusans',
-			'tempDir'                              => Pdf_Utils::get_temp_dir(),
-			// mPDF defaults allow <img src="file:///..."> and remote http(s)
-			// resource fetching. The receipt HTML is server-templated with
-			// escaped fields, but the suredonation_receipt_html filter (and
-			// any future ucfirst-only gateway label) would still surface
-			// donor / gateway data into HTML that mPDF processes. Disable
-			// the dangerous resource-loading defaults so a malicious string
-			// in any rendered field can't become SSRF (remote fetch) or
-			// LFI (local file read into the PDF) regardless of the source.
-			'allow_remote_dir_in_links_filesystem' => false,
-			'curlAllowUnsafeSslRequests'           => false,
+	private static function get_mpdf_config( $donation = [], $donor = null ) {
+		$config = [
+			'mode'                       => 'utf-8',
+			'format'                     => 'A4',
+			'orientation'                => 'P',
+			'margin_left'                => 15,
+			'margin_right'               => 15,
+			'margin_top'                 => 15,
+			'margin_bottom'              => 15,
+			'default_font'               => 'dejavusans',
+			'tempDir'                    => Pdf_Utils::get_temp_dir(),
+			// mPDF resolves `<img src>` and CSS url() through stream wrappers,
+			// and its default whitelist is ['http', 'https', 'file'] — so out of
+			// the box a src can reach an internal host (SSRF) or read a local
+			// file into the PDF (LFI). The receipt HTML is server-templated with
+			// escaped fields, but the suredonation_receipt_html filter and the
+			// Pro receipt templates both put author-controlled HTML through
+			// WriteHTML(), and wp_kses_post() permits <img src="http(s)://…">.
+			//
+			// Emptying the whitelist is the actual control: Mpdf\File\
+			// StreamWrapperChecker then rejects every `scheme://` src before a
+			// fetch happens. Nothing legitimate needs one — the logo is
+			// embedded as a data: URI (no `://`, so the check never fires) and
+			// local font/temp paths are plain paths. A blocked <img> degrades to
+			// mPDF's own imageError() handling rather than failing the render.
+			'whitelistStreamWrappers'    => [],
+			// Kept as defence in depth: if a filter callback ever re-whitelists
+			// http(s), requests still verify SSL. This is not what stops the
+			// fetch — the whitelist above is.
+			'curlAllowUnsafeSslRequests' => false,
 		];
+
+		/**
+		 * Filter the mPDF configuration used for receipt generation.
+		 *
+		 * SECURITY NOTE: 'whitelistStreamWrappers' is emptied deliberately.
+		 * Restoring any entry lets HTML that reaches WriteHTML() fetch that
+		 * scheme, which is SSRF for http(s) and LFI for file://. It is
+		 * force-reset to [] after this filter runs, so callbacks cannot widen
+		 * it; resolve trusted assets (e.g. a logo attachment) to a data: URI or
+		 * a validated local path server-side instead.
+		 *
+		 * @param array<string, mixed>      $config   mPDF configuration.
+		 * @param array<string, mixed>      $donation Donation data.
+		 * @param array<string, mixed>|null $donor    Donor data.
+		 * @since 1.5.0
+		 */
+		$config = apply_filters( 'suredonation_receipt_mpdf_config', $config, $donation, $donor );
+		$config = is_array( $config ) ? $config : [];
+
+		// Enforced post-filter: an empty stream-wrapper whitelist is what gates
+		// LFI/SSRF in mPDF, so it stays empty regardless of what filter
+		// callbacks return.
+		$config['whitelistStreamWrappers']    = [];
+		$config['curlAllowUnsafeSslRequests'] = false;
+
+		return $config;
 	}
 
 	/**

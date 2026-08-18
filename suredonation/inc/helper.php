@@ -1187,7 +1187,20 @@ class Helper {
 			);
 		}
 
-		return $smart_tags;
+		/**
+		 * Filter the smart-tag catalogue grouped by context.
+		 *
+		 * Lets extensions register additional contexts (e.g. a 'pdf' group for
+		 * PDF receipt templates) or extend existing ones. This catalogue only
+		 * drives tag-picker UIs; tag resolution happens in
+		 * Email_Handler::process_smart_tags() and its
+		 * 'suredonation_email_smart_tags' filter, so new tags must be
+		 * registered there as well to take effect.
+		 *
+		 * @param array<string, array<int, array<string, mixed>>> $smart_tags Smart tags grouped by context.
+		 * @since 1.5.0
+		 */
+		return apply_filters( 'suredonation_smart_tags', $smart_tags );
 	}
 
 	/**
@@ -1365,7 +1378,7 @@ class Helper {
 			. esc_html__( 'Thank you {donor_name} for your Donation', 'suredonation' )
 			. '</h2>'
 			. '<p class="sd-receipt-subtitle" style="text-align: center;">'
-			. esc_html__( 'Your contribution means a lot. We have sent an email to your registered account along with a receipt for your donation.', 'suredonation' )
+			. esc_html__( 'Your contribution means a lot. We have sent a confirmation email to your registered address with the details of your donation.', 'suredonation' )
 			. '</p>{donation_receipt}';
 	}
 

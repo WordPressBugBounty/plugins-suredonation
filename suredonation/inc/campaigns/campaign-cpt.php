@@ -9,6 +9,7 @@ namespace SureDonation\Inc\Campaigns;
 
 use SureDonation\Inc\Helper;
 use SureDonation\Inc\Post_Types\Donation_Form;
+use SureDonation\Inc\Campaign_Templates\Campaign_Templates;
 use SureDonation\Inc\Traits\Get_Instance;
 
 // Exit if accessed directly.
@@ -39,6 +40,16 @@ class Campaign_Cpt {
 	public const META_DEFAULT_FORM_ID = '_suredonation_default_form_id';
 
 	/**
+	 * Meta key for the campaign template the campaign was created from.
+	 *
+	 * Set via meta_input on the create-campaign insert (before save_post fires) so
+	 * the seeding hooks can resolve the template. Absent ⇒ the `general` template.
+	 *
+	 * @since 1.5.0
+	 */
+	public const META_TEMPLATE_ID = '_suredonation_campaign_template';
+
+	/**
 	 * Constructor.
 	 *
 	 * @since 0.0.1
@@ -60,7 +71,10 @@ class Campaign_Cpt {
 			'name'                  => _x( 'Campaigns', 'Post Type General Name', 'suredonation' ),
 			'singular_name'         => _x( 'Campaign', 'Post Type Singular Name', 'suredonation' ),
 			'menu_name'             => __( 'Campaigns', 'suredonation' ),
-			'name_admin_bar'        => __( 'Campaign', 'suredonation' ),
+			// Product-prefixed on purpose: this label is only used by the admin
+			// bar's "+ New" menu, a shared list where a bare "Campaign" carries
+			// no product context and collides with other plugins' campaigns.
+			'name_admin_bar'        => __( 'SureDonation Campaign', 'suredonation' ),
 			'archives'              => __( 'Campaign Archives', 'suredonation' ),
 			'attributes'            => __( 'Campaign Attributes', 'suredonation' ),
 			'parent_item_colon'     => __( 'Parent Campaign:', 'suredonation' ),
@@ -115,6 +129,22 @@ class Campaign_Cpt {
 	}
 
 	/**
+	 * Get the admin URL that opens the campaign creation drawer.
+	 *
+	 * Campaigns are created through the drawer in the SureDonation app — that
+	 * is where the goal, currency and default form are set — so every "create a
+	 * campaign" entry point resolves here instead of the bare block editor.
+	 * Centralized so the admin bar and the post-new.php redirect cannot drift
+	 * apart. The `action` param is consumed and cleared by the Campaigns page.
+	 *
+	 * @return string The admin URL for creating a campaign.
+	 * @since 1.5.0
+	 */
+	public static function get_create_url() {
+		return admin_url( 'admin.php?page=suredonation#/campaigns?action=new' );
+	}
+
+	/**
 	 * Register campaign meta for the campaign post type.
 	 *
 	 * @return void
@@ -135,6 +165,21 @@ class Campaign_Cpt {
 					],
 				],
 				'auth_callback' => static function () {
+					return current_user_can( 'manage_options' );
+				},
+			]
+		);
+
+		register_post_meta(
+			self::POST_TYPE,
+			self::META_TEMPLATE_ID,
+			[
+				'type'              => 'string',
+				'description'       => __( 'Campaign template the campaign was created from.', 'suredonation' ),
+				'single'            => true,
+				'show_in_rest'      => false,
+				'sanitize_callback' => 'sanitize_key',
+				'auth_callback'     => static function () {
 					return current_user_can( 'manage_options' );
 				},
 			]
@@ -178,8 +223,18 @@ class Campaign_Cpt {
 			}
 		}
 
+		// Resolve the campaign template (falling back to `general`) and build its
+		// form markup. `general` delegates to the standard default form, so the
+		// scratch path is unchanged.
+		$registry    = Campaign_Templates::get_instance();
+		$template    = $registry->get( Helper::get_string_value( get_post_meta( $post_id, self::META_TEMPLATE_ID, true ) ) )
+			?? $registry->get( Campaign_Templates::GENERAL );
+		$form_blocks = ( $template && isset( $template['get_form_blocks'] ) && is_callable( $template['get_form_blocks'] ) )
+			? ( $template['get_form_blocks'] )()
+			: null;
+
 		// Create the default form.
-		$form_id = Donation_Form::create_default_form_for_campaign( $post_id, $post->post_title );
+		$form_id = Donation_Form::create_default_form_for_campaign( $post_id, $post->post_title, $form_blocks );
 
 		if ( $form_id ) {
 			// Store the form ID in campaign meta.

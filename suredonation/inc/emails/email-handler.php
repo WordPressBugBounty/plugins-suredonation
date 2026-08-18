@@ -140,7 +140,7 @@ class Email_Handler {
 			}
 
 			foreach ( $recipients as $recipient ) {
-				self::send_email( $recipient, $notification, $donation_data, $campaign, $donation_id );
+				self::send_email( $recipient, $notification, $donation_data, $campaign, $donation_id, $event );
 			}
 		}
 	}
@@ -678,10 +678,11 @@ class Email_Handler {
 	 * @param array<string, mixed> $donation_data Donation data for smart tags.
 	 * @param \WP_Post|null        $campaign      Campaign post object, or null for a standalone form.
 	 * @param int                  $donation_id   Optional donation ID.
+	 * @param string               $event         The event that triggered this email.
 	 * @return bool True if email was sent successfully.
 	 * @since 0.0.1
 	 */
-	private static function send_email( $to_email, $notification, $donation_data, $campaign, $donation_id = 0 ) {
+	private static function send_email( $to_email, $notification, $donation_data, $campaign, $donation_id = 0, $event = '' ) {
 		if ( empty( $to_email ) || ! is_email( $to_email ) ) {
 			return false;
 		}
@@ -724,8 +725,51 @@ class Email_Handler {
 		// Convert plain text to HTML if needed.
 		$email_body = self::format_email_body( $email_body );
 
+		/**
+		 * Filter attachments for outgoing notification emails.
+		 *
+		 * Each entry must be an absolute path to a local, readable file
+		 * (wp_mail() contract) inside the uploads directory. Non-string,
+		 * non-existent and out-of-uploads entries are dropped before sending.
+		 *
+		 * @param array<int, string>   $attachments   Attachment file paths. Default empty.
+		 * @param array<string, mixed> $notification  Notification settings.
+		 * @param array<string, mixed> $donation_data Donation data.
+		 * @param \WP_Post             $campaign      Campaign post object.
+		 * @param int                  $donation_id   Donation ID (0 when not available).
+		 * @param string               $event         The event that triggered this email (e.g. 'donation_completed').
+		 * @since 1.5.0
+		 */
+		$attachments = apply_filters( 'suredonation_email_attachments', [], $notification, $donation_data, $campaign, $donation_id, $event );
+
+		$upload_dir  = wp_upload_dir();
+		$base_real   = isset( $upload_dir['basedir'] ) && is_string( $upload_dir['basedir'] ) ? realpath( $upload_dir['basedir'] ) : false;
+		$uploads_dir = is_string( $base_real ) ? trailingslashit( wp_normalize_path( $base_real ) ) : '';
+
+		$attachments = is_array( $attachments ) ? array_values(
+			array_filter(
+				$attachments,
+				static function ( $path ) use ( $uploads_dir ) {
+					if ( ! is_string( $path ) || '' === $path || ! file_exists( $path ) ) {
+						return false;
+					}
+
+					// Containment check: only files inside the uploads directory
+					// may be attached — a filtered-in traversal path or symlink
+					// must not exfiltrate arbitrary server files by email.
+					$real = realpath( $path );
+
+					if ( ! is_string( $real ) || '' === $uploads_dir ) {
+						return false;
+					}
+
+					return 0 === strpos( wp_normalize_path( $real ), $uploads_dir );
+				}
+			)
+		) : [];
+
 		// Send email.
-		$sent = wp_mail( $to_email, $subject, $email_body, $headers );
+		$sent = wp_mail( $to_email, $subject, $email_body, $headers, $attachments );
 
 		// Log email send attempt.
 		// 4th param is display name (not machine ID). Pre-release plugin (v0.0.1) with no

@@ -1542,30 +1542,62 @@ class Donations extends Base {
 	}
 
 	/**
+	 * Build the currency / payment-mode scope for a reporting query.
+	 *
+	 * Amounts in different currencies cannot be summed into one figure, and test
+	 * donations must not be counted alongside live ones. Both filters are opt-in
+	 * so existing callers keep their behaviour; the abilities always pass them.
+	 *
+	 * @param string       $currency     Currency code ('' for no filter).
+	 * @param string       $payment_mode 'test' or 'live' ('' for no filter).
+	 * @param array<mixed> $args         Prepare args, appended to by reference.
+	 * @return string SQL fragment beginning with " AND ", or '' when unscoped.
+	 * @since 1.5.0
+	 */
+	private static function scope_fragment( $currency, $payment_mode, array &$args ) {
+		$extra = '';
+
+		$currency = is_string( $currency ) ? strtoupper( trim( $currency ) ) : '';
+		if ( '' !== $currency ) {
+			$extra .= ' AND currency = %s';
+			$args[] = $currency;
+		}
+
+		$payment_mode = is_string( $payment_mode ) ? strtolower( trim( $payment_mode ) ) : '';
+		if ( in_array( $payment_mode, [ 'test', 'live' ], true ) ) {
+			$extra .= ' AND payment_mode = %s';
+			$args[] = $payment_mode;
+		}
+
+		return $extra;
+	}
+	/**
 	 * Get global dashboard statistics.
 	 *
+	 * @param string $currency     Currency code to scope to ('' for no filter).
+	 * @param string $payment_mode 'test' or 'live' ('' for no filter).
 	 * @return array{total_donations: string, total_raised: string, unique_donors: string, average_donation: string, largest_donation: string} Dashboard statistics.
 	 * @since 0.0.1
 	 */
-	public static function get_dashboard_stats() {
+	public static function get_dashboard_stats( $currency = '', $payment_mode = '' ) {
 		$instance = self::get_instance();
 		global $wpdb;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$stats = $wpdb->get_row(
-			$wpdb->prepare(
-				"SELECT
+		$args  = [ $instance->get_tablename() ];
+		$extra = self::scope_fragment( $currency, $payment_mode, $args );
+
+		$sql = "SELECT
 					COUNT(*) as total_donations,
 					COALESCE(SUM(amount - refunded_amount), 0) as total_raised,
 					COUNT(DISTINCT donor_email) as unique_donors,
 					COALESCE(AVG(amount - refunded_amount), 0) as average_donation,
 					COALESCE(MAX(amount - refunded_amount), 0) as largest_donation
 				FROM %i
-				WHERE payment_status IN ('completed', 'partially_refunded')",
-				$instance->get_tablename()
-			),
-			ARRAY_A
-		);
+				WHERE payment_status IN ('completed', 'partially_refunded')
+					{$extra}";
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $extra is built only from static placeholder fragments; every value travels in $args.
+		$stats = $wpdb->get_row( $wpdb->prepare( $sql, $args ), ARRAY_A );
 
 		return $stats ? $stats : [
 			'total_donations'  => 0,
@@ -1579,23 +1611,28 @@ class Donations extends Base {
 	/**
 	 * Get recent donations globally (all campaigns).
 	 *
-	 * @param int $limit Number of donations to retrieve.
+	 * @param int    $limit        Number of donations to retrieve.
+	 * @param string $currency     Currency code to scope to ('' for no filter).
+	 * @param string $payment_mode 'test' or 'live' ('' for no filter).
 	 * @return array<int, array<string, mixed>> Array of recent donations.
 	 * @since 0.0.1
 	 */
-	public static function get_recent_donations_global( $limit = 5 ) {
+	public static function get_recent_donations_global( $limit = 5, $currency = '', $payment_mode = '' ) {
 		$instance = self::get_instance();
 		global $wpdb;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$results = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT * FROM %i WHERE payment_status IN ('completed', 'partially_refunded') ORDER BY created_at DESC LIMIT %d",
-				$instance->get_tablename(),
-				absint( $limit )
-			),
-			ARRAY_A
-		);
+		$args   = [ $instance->get_tablename() ];
+		$extra  = self::scope_fragment( $currency, $payment_mode, $args );
+		$args[] = absint( $limit );
+
+		$sql = "SELECT * FROM %i
+				WHERE payment_status IN ('completed', 'partially_refunded')
+					{$extra}
+				ORDER BY created_at DESC
+				LIMIT %d";
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $extra is built only from static placeholder fragments; every value travels in $args.
+		$results = $wpdb->get_results( $wpdb->prepare( $sql, $args ), ARRAY_A );
 
 		if ( ! $results || ! is_array( $results ) ) {
 			return [];
@@ -1607,32 +1644,42 @@ class Donations extends Base {
 	/**
 	 * Get top campaigns by donations.
 	 *
-	 * @param int $limit Number of campaigns to retrieve.
+	 * @param int    $limit        Number of campaigns to retrieve.
+	 * @param string $currency     Currency code to scope to ('' for no filter).
+	 * @param string $payment_mode 'test' or 'live' ('' for no filter).
 	 * @return array<int, array{campaign_id: string, donation_count: string, total_raised: string, unique_donors: string}> Array of top campaigns with stats.
 	 * @since 0.0.1
 	 */
-	public static function get_top_campaigns( $limit = 5 ) {
+	public static function get_top_campaigns( $limit = 5, $currency = '', $payment_mode = '' ) {
 		$instance = self::get_instance();
 		global $wpdb;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$results = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT
-					campaign_id,
+		$args   = [ $instance->get_tablename(), SUREDONATION_POST_TYPE ];
+		$extra  = self::scope_fragment( $currency, $payment_mode, $args );
+		$args[] = absint( $limit );
+
+		// The join is what makes LIMIT meaningful: orphaned campaign_ids (post
+		// deleted, donations kept) still carry donations, so filtering them in
+		// PHP after a SQL LIMIT returned fewer than the requested top-N while
+		// valid campaigns sat below the cut.
+		$sql = "SELECT
+					d.campaign_id,
+					p.post_title AS campaign_title,
 					COUNT(*) as donation_count,
 					COALESCE(SUM(amount - refunded_amount), 0) as total_raised,
 					COUNT(DISTINCT donor_email) as unique_donors
-				FROM %i
+				FROM %i AS d
+				INNER JOIN {$wpdb->posts} AS p
+					ON p.ID = d.campaign_id
+					AND p.post_type = %s
 				WHERE payment_status IN ('completed', 'partially_refunded')
-				GROUP BY campaign_id
+					{$extra}
+				GROUP BY d.campaign_id
 				ORDER BY total_raised DESC
-				LIMIT %d",
-				$instance->get_tablename(),
-				absint( $limit )
-			),
-			ARRAY_A
-		);
+				LIMIT %d";
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $extra is built only from static placeholder fragments; every value travels in $args.
+		$results = $wpdb->get_results( $wpdb->prepare( $sql, $args ), ARRAY_A );
 
 		return $results ? $results : [];
 	}
@@ -1640,13 +1687,16 @@ class Donations extends Base {
 	/**
 	 * Get donation trends over time.
 	 *
-	 * @param string $after  Start date (ISO format).
-	 * @param string $before End date (ISO format).
-	 * @param string $group  Grouping: 'day', 'week', or 'month'.
+	 * @param string $after       Start date (ISO format).
+	 * @param string $before      End date (ISO format).
+	 * @param string $group       Grouping: 'day', 'week', or 'month'.
+	 * @param string $currency     Currency code to scope to ('' for no currency filter).
+	 * @param int    $campaign_id  Campaign to scope to (0 for all campaigns).
+	 * @param string $payment_mode 'test' or 'live' ('' for no filter).
 	 * @return array<int, array{period: string, donation_count: string, total_amount: string}> Array of donation trends.
 	 * @since 0.0.1
 	 */
-	public static function get_donation_trends( $after = '', $before = '', $group = 'day' ) {
+	public static function get_donation_trends( $after = '', $before = '', $group = 'day', $currency = '', $campaign_id = 0, $payment_mode = '' ) {
 		$instance = self::get_instance();
 		global $wpdb;
 
@@ -1672,10 +1722,31 @@ class Donations extends Base {
 				break;
 		}
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$results = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT
+		// Amounts of different currencies cannot be summed into one figure, so
+		// scope the query to a single currency. Callers that don't care still
+		// get coherent numbers because the default is the store currency.
+		$currency = is_string( $currency ) ? strtoupper( trim( $currency ) ) : '';
+		$extra    = '';
+		$args     = [ $date_format, $instance->get_tablename(), $after, $before ];
+
+		if ( '' !== $currency ) {
+			$extra .= ' AND currency = %s';
+			$args[] = $currency;
+		}
+
+		if ( $campaign_id > 0 ) {
+			$extra .= ' AND campaign_id = %d';
+			$args[] = absint( $campaign_id );
+		}
+
+		// Test and live donations must not be summed together either.
+		$payment_mode = is_string( $payment_mode ) ? strtolower( trim( $payment_mode ) ) : '';
+		if ( in_array( $payment_mode, [ 'test', 'live' ], true ) ) {
+			$extra .= ' AND payment_mode = %s';
+			$args[] = $payment_mode;
+		}
+
+		$sql = "SELECT
 					DATE_FORMAT(created_at, %s) as period,
 					COUNT(*) as donation_count,
 					COALESCE(SUM(amount - refunded_amount), 0) as total_amount
@@ -1683,17 +1754,192 @@ class Donations extends Base {
 				WHERE payment_status IN ('completed', 'partially_refunded')
 					AND DATE(created_at) >= %s
 					AND DATE(created_at) <= %s
+					{$extra}
 				GROUP BY period
-				ORDER BY period ASC",
-				$date_format,
+				ORDER BY period ASC";
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $extra is built only from static placeholder fragments; every value is passed through prepare args.
+		$results = $wpdb->get_results( $wpdb->prepare( $sql, $args ), ARRAY_A );
+
+		return $results ? $results : [];
+	}
+
+	/**
+	 * Count donations recorded through a donation form, in any status.
+	 *
+	 * Used to protect a form from permanent deletion while donation rows still
+	 * reference it, mirroring count_by_campaign()'s role for campaigns.
+	 *
+	 * @param int $form_id Donation form post ID.
+	 * @return int Donation count.
+	 * @since 1.5.0
+	 */
+	public static function count_by_form( $form_id ) {
+		$instance = self::get_instance();
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Guard on a destructive action; must read live data.
+		$count = $wpdb->get_var(
+			$wpdb->prepare(
+				'SELECT COUNT(*) FROM %i WHERE form_id = %d',
 				$instance->get_tablename(),
-				$after,
-				$before
+				absint( $form_id )
+			)
+		);
+
+		return is_numeric( $count ) ? (int) $count : 0;
+	}
+
+	/**
+	 * Get completed entry count and revenue for a single donation form.
+	 *
+	 * @param int $form_id Donation form post ID.
+	 * @return array{entries: int, revenue: float} Form totals.
+	 * @since 1.5.0
+	 */
+	public static function get_form_stats( $form_id ) {
+		$instance = self::get_instance();
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Live totals; caching would show stale figures.
+		$result = $wpdb->get_row(
+			$wpdb->prepare(
+				'SELECT COUNT(*) as entries, COALESCE(SUM(amount - refunded_amount), 0) as revenue FROM %i WHERE form_id = %d AND payment_status = %s',
+				$instance->get_tablename(),
+				absint( $form_id ),
+				'completed'
 			),
 			ARRAY_A
 		);
 
-		return $results ? $results : [];
+		return [
+			'entries' => is_array( $result ) ? (int) ( $result['entries'] ?? 0 ) : 0,
+			'revenue' => is_array( $result ) ? (float) ( $result['revenue'] ?? 0 ) : 0.0,
+		];
+	}
+
+	/**
+	 * Get entry and revenue totals for several forms in one query.
+	 *
+	 * get_form_stats() is a per-form query, so formatting a page of N forms ran
+	 * N COUNT/SUM queries. This collapses that to one GROUP BY for the page.
+	 *
+	 * @param array<int> $form_ids Form IDs to total.
+	 * @return array<int, array{entries: int, revenue: float}> Totals keyed by form ID; every requested ID is present.
+	 * @since 1.5.0
+	 */
+	public static function get_form_stats_bulk( array $form_ids ) {
+		// intval, not absint: absint( -1 ) is 1, which would silently total a
+		// real form the caller never asked about.
+		$ids = array_values(
+			array_unique(
+				array_filter(
+					array_map( 'intval', $form_ids ),
+					static function ( $id ) {
+						return $id > 0;
+					}
+				)
+			)
+		);
+
+		// Every requested id gets an entry, so callers never have to special-case
+		// a form that simply has no donations yet.
+		$stats = [];
+		foreach ( $ids as $id ) {
+			$stats[ $id ] = [
+				'entries' => 0,
+				'revenue' => 0.0,
+			];
+		}
+
+		if ( empty( $ids ) ) {
+			return $stats;
+		}
+
+		$instance = self::get_instance();
+		global $wpdb;
+
+		$placeholders = implode( ', ', array_fill( 0, count( $ids ), '%d' ) );
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- Live totals; placeholders are generated from a count, every value is bound.
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				sprintf(
+					'SELECT form_id, COUNT(*) as entries, COALESCE(SUM(amount - refunded_amount), 0) as revenue FROM %%i WHERE form_id IN ( %s ) AND payment_status = %%s GROUP BY form_id',
+					$placeholders
+				),
+				array_merge( [ $instance->get_tablename() ], $ids, [ 'completed' ] )
+			),
+			ARRAY_A
+		);
+
+		if ( ! is_array( $rows ) ) {
+			return $stats;
+		}
+
+		foreach ( $rows as $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+
+			$form_id = absint( $row['form_id'] ?? 0 );
+			if ( ! isset( $stats[ $form_id ] ) ) {
+				continue;
+			}
+
+			$stats[ $form_id ] = [
+				'entries' => (int) ( $row['entries'] ?? 0 ),
+				'revenue' => (float) ( $row['revenue'] ?? 0 ),
+			];
+		}
+
+		return $stats;
+	}
+
+	/**
+	 * Count donations matching the admin-list filters.
+	 *
+	 * Mirrors get_admin_list()'s WHERE clause, including the search term. The
+	 * older get_total_donations_by_status() ignores `$search`, so any searched
+	 * listing reported the unfiltered total and paginated against it.
+	 *
+	 * @param string $status      Payment status filter ('all' for no filter).
+	 * @param int    $campaign_id Campaign ID filter (0 for no filter).
+	 * @param string $search      Search term for donor_name, donor_email, or transaction_id.
+	 * @return int Matching row count.
+	 * @since 1.5.0
+	 */
+	public static function count_admin_list( $status = 'all', $campaign_id = 0, $search = '' ) {
+		$instance = self::get_instance();
+		global $wpdb;
+
+		$conditions = [ '1=1' ];
+		$args       = [ $instance->get_tablename() ];
+
+		if ( 'all' !== $status ) {
+			$conditions[] = 'payment_status = %s';
+			$args[]       = sanitize_text_field( $status );
+		}
+
+		if ( $campaign_id > 0 ) {
+			$conditions[] = 'campaign_id = %d';
+			$args[]       = absint( $campaign_id );
+		}
+
+		if ( ! empty( $search ) ) {
+			$conditions[] = '(donor_name LIKE %s OR donor_email LIKE %s OR transaction_id LIKE %s)';
+			$term         = '%' . $wpdb->esc_like( sanitize_text_field( $search ) ) . '%';
+			$args[]       = $term;
+			$args[]       = $term;
+			$args[]       = $term;
+		}
+
+		$where = implode( ' AND ', $conditions );
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where is built only from static placeholder fragments; every value is passed through prepare args.
+		$count = $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM %i WHERE {$where}", $args ) );
+
+		return is_numeric( $count ) ? (int) $count : 0;
 	}
 
 	/**

@@ -35,6 +35,9 @@ class Assets {
 	 */
 	public function __construct() {
 		add_action( 'enqueue_block_editor_assets', [ $this, 'enqueue_editor_assets' ] );
+		// The stylesheet is registered separately, on the hook WordPress replays
+		// inside the editor canvas iframe. See enqueue_editor_styles().
+		add_action( 'enqueue_block_assets', [ $this, 'enqueue_editor_styles' ] );
 		add_action( 'init', [ $this, 'register_form_settings_meta' ] );
 		add_action( 'init', [ $this, 'register_email_notifications_meta' ] );
 	}
@@ -46,28 +49,19 @@ class Assets {
 	 * @since 0.0.1
 	 */
 	public function enqueue_editor_assets() {
-		$screen = get_current_screen();
-
 		// Only load on donation form editor.
-		if ( ! $screen || Donation_Form::POST_TYPE !== $screen->post_type ) {
+		if ( ! $this->is_form_editor_screen() ) {
 			return;
 		}
 
-		// Get the asset file for dependencies.
-		$editor_asset_file = SUREDONATION_DIR . 'assets/build/editor/editor.asset.php';
-		$editor_asset      = file_exists( $editor_asset_file )
-			? include $editor_asset_file
-			: [
-				'dependencies' => [
-					'wp-plugins',
-					'wp-editor',
-					'wp-components',
-					'wp-data',
-					'wp-element',
-					'wp-i18n',
-				],
-				'version'      => SUREDONATION_VER,
-			];
+		// Core's bundled CodeMirror (CSS mode) backs the Custom CSS tab in the form
+		// settings dialog. Returns false when the user turned syntax highlighting
+		// off in their profile; the tab falls back to a plain textarea then.
+		wp_enqueue_code_editor( [ 'type' => 'text/css' ] );
+		wp_enqueue_script( 'wp-theme-plugin-editor' );
+		wp_enqueue_style( 'wp-codemirror' );
+
+		$editor_asset = $this->get_editor_asset();
 
 		// Editor plugin JS.
 		wp_enqueue_script(
@@ -78,13 +72,7 @@ class Assets {
 			true
 		);
 
-		// Editor styles.
-		wp_enqueue_style(
-			'suredonation-form-editor',
-			SUREDONATION_URL . 'assets/build/editor/editor.css',
-			[ 'wp-components' ],
-			$editor_asset['version']
-		);
+		// Editor styles are enqueued from enqueue_editor_styles(), not here.
 
 		// The OttoKit embed script (defines window.SureTriggers) is NOT enqueued
 		// here — it is remote executable JS and would load on every form-editor
@@ -135,6 +123,100 @@ class Assets {
 
 		// Set script translations.
 		wp_set_script_translations( 'suredonation-form-editor', 'suredonation' );
+	}
+
+	/**
+	 * Enqueue the form editor stylesheet.
+	 *
+	 * Split out from enqueue_editor_assets() because the two need different
+	 * hooks. `enqueue_block_editor_assets` only reaches the admin document, but
+	 * most of this stylesheet targets `.editor-styles-wrapper` — the block
+	 * canvas, which is an iframe. WordPress used to paper over that with a
+	 * compatibility pass that clones any outer stylesheet mentioning
+	 * `.editor-styles-wrapper` into the canvas, logging "<handle> was added to
+	 * the iframe incorrectly" for each one (see the block editor's `Iframe`
+	 * component). `enqueue_block_assets` is the supported hook instead:
+	 * core replays it inside _wp_get_iframed_editor_assets() to build the
+	 * canvas document, so the styles land there directly and the compatibility
+	 * pass skips the handle instead of cloning it.
+	 *
+	 * The hook fires for the admin document as well, so a single enqueue here
+	 * covers the editor chrome too and the handle stays `suredonation-form-editor`
+	 * — the id core matches on when deciding whether a clone is still needed.
+	 *
+	 * One consequence of the move: `enqueue_block_assets` reaches the admin
+	 * document only through wp_common_block_scripts_and_styles(), which bails when
+	 * `should_load_block_editor_scripts_and_styles` is filtered false in wp-admin.
+	 * Anything doing that also strips `wp-block-library` and visibly breaks core's
+	 * own editor, so it is not a case worth defending against here.
+	 *
+	 * @return void
+	 * @since x.x.x
+	 */
+	public function enqueue_editor_styles() {
+		// `enqueue_block_assets` also fires on the front end, where there is no
+		// editor to style.
+		if ( ! is_admin() || ! $this->is_form_editor_screen() ) {
+			return;
+		}
+
+		/*
+		 * No `wp-components` dependency. It is already in both documents ahead of
+		 * this sheet without being asked for: the admin page loads it as editor
+		 * chrome, and _wp_get_iframed_editor_assets() enqueues `wp-edit-blocks`
+		 * — whose dependencies include `wp-components` — before it fires
+		 * `enqueue_block_assets`. Declaring it would neither change the cascade nor
+		 * keep anything out of the canvas.
+		 */
+		wp_enqueue_style(
+			'suredonation-form-editor',
+			SUREDONATION_URL . 'assets/build/editor/editor.css',
+			[],
+			$this->get_editor_asset()['version']
+		);
+	}
+
+	/**
+	 * Whether the current admin screen is the donation form editor.
+	 *
+	 * @return bool
+	 * @since x.x.x
+	 */
+	private function is_form_editor_screen() {
+		// get_current_screen() lives in an admin include, so it is missing on the
+		// front end — where enqueue_block_assets also fires. Checked here rather
+		// than at each call site so the helper is safe for any caller.
+		if ( ! function_exists( 'get_current_screen' ) ) {
+			return false;
+		}
+
+		$screen = get_current_screen();
+
+		return $screen instanceof \WP_Screen && Donation_Form::POST_TYPE === $screen->post_type;
+	}
+
+	/**
+	 * Build metadata (dependencies and version) for the editor bundle.
+	 *
+	 * @return array{dependencies: array<int, string>, version: string}
+	 * @since x.x.x
+	 */
+	private function get_editor_asset() {
+		$editor_asset_file = SUREDONATION_DIR . 'assets/build/editor/editor.asset.php';
+
+		return file_exists( $editor_asset_file )
+			? include $editor_asset_file
+			: [
+				'dependencies' => [
+					'wp-plugins',
+					'wp-editor',
+					'wp-components',
+					'wp-data',
+					'wp-element',
+					'wp-i18n',
+				],
+				'version'      => SUREDONATION_VER,
+			];
 	}
 
 	/**

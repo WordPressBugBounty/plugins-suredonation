@@ -325,12 +325,40 @@ class Form_Styling {
 			$vars['--sd-btn-width']       = 'auto';
 		}
 
-		if ( empty( $vars ) ) {
+		/**
+		 * Filter the form style CSS custom properties before they are serialized
+		 * onto the `.sd-form-container` wrapper.
+		 *
+		 * Add-ons (e.g. SureDonation Pro) use this to contribute additional
+		 * `--sd-*` variables. Runs before the empty-check so an add-on can style a
+		 * form even when the free panel set nothing. Values must be pre-sanitized
+		 * CSS tokens — they are emitted verbatim inside the inline style attribute.
+		 *
+		 * @param array<string, string> $vars     Map of `--sd-*` variable => value.
+		 * @param int                   $form_id  Form post ID.
+		 * @param array<string, mixed>  $settings Merged free style settings.
+		 * @since 1.5.0
+		 */
+		$vars = apply_filters( 'suredonation_form_style_vars', $vars, (int) $form_id, $settings );
+
+		if ( ! is_array( $vars ) || empty( $vars ) ) {
 			return '';
 		}
 
 		$declarations = [];
 		foreach ( $vars as $name => $value ) {
+			// Defense-in-depth for the public filter above: only emit custom
+			// properties with scalar, declaration-safe values, so a
+			// non-sanitizing add-on callback cannot append arbitrary
+			// declarations or trigger array-to-string notices. Values are
+			// additionally escaped by the caller via esc_attr().
+			if (
+				! is_scalar( $value )
+				|| ! preg_match( '/^--[A-Za-z0-9_-]+$/', (string) $name )
+				|| preg_match( '/[;{}]/', (string) $value )
+			) {
+				continue;
+			}
 			$declarations[] = $name . ':' . $value;
 		}
 
@@ -408,7 +436,7 @@ class Form_Styling {
 	 * @return array<string, mixed>
 	 * @since 1.0.0
 	 */
-	private static function sanitize_box( $box, $fallback ) {
+	public static function sanitize_box( $box, $fallback ) {
 		if ( ! is_array( $box ) ) {
 			return $fallback;
 		}
@@ -424,19 +452,23 @@ class Form_Styling {
 	/**
 	 * Validate a CSS length (e.g. "10px", "1.5rem"); bare numbers become px.
 	 *
+	 * Negative values are rejected: every consumer here (padding, border
+	 * radius) is invalid with a negative length, which the browser would
+	 * silently drop.
+	 *
 	 * @param mixed $value Incoming value.
-	 * @return string Valid length, or '' when invalid/empty.
+	 * @return string Valid length, or '' when invalid/empty/negative.
 	 * @since 1.0.0
 	 */
-	private static function sanitize_length( $value ) {
+	public static function sanitize_length( $value ) {
 		if ( is_numeric( $value ) ) {
-			return ( 0 + $value ) . 'px';
+			return $value < 0 ? '' : ( 0 + $value ) . 'px';
 		}
 		$value = is_string( $value ) ? trim( $value ) : '';
 		if ( '' === $value ) {
 			return '';
 		}
-		return preg_match( '/^-?\d*\.?\d+(px|em|rem|%|vw|vh)$/', $value ) ? $value : '';
+		return preg_match( '/^\d*\.?\d+(px|em|rem|%|vw|vh)$/', $value ) ? $value : '';
 	}
 
 	/**
@@ -450,7 +482,7 @@ class Form_Styling {
 	 * @return string Valid color, or '' when invalid/empty.
 	 * @since 1.0.0
 	 */
-	private static function sanitize_color( $value ) {
+	public static function sanitize_color( $value ) {
 		$value = is_string( $value ) ? trim( $value ) : '';
 		if ( '' === $value ) {
 			return '';
@@ -490,7 +522,7 @@ class Form_Styling {
 	 * @return string Valid gradient, or '' when invalid/empty.
 	 * @since 1.0.0
 	 */
-	private static function sanitize_gradient( $value ) {
+	public static function sanitize_gradient( $value ) {
 		$value = is_string( $value ) ? trim( $value ) : '';
 		if ( '' === $value ) {
 			return '';

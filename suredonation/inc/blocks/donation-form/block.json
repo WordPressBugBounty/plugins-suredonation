@@ -10,7 +10,16 @@
 		"html": false,
 		"align": ["wide", "full"]
 	},
+	"example": {
+		"attributes": {
+			"preview": true
+		}
+	},
 	"attributes": {
+		"preview": {
+			"type": "boolean",
+			"default": false
+		},
 		"campaignId": {
 			"type": "number",
 			"default": 0

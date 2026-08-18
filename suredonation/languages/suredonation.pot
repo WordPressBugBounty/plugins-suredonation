@@ -2,14 +2,14 @@
 # This file is distributed under the GPL v2 or later.
 msgid ""
 msgstr ""
-"Project-Id-Version: SureDonation 1.4.0\n"
+"Project-Id-Version: SureDonation 1.5.0\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/suredonation\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-08-06T12:58:12+00:00\n"
+"POT-Creation-Date: 2026-08-18T08:01:52+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.11.0\n"
 "X-Domain: suredonation\n"
@@ -17,10 +17,10 @@ msgstr ""
 #. Plugin Name of the plugin
 #. Author of the plugin
 #: suredonation.php
-#: inc/abilities/runtime.php:58
-#: inc/admin/admin.php:355
-#: inc/admin/admin.php:356
-#: inc/blocks/register.php:263
+#: inc/abilities/runtime.php:83
+#: inc/admin/admin.php:387
+#: inc/admin/admin.php:388
+#: inc/blocks/register.php:310
 #: inc/page-builders/bricks/service-provider.php:85
 #: inc/page-builders/elementor/service-provider.php:102
 #: assets/build/admin/onboarding/index.js:1
@@ -39,418 +39,796 @@ msgstr ""
 msgid "A powerful donation management plugin for WordPress with campaign tracking, payment processing, and donor management."
 msgstr ""
 
-#: inc/abilities/config-ability.php:149
+#: inc/abilities/config-ability.php:235
 msgid "List campaigns"
 msgstr ""
 
-#: inc/abilities/config-ability.php:150
+#: inc/abilities/config-ability.php:236
 msgid "Returns a paginated list of fundraising campaigns with optional search, status filter, and sorting."
 msgstr ""
 
-#: inc/abilities/config-ability.php:158
+#: inc/abilities/config-ability.php:244
 msgid "Search campaigns by title."
 msgstr ""
 
-#: inc/abilities/config-ability.php:165
-msgid "Filter by post status."
+#: inc/abilities/config-ability.php:251
+msgid "Filter by status. \"publish\", \"draft\" and \"trash\" are WordPress post statuses; \"paused\" matches published campaigns whose campaign status is paused."
 msgstr ""
 
-#: inc/abilities/config-ability.php:171
-#: inc/abilities/config-ability.php:539
-#: inc/abilities/config-ability.php:786
+#: inc/abilities/config-ability.php:257
+#: inc/abilities/config-ability.php:718
+#: inc/abilities/config-ability.php:1238
 msgid "Column to sort by."
 msgstr ""
 
-#: inc/abilities/config-ability.php:177
-#: inc/abilities/config-ability.php:545
-#: inc/abilities/config-ability.php:792
+#: inc/abilities/config-ability.php:263
+#: inc/abilities/config-ability.php:724
+#: inc/abilities/config-ability.php:1244
 msgid "Sort direction."
 msgstr ""
 
-#: inc/abilities/config-ability.php:182
-#: inc/abilities/config-ability.php:550
-#: inc/abilities/config-ability.php:797
+#: inc/abilities/config-ability.php:268
+#: inc/abilities/config-ability.php:729
+#: inc/abilities/config-ability.php:1249
+#: inc/abilities/config-ability.php:1398
+#: inc/abilities/config-ability.php:1546
 msgid "Page number (1-based)."
 msgstr ""
 
-#: inc/abilities/config-ability.php:187
-#: inc/abilities/config-ability.php:555
-#: inc/abilities/config-ability.php:802
-#: inc/abilities/config-ability.php:962
+#: inc/abilities/config-ability.php:273
+#: inc/abilities/config-ability.php:734
+#: inc/abilities/config-ability.php:1254
+#: inc/abilities/config-ability.php:1403
+#: inc/abilities/config-ability.php:1541
 msgid "Results per page (max 100)."
 msgstr ""
 
-#: inc/abilities/config-ability.php:214
+#: inc/abilities/config-ability.php:311
 msgid "Total matching campaigns."
 msgstr ""
 
-#: inc/abilities/config-ability.php:218
-#: inc/abilities/config-ability.php:587
-#: inc/abilities/config-ability.php:690
-#: inc/abilities/config-ability.php:834
+#: inc/abilities/config-ability.php:315
+#: inc/abilities/config-ability.php:770
+#: inc/abilities/config-ability.php:901
+#: inc/abilities/config-ability.php:1289
+#: inc/abilities/config-ability.php:1559
 msgid "Total pages."
 msgstr ""
 
-#: inc/abilities/config-ability.php:229
+#: inc/abilities/config-ability.php:326
 msgid "Get campaign"
 msgstr ""
 
-#: inc/abilities/config-ability.php:230
+#: inc/abilities/config-ability.php:327
 msgid "Returns a single fundraising campaign by ID with real-time stats including total raised, donor count, and progress."
 msgstr ""
 
-#: inc/abilities/config-ability.php:239
+#: inc/abilities/config-ability.php:336
 msgid "The campaign ID."
 msgstr ""
 
-#: inc/abilities/config-ability.php:271
+#: inc/abilities/config-ability.php:379
 msgid "Create campaign"
 msgstr ""
 
-#: inc/abilities/config-ability.php:272
+#: inc/abilities/config-ability.php:380
 msgid "Creates a new fundraising campaign with title, description, goal settings, and optional fee coverage/terms configuration."
 msgstr ""
 
-#: inc/abilities/config-ability.php:281
-#: inc/abilities/config-ability.php:351
+#: inc/abilities/config-ability.php:389
+#: inc/abilities/config-ability.php:470
 msgid "Campaign title."
 msgstr ""
 
-#: inc/abilities/config-ability.php:286
-#: inc/abilities/config-ability.php:356
+#: inc/abilities/config-ability.php:394
+#: inc/abilities/config-ability.php:475
 msgid "Campaign description (HTML allowed)."
 msgstr ""
 
-#: inc/abilities/config-ability.php:293
+#: inc/abilities/config-ability.php:401
 msgid "Goal type: track by amount raised or donation count."
 msgstr ""
 
-#: inc/abilities/config-ability.php:297
+#: inc/abilities/config-ability.php:405
 msgid "Goal amount (0 for no goal)."
 msgstr ""
 
-#: inc/abilities/config-ability.php:304
-#: inc/abilities/config-ability.php:370
+#: inc/abilities/config-ability.php:412
+#: inc/abilities/config-ability.php:489
 msgid "Campaign status."
 msgstr ""
 
-#: inc/abilities/config-ability.php:309
+#: inc/abilities/config-ability.php:417
 msgid "Require terms acceptance before donating."
 msgstr ""
 
-#: inc/abilities/config-ability.php:314
-#: inc/abilities/config-ability.php:378
+#: inc/abilities/config-ability.php:422
+#: inc/abilities/config-ability.php:497
 msgid "Terms and conditions text."
 msgstr ""
 
-#: inc/abilities/config-ability.php:323
-#: inc/abilities/config-ability.php:445
+#: inc/abilities/config-ability.php:427
+#: inc/abilities/config-ability.php:501
+msgid "Message shown to the donor after a successful donation."
+msgstr ""
+
+#: inc/abilities/config-ability.php:432
+msgid "Attachment ID to use as the campaign featured image (0 for none)."
+msgstr ""
+
+#: inc/abilities/config-ability.php:441
+#: inc/abilities/config-ability.php:584
 msgid "New campaign ID."
 msgstr ""
 
-#: inc/abilities/config-ability.php:337
+#: inc/abilities/config-ability.php:456
 msgid "Update campaign"
 msgstr ""
 
-#: inc/abilities/config-ability.php:338
+#: inc/abilities/config-ability.php:457
 msgid "Updates an existing campaign. All fields except ID are optional — only provided fields are updated."
 msgstr ""
 
-#: inc/abilities/config-ability.php:347
+#: inc/abilities/config-ability.php:466
 msgid "Campaign ID to update."
 msgstr ""
 
-#: inc/abilities/config-ability.php:361
+#: inc/abilities/config-ability.php:480
 msgid "Goal type."
 msgstr ""
 
-#: inc/abilities/config-ability.php:365
+#: inc/abilities/config-ability.php:484
 msgid "Goal amount."
 msgstr ""
 
-#: inc/abilities/config-ability.php:374
+#: inc/abilities/config-ability.php:493
 msgid "Require terms acceptance."
 msgstr ""
 
-#: inc/abilities/config-ability.php:398
+#: inc/abilities/config-ability.php:505
+msgid "Attachment ID to use as the campaign featured image (0 clears it)."
+msgstr ""
+
+#: inc/abilities/config-ability.php:526
 msgid "Delete campaign"
 msgstr ""
 
-#: inc/abilities/config-ability.php:399
-msgid "Permanently deletes a campaign by ID. This action cannot be undone."
+#: inc/abilities/config-ability.php:527
+msgid "Permanently deletes a campaign by ID, along with its donation forms. Refused when the campaign has donations recorded against it, since those are financial records. This action cannot be undone."
 msgstr ""
 
-#: inc/abilities/config-ability.php:408
+#: inc/abilities/config-ability.php:536
 msgid "Campaign ID to delete."
 msgstr ""
 
-#: inc/abilities/config-ability.php:426
+#: inc/abilities/config-ability.php:547
+msgid "IDs of the campaign donation forms deleted alongside it."
+msgstr ""
+
+#: inc/abilities/config-ability.php:552
+msgid "Forms left in place because they still have donations recorded against them."
+msgstr ""
+
+#: inc/abilities/config-ability.php:560
+msgid "Permanent and not undoable. It also deletes the campaign's donation forms. Confirm with the user before executing."
+msgstr ""
+
+#: inc/abilities/config-ability.php:565
 msgid "Duplicate campaign"
 msgstr ""
 
-#: inc/abilities/config-ability.php:427
+#: inc/abilities/config-ability.php:566
 msgid "Creates a copy of an existing campaign as a draft. Copies title (with \" (Copy)\" suffix), description, and settings."
 msgstr ""
 
-#: inc/abilities/config-ability.php:436
+#: inc/abilities/config-ability.php:575
 msgid "Campaign ID to duplicate."
 msgstr ""
 
-#: inc/abilities/config-ability.php:458
+#: inc/abilities/config-ability.php:598
 msgid "Get campaign form locations"
 msgstr ""
 
-#: inc/abilities/config-ability.php:459
+#: inc/abilities/config-ability.php:599
 msgid "Finds all pages and posts where a campaign donation form block is embedded. Returns page IDs, titles, and edit/view URLs."
 msgstr ""
 
-#: inc/abilities/config-ability.php:468
+#: inc/abilities/config-ability.php:608
+#: inc/abilities/config-ability.php:650
 msgid "Campaign ID."
 msgstr ""
 
-#: inc/abilities/config-ability.php:512
+#: inc/abilities/config-ability.php:639
+msgid "Publish, draft or trash a campaign"
+msgstr ""
+
+#: inc/abilities/config-ability.php:640
+msgid "Changes a campaign's WordPress post status: publish makes it live, draft hides it, trash removes it from listings without deleting it. This is different from the campaign business status (active/paused/completed), which update-campaign sets via campaign_status."
+msgstr ""
+
+#: inc/abilities/config-ability.php:655
+msgid "The new post status."
+msgstr ""
+
+#: inc/abilities/config-ability.php:691
 msgid "List donations"
 msgstr ""
 
-#: inc/abilities/config-ability.php:513
+#: inc/abilities/config-ability.php:692
 msgid "Returns a paginated list of donations with optional search, status filter, campaign filter, and sorting."
 msgstr ""
 
-#: inc/abilities/config-ability.php:521
-msgid "Search donations by donor name or email."
+#: inc/abilities/config-ability.php:700
+msgid "Search donations by donor name, donor email, or transaction ID."
 msgstr ""
 
-#: inc/abilities/config-ability.php:528
+#: inc/abilities/config-ability.php:707
 msgid "Filter by payment status."
 msgstr ""
 
-#: inc/abilities/config-ability.php:533
-#: inc/abilities/config-ability.php:951
+#: inc/abilities/config-ability.php:712
+#: inc/abilities/config-ability.php:1530
 msgid "Filter by campaign ID (0 for all campaigns)."
 msgstr ""
 
-#: inc/abilities/config-ability.php:583
+#: inc/abilities/config-ability.php:766
 msgid "Total matching donations."
 msgstr ""
 
-#: inc/abilities/config-ability.php:598
+#: inc/abilities/config-ability.php:781
 msgid "Get donation"
 msgstr ""
 
-#: inc/abilities/config-ability.php:599
+#: inc/abilities/config-ability.php:782
 msgid "Returns a single donation by ID with full details including donor info, payment data, transaction ID, and activity logs."
 msgstr ""
 
-#: inc/abilities/config-ability.php:608
-#: inc/abilities/config-ability.php:655
-#: inc/abilities/config-ability.php:711
+#: inc/abilities/config-ability.php:791
+#: inc/abilities/config-ability.php:865
+#: inc/abilities/config-ability.php:922
+#: inc/abilities/config-ability.php:959
+#: inc/abilities/config-ability.php:999
+#: inc/abilities/config-ability.php:1141
 msgid "The donation ID."
 msgstr ""
 
-#: inc/abilities/config-ability.php:645
-msgid "Get donation notes"
+#: inc/abilities/config-ability.php:821
+msgid "Connected Stripe account that processed this donation."
 msgstr ""
 
-#: inc/abilities/config-ability.php:646
-msgid "Returns paginated notes for a donation. Notes are admin-added comments for internal tracking."
-msgstr ""
-
-#: inc/abilities/config-ability.php:660
-msgid "Page number."
-msgstr ""
-
-#: inc/abilities/config-ability.php:665
-msgid "Notes per page (max 100)."
-msgstr ""
-
-#: inc/abilities/config-ability.php:686
-msgid "Total notes."
-msgstr ""
-
-#: inc/abilities/config-ability.php:701
-msgid "Add donation note"
-msgstr ""
-
-#: inc/abilities/config-ability.php:702
-msgid "Adds an internal note to a donation for admin tracking purposes."
-msgstr ""
-
-#: inc/abilities/config-ability.php:715
-msgid "The note content."
-msgstr ""
-
-#: inc/abilities/config-ability.php:724
-msgid "The new note ID."
-msgstr ""
-
-#: inc/abilities/config-ability.php:769
-msgid "List donors"
-msgstr ""
-
-#: inc/abilities/config-ability.php:770
-msgid "Returns a paginated list of donors with optional status filter and sorting by name, total donated, donation count, or date."
-msgstr ""
-
-#: inc/abilities/config-ability.php:780
-msgid "Filter by donor status."
-msgstr ""
-
-#: inc/abilities/config-ability.php:830
-msgid "Total matching donors."
-msgstr ""
-
-#: inc/abilities/config-ability.php:845
-msgid "Get donor"
-msgstr ""
-
-#: inc/abilities/config-ability.php:846
-msgid "Returns a single donor by ID with full stats including total donated, donation count, largest donation, and donation dates."
+#: inc/abilities/config-ability.php:833
+msgid "Field values the donor submitted, as label/value/group triples."
 msgstr ""
 
 #: inc/abilities/config-ability.php:855
-msgid "The donor ID."
+msgid "Get donation notes"
 msgstr ""
 
-#: inc/abilities/config-ability.php:867
-msgid "Get donor by email"
+#: inc/abilities/config-ability.php:856
+msgid "Returns paginated notes for a donation. Notes are admin-added comments for internal tracking."
 msgstr ""
 
-#: inc/abilities/config-ability.php:868
-msgid "Looks up a donor by email address. Returns full donor details if found, or an error if no donor exists with that email."
+#: inc/abilities/config-ability.php:870
+msgid "Page number."
 msgstr ""
 
-#: inc/abilities/config-ability.php:877
-msgid "The donor email address."
+#: inc/abilities/config-ability.php:875
+msgid "Notes per page (max 100)."
 msgstr ""
 
-#: inc/abilities/config-ability.php:889
-msgid "Get top donors"
+#: inc/abilities/config-ability.php:897
+msgid "Total notes."
 msgstr ""
 
-#: inc/abilities/config-ability.php:890
-msgid "Returns top donors ranked by total donated amount. Useful for identifying major supporters and generating donor reports."
+#: inc/abilities/config-ability.php:912
+msgid "Add donation note"
 msgstr ""
 
-#: inc/abilities/config-ability.php:899
-msgid "Number of top donors to return (max 100)."
+#: inc/abilities/config-ability.php:913
+msgid "Adds an internal note to a donation for admin tracking purposes."
 msgstr ""
 
-#: inc/abilities/config-ability.php:941
-msgid "List donation forms"
+#: inc/abilities/config-ability.php:926
+msgid "The note content."
 msgstr ""
 
-#: inc/abilities/config-ability.php:942
-msgid "Returns donation forms with optional campaign filter and status filter. Forms are the front-end donation widgets linked to campaigns."
+#: inc/abilities/config-ability.php:935
+msgid "The new note ID."
 msgstr ""
 
-#: inc/abilities/config-ability.php:957
-msgid "Filter by form status."
+#: inc/abilities/config-ability.php:948
+msgid "Update donation status"
 msgstr ""
 
-#: inc/abilities/config-ability.php:994
-msgid "Get donation form"
+#: inc/abilities/config-ability.php:949
+msgid "Changes a donation's payment status. Use refund-donation instead when money should actually move: this only changes the record."
 msgstr ""
 
-#: inc/abilities/config-ability.php:995
-msgid "Returns a single donation form by ID with campaign association, status, and edit URL."
+#: inc/abilities/config-ability.php:964
+msgid "The new payment status."
+msgstr ""
+
+#: inc/abilities/config-ability.php:976
+msgid "False when the donation already had that status."
+msgstr ""
+
+#: inc/abilities/config-ability.php:988
+msgid "Refund donation"
+msgstr ""
+
+#: inc/abilities/config-ability.php:989
+msgid "Refunds a donation through the gateway that processed it (Stripe or PayPal), fully or partially. Moves real money and cannot be undone. Amounts are in the donation currency (for example 25.50), not cents. Omit the amount to refund everything still refundable. This also emails the donor a refund notification and fires any connected refund automations. For a recurring donation it refunds the one charge only and does not cancel the subscription."
 msgstr ""
 
 #: inc/abilities/config-ability.php:1004
-msgid "The donation form ID."
+msgid "Amount to refund in the donation currency. 0 or omitted refunds the full remaining balance."
 msgstr ""
 
-#: inc/abilities/config-ability.php:1041
-msgid "Get donation trends"
+#: inc/abilities/config-ability.php:1009
+msgid "Optional safety check. When supplied it must match the donation's gateway transaction ID."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1014
+msgid "Internal note recorded against the refund."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1024
+msgid "Amount refunded by this call, in the donation currency."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1029
+msgid "Total refunded against this donation so far."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1038
+msgid "Moves real money through the payment gateway and cannot be undone, emails the donor a refund notification, and does not cancel a subscription. Always confirm the donation and the amount with the user before executing."
 msgstr ""
 
 #: inc/abilities/config-ability.php:1042
-msgid "Returns donation trend data grouped by day, week, or month. Supports date range filtering. Useful for charts and analytics."
+msgid "Record a donation"
 msgstr ""
 
-#: inc/abilities/config-ability.php:1051
-msgid "Start date (YYYY-MM-DD). Empty for no lower bound."
+#: inc/abilities/config-ability.php:1043
+msgid "Records a donation taken outside the online checkout — a cheque, cash, or bank transfer. This does NOT charge anyone: it only creates the record. Never use it to take a card payment."
 msgstr ""
 
-#: inc/abilities/config-ability.php:1056
-msgid "End date (YYYY-MM-DD). Empty for no upper bound."
+#: inc/abilities/config-ability.php:1053
+msgid "Campaign the donation belongs to."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1057
+msgid "Donation amount in the store currency."
 msgstr ""
 
 #: inc/abilities/config-ability.php:1062
+#: inc/abilities/config-ability.php:1455
+msgid "Donor name."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1067
+#: inc/abilities/config-ability.php:1459
+msgid "Donor email address."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1072
+#: inc/abilities/config-ability.php:1463
+msgid "Donor phone number."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1077
+msgid "Comment left by the donor."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1083
+msgid "Status to record. Defaults to \"pending\" so recording a donation does not send donor receipts or fire completion automations; pass \"completed\" explicitly for a gift that has already cleared."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1089
+msgid "Donation type."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1094
+msgid "How the donation was taken (for example \"offline\")."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1099
+msgid "External reference, such as a cheque number."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1104
+msgid "Amount the donor added to cover processing fees."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1109
+msgid "Whether the donation should be shown anonymously."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1130
+msgid "Delete donation note"
+msgstr ""
+
+#: inc/abilities/config-ability.php:1131
+msgid "Permanently removes an internal note from a donation. Get the note ID from get-donation-notes first."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1145
+msgid "The note ID, as returned by get-donation-notes."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1160
+msgid "Permanently removes the note. Confirm with the user before executing."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1201
+msgid "List donors"
+msgstr ""
+
+#: inc/abilities/config-ability.php:1202
+msgid "Returns a paginated list of donors with optional search, status filter, campaign filter, date range, and sorting."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1211
+msgid "Search donors by name or email."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1216
+msgid "Only donors who gave to this campaign (0 for all campaigns)."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1221
+msgid "Only donors whose last donation was on or after this date (YYYY-MM-DD)."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1226
+msgid "Only donors whose last donation was on or before this date (YYYY-MM-DD)."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1232
+msgid "Filter by donor status."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1285
+msgid "Total matching donors."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1300
+msgid "Get donor"
+msgstr ""
+
+#: inc/abilities/config-ability.php:1301
+msgid "Returns a single donor by ID with full stats including total donated, donation count, largest donation, and donation dates."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1310
+#: inc/abilities/config-ability.php:1393
+#: inc/abilities/config-ability.php:1451
+msgid "The donor ID."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1322
+msgid "Get donor by email"
+msgstr ""
+
+#: inc/abilities/config-ability.php:1323
+msgid "Looks up a donor by email address. Returns full donor details if found, or an error if no donor exists with that email."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1332
+msgid "The donor email address."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1344
+msgid "Get top donors"
+msgstr ""
+
+#: inc/abilities/config-ability.php:1345
+msgid "Returns the top active donors ranked by total donated amount. Blocked and inactive donors are excluded. Useful for identifying major supporters and generating donor reports."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1354
+msgid "Number of top donors to return (max 100)."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1383
+msgid "Get donor donation history"
+msgstr ""
+
+#: inc/abilities/config-ability.php:1384
+msgid "Returns a paginated donation history for one donor, newest first."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1440
+msgid "Update donor"
+msgstr ""
+
+#: inc/abilities/config-ability.php:1441
+msgid "Updates a donor's contact details, status or tags. Only the fields you send are changed; everything else is left as-is. Donation totals are derived from donations and cannot be set here."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1467
+msgid "Donor company."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1471
+msgid "Donor address."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1476
+msgid "Donor status. Blocked donors are excluded from top-donor reports."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1481
+msgid "Replaces the donor's tags with this list."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1492
+msgid "Names of the fields this call changed."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1520
+msgid "List donation forms"
+msgstr ""
+
+#: inc/abilities/config-ability.php:1521
+msgid "Returns donation forms with optional campaign filter and status filter. Forms are the front-end donation widgets linked to campaigns."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1536
+msgid "Filter by form status."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1555
+msgid "Total matching forms."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1589
+msgid "Get donation form"
+msgstr ""
+
+#: inc/abilities/config-ability.php:1590
+msgid "Returns a single donation form by ID with campaign association, status, and edit URL."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1599
+#: inc/abilities/config-ability.php:1637
+#: inc/abilities/config-ability.php:1748
+msgid "The donation form ID."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1626
+msgid "Move a form to another campaign"
+msgstr ""
+
+#: inc/abilities/config-ability.php:1627
+msgid "Reassigns a donation form to a different campaign. Donations already recorded through the form keep their original campaign."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1641
+msgid "Campaign to attach the form to."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1669
+msgid "Duplicate donation form"
+msgstr ""
+
+#: inc/abilities/config-ability.php:1670
+msgid "Creates a copy of a donation form, including its fields and settings."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1680
+msgid "The donation form ID to copy."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1689
+msgid "The new form ID."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1703
+msgid "Set a campaign's default form"
+msgstr ""
+
+#: inc/abilities/config-ability.php:1704
+msgid "Chooses which donation form a campaign renders. A campaign can have several forms attached but renders only its default."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1714
+msgid "Form to make the default."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1718
+msgid "Campaign to set it on."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1737
+msgid "Trash, restore or delete a form"
+msgstr ""
+
+#: inc/abilities/config-ability.php:1738
+msgid "Moves a donation form to the trash, restores it, or deletes it permanently. Trashing is reversible; deleting is not. Donations already recorded through the form are never removed."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1753
+msgid "What to do with the form. \"delete\" is permanent."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1786
+msgid "Get donation trends"
+msgstr ""
+
+#: inc/abilities/config-ability.php:1787
+msgid "Returns donation trend data grouped by day, week, or month for a single currency. Supports date-range and campaign filtering; defaults to the last 30 days in the store currency. Useful for charts and analytics."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1796
+msgid "Start date (YYYY-MM-DD). Empty defaults to 30 days ago."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1801
+msgid "End date (YYYY-MM-DD). Empty defaults to today."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1807
 msgid "Group results by time period."
 msgstr ""
 
-#: inc/abilities/runtime.php:59
+#: inc/abilities/config-ability.php:1812
+#: inc/abilities/config-ability.php:1870
+#: inc/abilities/config-ability.php:1915
+#: inc/abilities/config-ability.php:1972
+msgid "Three-letter currency code to report on. Defaults to the store currency. Amounts across currencies are never summed together."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1817
+msgid "Limit to one campaign (0 for all campaigns)."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1823
+msgid "Report on test or live donations. Defaults to the store's current mode."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1844
+msgid "Start of the window actually queried."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1848
+msgid "End of the window actually queried."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1860
+msgid "Get donation dashboard stats"
+msgstr ""
+
+#: inc/abilities/config-ability.php:1861
+msgid "Returns the site-wide donation totals: number of donations, amount raised, unique donors, average and largest donation, and how many campaigns are published. The single best call for answering \"how are we doing?\"."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1876
+#: inc/abilities/config-ability.php:1921
+#: inc/abilities/config-ability.php:1978
+msgid "Report on test or live donations. Defaults to the store's current mode. Test and live figures are never summed together."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1900
+msgid "Get recent donations"
+msgstr ""
+
+#: inc/abilities/config-ability.php:1901
+msgid "Returns the most recent donations across all campaigns, newest first."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1910
+msgid "How many donations to return (max 100)."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1957
+msgid "Get top campaigns"
+msgstr ""
+
+#: inc/abilities/config-ability.php:1958
+msgid "Returns the campaigns that have raised the most, ranked by amount raised."
+msgstr ""
+
+#: inc/abilities/config-ability.php:1967
+msgid "How many campaigns to return (max 100)."
+msgstr ""
+
+#: inc/abilities/config-ability.php:2008
+msgid "Get donation settings"
+msgstr ""
+
+#: inc/abilities/config-ability.php:2009
+msgid "Returns the non-sensitive store settings: currency and how its symbol is positioned, whether payments are in test or live mode, and the donor/spam options. Payment credentials and the AI settings that gate these abilities are never returned."
+msgstr ""
+
+#: inc/abilities/config-ability.php:2024
+msgid "test or live. Global, not per gateway."
+msgstr ""
+
+#: inc/abilities/config-ability.php:2037
+msgid "Get payment gateway status"
+msgstr ""
+
+#: inc/abilities/config-ability.php:2038
+msgid "Returns which payment gateways are connected and whether the store is in test or live mode. Connection state only, never credentials. Useful for diagnosing why a donation form offers no payment options."
+msgstr ""
+
+#: inc/abilities/runtime.php:84
 msgid "Abilities for the SureDonation donation management plugin."
 msgstr ""
 
-#: inc/abilities/runtime.php:91
+#: inc/abilities/runtime.php:116
 msgid "SureDonation MCP Server"
 msgstr ""
 
-#: inc/abilities/runtime.php:92
+#: inc/abilities/runtime.php:117
 msgid "SureDonation MCP Server for donation management."
 msgstr ""
 
-#: inc/abilities/runtime.php:260
-#: inc/api/campaigns-api.php:443
+#: inc/abilities/runtime.php:316
+#: inc/api/campaigns-api.php:524
 msgid "Failed to create campaign."
 msgstr ""
 
-#: inc/abilities/runtime.php:277
-#: inc/api/campaigns-api.php:480
+#: inc/abilities/runtime.php:343
+#: inc/api/campaigns-api.php:575
 msgid "Campaign created successfully."
 msgstr ""
 
-#: inc/abilities/runtime.php:317
-#: inc/api/campaigns-api.php:531
+#: inc/abilities/runtime.php:394
+#: inc/api/campaigns-api.php:626
 msgid "Failed to update campaign."
 msgstr ""
 
-#: inc/abilities/runtime.php:346
-#: inc/api/campaigns-api.php:587
+#: inc/abilities/runtime.php:430
+#: inc/api/campaigns-api.php:682
 msgid "Campaign updated successfully."
 msgstr ""
 
-#: inc/abilities/runtime.php:368
-#: inc/api/campaigns-api.php:725
+#. translators: %d: number of donations recorded against the campaign.
+#: inc/abilities/runtime.php:460
+msgid "This campaign has %d donation(s) recorded against it and cannot be deleted through this ability, because the donation records are financial history. Archive the campaign by setting its status to completed instead."
+msgstr ""
+
+#: inc/abilities/runtime.php:507
+#: inc/api/campaigns-api.php:820
 #: assets/build/admin.js:10
 msgid "Failed to delete campaign."
 msgstr ""
 
-#: inc/abilities/runtime.php:373
+#: inc/abilities/runtime.php:516
 msgid "Campaign permanently deleted."
 msgstr ""
 
-#: inc/abilities/runtime.php:408
-#: inc/api/campaigns-api.php:679
+#: inc/abilities/runtime.php:551
+#: inc/api/campaigns-api.php:774
 #: assets/build/admin.js:10
 msgid "Failed to duplicate campaign."
 msgstr ""
 
-#: inc/abilities/runtime.php:420
-#: inc/api/campaigns-api.php:693
+#: inc/abilities/runtime.php:563
+#: inc/api/campaigns-api.php:788
 #: assets/build/admin.js:10
 msgid "Campaign duplicated successfully."
 msgstr ""
 
-#: inc/abilities/runtime.php:592
+#: inc/abilities/runtime.php:746
 #: inc/api/donations-api.php:1025
-#: assets/build/admin.js:55
+#: assets/build/admin.js:59
 msgid "Failed to add note."
 msgstr ""
 
-#: inc/abilities/runtime.php:597
+#: inc/abilities/runtime.php:751
 #: inc/api/donations-api.php:1033
-#: assets/build/admin.js:55
+#: assets/build/admin.js:59
 msgid "Note added successfully."
 msgstr ""
 
-#: inc/abilities/runtime.php:680
+#: inc/abilities/runtime.php:837
 msgid "A valid email address is required."
 msgstr ""
 
-#: inc/abilities/runtime.php:685
-#: inc/abilities/runtime.php:1157
+#: inc/abilities/runtime.php:842
+#: inc/abilities/runtime.php:2218
 #: inc/api/donors-api.php:317
 #: inc/api/donors-api.php:345
 #: inc/api/donors-api.php:542
@@ -459,12 +837,16 @@ msgstr ""
 msgid "Donor not found."
 msgstr ""
 
-#: inc/abilities/runtime.php:796
+#: inc/abilities/runtime.php:969
 #: inc/admin/admin-ajax.php:134
 msgid "Invalid form ID."
 msgstr ""
 
-#: inc/abilities/runtime.php:801
+#: inc/abilities/runtime.php:974
+#: inc/abilities/runtime.php:1359
+#: inc/abilities/runtime.php:1391
+#: inc/abilities/runtime.php:1433
+#: inc/abilities/runtime.php:1471
 #: inc/api/forms-api.php:248
 #: inc/api/forms-api.php:294
 #: inc/api/forms-api.php:324
@@ -472,45 +854,149 @@ msgstr ""
 msgid "Form not found."
 msgstr ""
 
-#: inc/abilities/runtime.php:899
+#: inc/abilities/runtime.php:1002
+#: inc/api/donations-api.php:1076
+#: assets/build/admin.js:59
+msgid "Note deleted successfully."
+msgstr ""
+
+#: inc/abilities/runtime.php:1030
+msgid "The donation already has that status."
+msgstr ""
+
+#: inc/abilities/runtime.php:1041
+msgid "Donation status updated."
+msgstr ""
+
+#: inc/abilities/runtime.php:1069
+msgid "This donation has no gateway transaction to refund."
+msgstr ""
+
+#: inc/abilities/runtime.php:1081
+msgid "The supplied transaction ID does not match this donation."
+msgstr ""
+
+#. translators: 1: requested amount, 2: refundable amount, 3: currency code.
+#: inc/abilities/runtime.php:1099
+msgid "Requested refund of %1$s exceeds the %2$s %3$s still refundable on this donation."
+msgstr ""
+
+#: inc/abilities/runtime.php:1128
+msgid "Refund processed."
+msgstr ""
+
+#: inc/abilities/runtime.php:1153
+msgid "The donation amount must be greater than zero."
+msgstr ""
+
+#: inc/abilities/runtime.php:1164
+#: inc/abilities/runtime.php:1292
+msgid "A valid donor email address is required."
+msgstr ""
+
+#: inc/abilities/runtime.php:1195
+msgid "Donation recorded successfully."
+msgstr ""
+
+#: inc/abilities/runtime.php:1226
+msgid "The campaign already has that status."
+msgstr ""
+
+#: inc/abilities/runtime.php:1237
+msgid "Campaign status updated."
+msgstr ""
+
+#: inc/abilities/runtime.php:1303
+#: inc/api/donors-api.php:390
+msgid "Invalid donor status."
+msgstr ""
+
+#: inc/abilities/runtime.php:1317
+msgid "Provide at least one donor field to update."
+msgstr ""
+
+#: inc/abilities/runtime.php:1327
+msgid "The donor could not be updated. If you changed the email address, another donor may already use it."
+msgstr ""
+
+#: inc/abilities/runtime.php:1337
+#: inc/api/donors-api.php:413
+#: assets/build/admin.js:74
+msgid "Donor updated successfully."
+msgstr ""
+
+#: inc/abilities/runtime.php:1370
+#: inc/abilities/runtime.php:1522
+#: inc/api/forms-api.php:337
+msgid "Form updated successfully."
+msgstr ""
+
+#: inc/abilities/runtime.php:1411
+msgid "Form duplicated successfully."
+msgstr ""
+
+#: inc/abilities/runtime.php:1449
+#: inc/api/forms-api.php:274
+#: assets/build/admin.js:29
+msgid "Default form updated."
+msgstr ""
+
+#. translators: %d: number of donations recorded through the form.
+#: inc/abilities/runtime.php:1485
+msgid "This form has %d donation(s) recorded through it and cannot be permanently deleted through this ability, because those records are financial history. Use the \"trash\" action instead, which is reversible."
+msgstr ""
+
+#: inc/abilities/runtime.php:1512
+msgid "The form action could not be completed."
+msgstr ""
+
+#: inc/abilities/runtime.php:1551
+msgid "The featured image must be the ID of an image in the media library."
+msgstr ""
+
+#: inc/abilities/runtime.php:1894
 msgid "Inputs not parsed."
 msgstr ""
 
 #. translators: %s: property name
-#: inc/abilities/runtime.php:909
+#: inc/abilities/runtime.php:1905
 msgid "Property %s not found."
 msgstr ""
 
 #. translators: %s: field name
-#: inc/abilities/runtime.php:977
+#: inc/abilities/runtime.php:1996
 msgid "Required field %s is missing."
 msgstr ""
 
 #. translators: %s: field name
-#: inc/abilities/runtime.php:1041
+#: inc/abilities/runtime.php:2065
 msgid "Invalid value for %s."
 msgstr ""
 
-#: inc/abilities/runtime.php:1110
-#: inc/api/campaigns-api.php:715
+#: inc/abilities/runtime.php:2134
+msgid "The request could not be completed because of an internal error."
+msgstr ""
+
+#: inc/abilities/runtime.php:2171
+#: inc/api/campaigns-api.php:810
 msgid "Invalid campaign ID."
 msgstr ""
 
-#: inc/abilities/runtime.php:1115
-#: inc/api/campaigns-api.php:277
-#: inc/api/campaigns-api.php:312
-#: inc/api/campaigns-api.php:502
-#: inc/api/campaigns-api.php:610
-#: inc/api/campaigns-api.php:655
-#: inc/api/campaigns-api.php:860
+#: inc/abilities/runtime.php:2176
+#: inc/api/campaigns-api.php:306
+#: inc/api/campaigns-api.php:341
+#: inc/api/campaigns-api.php:597
+#: inc/api/campaigns-api.php:705
+#: inc/api/campaigns-api.php:750
+#: inc/api/campaigns-api.php:955
 msgid "Campaign not found."
 msgstr ""
 
-#: inc/abilities/runtime.php:1131
+#: inc/abilities/runtime.php:2192
 msgid "Invalid donation ID."
 msgstr ""
 
-#: inc/abilities/runtime.php:1136
+#: inc/abilities/runtime.php:2197
 #: inc/api/donations-api.php:301
 #: inc/api/donations-api.php:508
 #: inc/api/donations-api.php:584
@@ -523,8 +1009,12 @@ msgstr ""
 msgid "Donation not found."
 msgstr ""
 
-#: inc/abilities/runtime.php:1152
+#: inc/abilities/runtime.php:2213
 msgid "Invalid donor ID."
+msgstr ""
+
+#: inc/abilities/runtime.php:2275
+msgid "The request could not be completed."
 msgstr ""
 
 #: inc/admin/admin-ajax.php:53
@@ -577,79 +1067,79 @@ msgstr ""
 msgid "John Doe"
 msgstr ""
 
-#: inc/admin/admin-bar.php:94
+#: inc/admin/admin-bar.php:102
 msgid "SureDonation: Test Mode"
 msgstr ""
 
-#: inc/admin/admin-bar.php:95
+#: inc/admin/admin-bar.php:103
 msgid "SureDonation: Live"
 msgstr ""
 
-#: inc/admin/admin-bar.php:97
+#: inc/admin/admin-bar.php:105
 msgid "SureDonation is in test mode — no real payments are being accepted. Click to switch to live mode."
 msgstr ""
 
-#: inc/admin/admin-bar.php:98
+#: inc/admin/admin-bar.php:106
 msgid "SureDonation is in live mode — real payments are being accepted."
 msgstr ""
 
 #. translators: the <a></a> tags wrap the inline link text and must be kept intact.
-#: inc/admin/admin.php:77
+#: inc/admin/admin.php:79
 msgid "No payment gateway is connected, so your forms cannot accept donations yet. <a>Set up a payment gateway</a> to get started."
 msgstr ""
 
 #. translators: the <a></a> tags wrap the inline link text and must be kept intact.
-#: inc/admin/admin.php:95
+#: inc/admin/admin.php:97
 msgid "Webhooks keep SureDonation in sync with Stripe by automatically updating donation and subscription data. Please <a>configure</a> the webhook."
 msgstr ""
 
 #. translators: the <a></a> tags wrap the inline link text and must be kept intact.
-#: inc/admin/admin.php:113
+#: inc/admin/admin.php:115
 msgid "SureDonation is in test mode, so no real donations are being processed. <a>Switch to live mode</a> to start accepting them."
 msgstr ""
 
-#: inc/admin/admin.php:141
+#: inc/admin/admin.php:143
 msgid "When a Phone field with automatic country detection is used, this site sends the visitor’s IP address to a third-party service (ipapi.co) to determine their country code. The IP address is not stored for this purpose; the resulting country code is cached temporarily. Automatic detection can be disabled per Phone field, or site-wide via the “suredonation_phone_geo_enabled” filter."
 msgstr ""
 
-#: inc/admin/admin.php:435
+#: inc/admin/admin.php:467
 msgid "SEO Made Easy for Your Website"
 msgstr ""
 
-#: inc/admin/admin.php:436
+#: inc/admin/admin.php:468
 msgid "Beautiful pages, persuasive content, and custom code in seconds. The possibilities are endless!"
 msgstr ""
 
-#: inc/admin/admin.php:479
-#: assets/build/admin.js:104
+#: inc/admin/admin.php:511
+#: assets/build/admin.js:108
 msgid "Dashboard"
 msgstr ""
 
-#: inc/admin/admin.php:483
-#: inc/campaigns/campaign-cpt.php:62
+#: inc/admin/admin.php:515
+#: inc/campaigns/campaign-cpt.php:73
 #: assets/build/admin.js:10
-#: assets/build/admin.js:93
-#: assets/build/admin.js:94
+#: assets/build/admin.js:97
 #: assets/build/admin.js:98
 #: assets/build/admin.js:102
-#: assets/build/admin.js:104
+#: assets/build/admin.js:106
+#: assets/build/admin.js:108
 #: assets/build/admin/onboarding/index.js:4
 #: assets/build/admin/onboarding/index.js:8
 msgid "Campaigns"
 msgstr ""
 
-#: inc/admin/admin.php:487
+#: inc/admin/admin.php:519
 #: inc/blocks/campaign-stats/block.php:91
 #: inc/page-builders/bricks/elements/campaign-stats.php:82
 #: inc/page-builders/elementor/widgets/campaign-stats-widget.php:77
 #: assets/build/admin.js:13
-#: assets/build/admin.js:91
-#: assets/build/admin.js:94
 #: assets/build/admin.js:95
-#: assets/build/admin.js:96
 #: assets/build/admin.js:98
+#: assets/build/admin.js:99
+#: assets/build/admin.js:100
 #: assets/build/admin.js:102
-#: assets/build/admin.js:104
+#: assets/build/admin.js:106
+#: assets/build/admin.js:108
 #: assets/build/admin/onboarding/index.js:1
 #: assets/build/admin/onboarding/index.js:2
 #: assets/build/admin/onboarding/index.js:4
@@ -658,18 +1148,18 @@ msgstr ""
 msgid "Donations"
 msgstr ""
 
-#: inc/admin/admin.php:491
+#: inc/admin/admin.php:523
 #: inc/blocks/campaign-stats/block.php:86
 #: inc/page-builders/bricks/elements/campaign-stats.php:81
 #: inc/page-builders/elementor/widgets/campaign-stats-widget.php:76
-#: assets/build/admin.js:92
-#: assets/build/admin.js:94
-#: assets/build/admin.js:95
 #: assets/build/admin.js:96
 #: assets/build/admin.js:98
+#: assets/build/admin.js:99
+#: assets/build/admin.js:100
 #: assets/build/admin.js:102
-#: assets/build/admin.js:104
-#: assets/build/admin.js:107
+#: assets/build/admin.js:106
+#: assets/build/admin.js:108
+#: assets/build/admin.js:111
 #: assets/build/admin/onboarding/index.js:1
 #: assets/build/admin/onboarding/index.js:2
 #: assets/build/admin/onboarding/index.js:4
@@ -678,28 +1168,28 @@ msgstr ""
 msgid "Donors"
 msgstr ""
 
-#: inc/admin/admin.php:495
-#: assets/build/admin.js:70
-#: assets/build/admin.js:104
+#: inc/admin/admin.php:527
+#: assets/build/admin.js:74
+#: assets/build/admin.js:108
 msgid "Reports"
 msgstr ""
 
-#: inc/admin/admin.php:499
-#: assets/build/admin.js:94
-#: assets/build/admin.js:104
+#: inc/admin/admin.php:531
+#: assets/build/admin.js:98
+#: assets/build/admin.js:108
 msgid "Settings"
 msgstr ""
 
-#: inc/admin/admin.php:519
-#: inc/admin/admin.php:520
+#: inc/admin/admin.php:551
+#: inc/admin/admin.php:552
 msgid "SureDonation Setup"
 msgstr ""
 
-#: inc/admin/analytics.php:146
+#: inc/admin/analytics.php:152
 msgid "Quick Feedback"
 msgstr ""
 
-#: inc/admin/analytics.php:148
+#: inc/admin/analytics.php:154
 msgid "If you have a moment, please share why you are deactivating SureDonation:"
 msgstr ""
 
@@ -829,23 +1319,23 @@ msgstr ""
 msgid "Your generous contribution will make a real difference. A confirmation email has been sent to you."
 msgstr ""
 
-#: inc/api/campaigns-api.php:626
+#: inc/api/campaigns-api.php:721
 #: assets/build/admin.js:10
 msgid "Failed to update campaign status."
 msgstr ""
 
-#: inc/api/campaigns-api.php:634
+#: inc/api/campaigns-api.php:729
 #: assets/build/admin.js:10
 msgid "Campaign status updated successfully."
 msgstr ""
 
-#: inc/api/campaigns-api.php:733
+#: inc/api/campaigns-api.php:828
 #: assets/build/admin.js:10
 msgid "Campaign deleted successfully."
 msgstr ""
 
 #. translators: %1$d: success count, %2$d: error count.
-#: inc/api/campaigns-api.php:791
+#: inc/api/campaigns-api.php:886
 #: inc/api/donations-api.php:693
 msgid "Bulk action completed. Success: %1$d, Failed: %2$d"
 msgstr ""
@@ -863,17 +1353,17 @@ msgid "Donation updated successfully."
 msgstr ""
 
 #: inc/api/donations-api.php:602
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "Donation status updated successfully."
 msgstr ""
 
 #: inc/api/donations-api.php:623
-#: assets/build/admin.js:25
+#: assets/build/admin.js:29
 msgid "Failed to delete donation."
 msgstr ""
 
 #: inc/api/donations-api.php:631
-#: assets/build/admin.js:25
+#: assets/build/admin.js:29
 msgid "Donation deleted successfully."
 msgstr ""
 
@@ -926,12 +1416,12 @@ msgid "Log entry not found."
 msgstr ""
 
 #: inc/api/donations-api.php:945
-#: assets/build/admin.js:55
+#: assets/build/admin.js:59
 msgid "Failed to delete log entry."
 msgstr ""
 
 #: inc/api/donations-api.php:953
-#: assets/build/admin.js:55
+#: assets/build/admin.js:59
 msgid "Log entry deleted successfully."
 msgstr ""
 
@@ -939,31 +1429,17 @@ msgstr ""
 msgid "Note not found or could not be deleted."
 msgstr ""
 
-#: inc/api/donations-api.php:1076
-#: assets/build/admin.js:55
-msgid "Note deleted successfully."
-msgstr ""
-
 #: inc/api/donors-api.php:363
 msgid "Please provide a valid email address."
 msgstr ""
 
-#: inc/api/donors-api.php:390
-msgid "Invalid donor status."
-msgstr ""
-
-#: inc/api/donors-api.php:413
-#: assets/build/admin.js:70
-msgid "Donor updated successfully."
-msgstr ""
-
 #: inc/api/donors-api.php:434
-#: assets/build/admin.js:55
+#: assets/build/admin.js:59
 msgid "Failed to delete donor."
 msgstr ""
 
 #: inc/api/donors-api.php:442
-#: assets/build/admin.js:55
+#: assets/build/admin.js:59
 msgid "Donor deleted successfully."
 msgstr ""
 
@@ -979,7 +1455,7 @@ msgstr ""
 #: inc/api/donors-api.php:650
 #: inc/api/donors-api.php:758
 #: assets/build/admin.js:1
-#: assets/build/admin.js:38
+#: assets/build/admin.js:42
 msgid "ID"
 msgstr ""
 
@@ -1013,7 +1489,7 @@ msgstr ""
 #: inc/import-export/import/column-map.php:80
 #: inc/import-export/import/column-map.php:206
 #: inc/privacy/privacy-data.php:112
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 #: assets/build/blocks.js:1
 msgid "Address"
 msgstr ""
@@ -1025,16 +1501,16 @@ msgstr ""
 #: assets/build/admin.js:1
 #: assets/build/admin.js:10
 #: assets/build/admin.js:13
-#: assets/build/admin.js:26
-#: assets/build/admin.js:39
-#: assets/build/admin.js:52
+#: assets/build/admin.js:30
+#: assets/build/admin.js:43
+#: assets/build/admin.js:56
 #: assets/build/editor/editor.js:1
 msgid "Status"
 msgstr ""
 
 #: inc/api/donors-api.php:657
 #: inc/import-export/import/column-map.php:221
-#: assets/build/admin.js:58
+#: assets/build/admin.js:62
 msgid "Total Donated"
 msgstr ""
 
@@ -1055,7 +1531,7 @@ msgstr ""
 
 #: inc/api/donors-api.php:661
 #: inc/import-export/import/column-map.php:241
-#: assets/build/admin.js:64
+#: assets/build/admin.js:68
 msgid "Last Donation"
 msgstr ""
 
@@ -1070,16 +1546,15 @@ msgid "Failed to generate CSV."
 msgstr ""
 
 #: inc/api/donors-api.php:759
-#: inc/campaigns/campaign-cpt.php:63
-#: inc/campaigns/campaign-cpt.php:90
+#: inc/campaigns/campaign-cpt.php:104
 #: inc/import-export/import/column-map.php:85
 #: inc/page-builders/bricks/base-element.php:137
 #: inc/page-builders/elementor/base-widget.php:93
-#: assets/build/admin.js:38
-#: assets/build/admin.js:55
-#: assets/build/admin.js:67
-#: assets/build/admin.js:95
-#: assets/build/admin.js:96
+#: assets/build/admin.js:42
+#: assets/build/admin.js:59
+#: assets/build/admin.js:71
+#: assets/build/admin.js:99
+#: assets/build/admin.js:100
 #: assets/build/admin/onboarding/index.js:1
 #: assets/build/admin/onboarding/index.js:2
 #: assets/build/blocks/donation-form/editor.js:2
@@ -1091,8 +1566,8 @@ msgstr ""
 #: inc/import-export/import/column-map.php:50
 #: inc/import-export/import/column-map.php:424
 #: inc/privacy/privacy-data.php:128
-#: assets/build/admin.js:52
-#: assets/build/admin.js:70
+#: assets/build/admin.js:56
+#: assets/build/admin.js:74
 msgid "Amount"
 msgstr ""
 
@@ -1100,7 +1575,7 @@ msgstr ""
 #: inc/import-export/import/column-map.php:95
 #: inc/import-export/import/column-map.php:427
 #: inc/privacy/privacy-data.php:129
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "Currency"
 msgstr ""
 
@@ -1112,16 +1587,16 @@ msgstr ""
 #: inc/api/donors-api.php:764
 #: inc/helper.php:1014
 #: inc/helper.php:1091
-#: inc/helper.php:1325
-#: inc/pdf/receipt-generator.php:274
-#: assets/build/admin.js:52
+#: inc/helper.php:1338
+#: inc/pdf/receipt-generator.php:394
+#: assets/build/admin.js:56
 msgid "Payment Method"
 msgstr ""
 
 #: inc/api/donors-api.php:765
 #: inc/import-export/import/column-map.php:165
 #: inc/import-export/import/column-map.php:439
-#: inc/pdf/receipt-generator.php:287
+#: inc/pdf/receipt-generator.php:407
 #: inc/privacy/privacy-data.php:131
 msgid "Date"
 msgstr ""
@@ -1129,7 +1604,7 @@ msgstr ""
 #: inc/api/donors-api.php:839
 #: inc/api/import-export-api.php:138
 #: inc/api/import-givewp-api.php:191
-#: inc/api/onboarding-api.php:98
+#: inc/api/onboarding-api.php:177
 msgid "Invalid or missing nonce."
 msgstr ""
 
@@ -1150,15 +1625,6 @@ msgstr ""
 
 #: inc/api/forms-api.php:264
 msgid "This form does not belong to the selected campaign."
-msgstr ""
-
-#: inc/api/forms-api.php:274
-#: assets/build/admin.js:25
-msgid "Default form updated."
-msgstr ""
-
-#: inc/api/forms-api.php:337
-msgid "Form updated successfully."
 msgstr ""
 
 #: inc/api/forms-api.php:358
@@ -1250,7 +1716,7 @@ msgid "No settings were found in the file."
 msgstr ""
 
 #: inc/api/import-export-api.php:663
-#: assets/build/admin.js:94
+#: assets/build/admin.js:98
 msgid "Settings imported."
 msgstr ""
 
@@ -1294,12 +1760,12 @@ msgstr ""
 msgid "Import session not found or already completed."
 msgstr ""
 
-#: inc/api/onboarding-api.php:164
+#: inc/api/onboarding-api.php:243
 #: assets/build/admin/onboarding/index.js:10
 msgid "Campaign name is required."
 msgstr ""
 
-#: inc/api/onboarding-api.php:201
+#: inc/api/onboarding-api.php:280
 #: assets/build/admin/onboarding/index.js:10
 msgid "Could not create the campaign."
 msgstr ""
@@ -1333,12 +1799,16 @@ msgstr ""
 
 #: inc/api/settings-api.php:624
 #: inc/api/settings-api.php:680
-#: assets/build/admin.js:91
+#: assets/build/admin.js:95
 msgid "Settings saved"
 msgstr ""
 
 #: inc/blocks/campaign-donate-button/block.php:43
 #: inc/blocks/campaign-donations/block.php:75
+#: inc/campaign-templates/campaign-templates.php:187
+#: inc/campaign-templates/templates/animal-rescue/template.php:25
+#: inc/campaign-templates/templates/donate-for-a-cause/template.php:25
+#: inc/campaign-templates/templates/medical/template.php:26
 #: inc/page-builders/bricks/elements/campaign-donate-button.php:69
 #: inc/page-builders/bricks/elements/campaign-donate-button.php:89
 #: inc/page-builders/bricks/elements/campaign-donations.php:93
@@ -1347,8 +1817,8 @@ msgstr ""
 #: inc/page-builders/elementor/widgets/campaign-donate-button-widget.php:87
 #: inc/page-builders/elementor/widgets/campaign-donations-widget.php:102
 #: inc/page-builders/elementor/widgets/campaign-donations-widget.php:122
-#: inc/post-types/donation-form.php:749
-#: inc/post-types/donation-form.php:847
+#: inc/post-types/donation-form.php:827
+#: inc/post-types/donation-form.php:925
 msgid "Donate"
 msgstr ""
 
@@ -1374,8 +1844,8 @@ msgstr ""
 #: inc/import-export/import/column-map.php:130
 #: inc/import-export/import/column-map.php:436
 #: assets/build/admin.js:1
-#: assets/build/admin.js:38
-#: assets/build/admin.js:52
+#: assets/build/admin.js:42
+#: assets/build/admin.js:56
 msgid "Anonymous"
 msgstr ""
 
@@ -1489,7 +1959,7 @@ msgstr ""
 #: inc/page-builders/bricks/elements/campaign-stats.php:80
 #: inc/page-builders/elementor/widgets/campaign-stats-widget.php:75
 #: assets/build/admin.js:1
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 #: assets/build/campaign-blocks.js:1
 msgid "Total Raised"
 msgstr ""
@@ -1504,7 +1974,7 @@ msgstr ""
 #: inc/blocks/campaign-stats/block.php:97
 #: inc/page-builders/bricks/elements/campaign-stats.php:78
 #: inc/page-builders/elementor/widgets/campaign-stats-widget.php:73
-#: assets/build/admin.js:64
+#: assets/build/admin.js:68
 #: assets/build/campaign-blocks.js:1
 msgid "Average Donation"
 msgstr ""
@@ -1536,153 +2006,397 @@ msgstr ""
 msgid "This campaign is not currently accepting donations."
 msgstr ""
 
-#: inc/blocks/register.php:247
+#: inc/blocks/register.php:294
 msgid "General Fields"
 msgstr ""
 
-#: inc/blocks/register.php:565
-#: inc/helper.php:1208
+#: inc/blocks/register.php:624
+#: inc/helper.php:1221
 #: inc/payments/payment-helper.php:898
-#: assets/build/admin.js:71
+#: assets/build/admin.js:75
 msgid "Stripe"
 msgstr ""
 
-#: inc/blocks/register.php:570
+#: inc/blocks/register.php:629
 #: inc/payments/payment-helper.php:904
-#: assets/build/admin.js:74
-#: assets/build/admin.js:91
+#: assets/build/admin.js:78
+#: assets/build/admin.js:95
 msgid "Offline Donations"
 msgstr ""
 
-#: inc/campaigns/campaign-cpt.php:60
+#: inc/campaign-templates/campaign-templates.php:186
+#: inc/post-types/donation-form.php:783
+#: inc/post-types/donation-form.php:877
+msgid "Select Donation Amount"
+msgstr ""
+
+#: inc/campaign-templates/campaign-templates.php:203
+#: inc/post-types/donation-form.php:763
+#: inc/post-types/donation-form.php:853
+msgid "Full Name"
+msgstr ""
+
+#: inc/campaign-templates/campaign-templates.php:205
+#: inc/post-types/donation-form.php:765
+#: inc/post-types/donation-form.php:855
+msgid "Enter your full name"
+msgstr ""
+
+#: inc/campaign-templates/campaign-templates.php:212
+#: inc/campaign-templates/templates/buy-me-a-coffee/template.php:46
+#: inc/post-types/donation-form.php:773
+#: inc/post-types/donation-form.php:865
+#: assets/build/admin.js:74
+#: assets/build/admin/onboarding/index.js:10
+msgid "Email Address"
+msgstr ""
+
+#: inc/campaign-templates/campaign-templates.php:214
+#: inc/campaign-templates/templates/buy-me-a-coffee/template.php:48
+#: inc/post-types/donation-form.php:775
+#: inc/post-types/donation-form.php:867
+msgid "Enter your email"
+msgstr ""
+
+#: inc/campaign-templates/campaign-templates.php:353
+#: assets/build/admin.js:10
+msgid "Start from scratch"
+msgstr ""
+
+#: inc/campaign-templates/campaign-templates.php:354
+#: inc/campaign-templates/templates/donate-for-a-cause/template.php:15
+#: assets/build/blocks.js:1
+#: assets/build/editor/editor.js:1
+msgid "General"
+msgstr ""
+
+#: inc/campaign-templates/campaign-templates.php:355
+msgid "A blank donation campaign with the standard form."
+msgstr ""
+
+#: inc/campaign-templates/templates/animal-rescue/template.php:14
+msgid "Animal Rescue"
+msgstr ""
+
+#: inc/campaign-templates/templates/animal-rescue/template.php:15
+msgid "Animal"
+msgstr ""
+
+#: inc/campaign-templates/templates/animal-rescue/template.php:16
+msgid "Raise funds to rescue, shelter, and care for animals."
+msgstr ""
+
+#: inc/campaign-templates/templates/animal-rescue/template.php:17
+msgid "Help us rescue animals in need"
+msgstr ""
+
+#: inc/campaign-templates/templates/animal-rescue/template.php:18
+msgid "Share your rescue mission and how donations feed, treat, and rehome animals."
+msgstr ""
+
+#: inc/campaign-templates/templates/buy-me-a-coffee/template.php:18
+#: inc/campaign-templates/templates/buy-me-a-coffee/template.php:21
+msgid "Buy me a coffee"
+msgstr ""
+
+#: inc/campaign-templates/templates/buy-me-a-coffee/template.php:19
+msgid "Personal"
+msgstr ""
+
+#: inc/campaign-templates/templates/buy-me-a-coffee/template.php:20
+msgid "A simple tip jar so supporters can buy you a coffee."
+msgstr ""
+
+#: inc/campaign-templates/templates/buy-me-a-coffee/template.php:22
+msgid "If you enjoy my work, consider supporting it with a coffee. Every cup helps!"
+msgstr ""
+
+#: inc/campaign-templates/templates/buy-me-a-coffee/template.php:36
+msgid "Your Name"
+msgstr ""
+
+#: inc/campaign-templates/templates/buy-me-a-coffee/template.php:38
+msgid "Enter your name"
+msgstr ""
+
+#: inc/campaign-templates/templates/buy-me-a-coffee/template.php:56
+msgid "How many coffees?"
+msgstr ""
+
+#: inc/campaign-templates/templates/buy-me-a-coffee/template.php:92
+#: inc/campaign-templates/templates/education/template.php:26
+msgid "Support"
+msgstr ""
+
+#: inc/campaign-templates/templates/disaster-relief/template.php:14
+msgid "Disaster Relief"
+msgstr ""
+
+#: inc/campaign-templates/templates/disaster-relief/template.php:15
+msgid "Emergency"
+msgstr ""
+
+#: inc/campaign-templates/templates/disaster-relief/template.php:16
+msgid "Rally urgent support for communities hit by a disaster."
+msgstr ""
+
+#. translators: [Region] is a literal placeholder the site owner replaces after creating the campaign; keep it as-is.
+#: inc/campaign-templates/templates/disaster-relief/template.php:18
+msgid "Emergency relief for [Region]"
+msgstr ""
+
+#: inc/campaign-templates/templates/disaster-relief/template.php:19
+msgid "Describe the situation, the urgency, and how funds provide immediate relief."
+msgstr ""
+
+#: inc/campaign-templates/templates/disaster-relief/template.php:26
+msgid "Donate now"
+msgstr ""
+
+#: inc/campaign-templates/templates/donate-for-a-cause/template.php:14
+msgid "Donate for a Cause"
+msgstr ""
+
+#: inc/campaign-templates/templates/donate-for-a-cause/template.php:16
+msgid "A versatile campaign for any cause or nonprofit."
+msgstr ""
+
+#: inc/campaign-templates/templates/donate-for-a-cause/template.php:17
+msgid "Support our cause"
+msgstr ""
+
+#: inc/campaign-templates/templates/donate-for-a-cause/template.php:18
+msgid "Tell your story and invite supporters to contribute to your mission."
+msgstr ""
+
+#: inc/campaign-templates/templates/education/template.php:14
+msgid "School / Education"
+msgstr ""
+
+#: inc/campaign-templates/templates/education/template.php:15
+msgid "Education"
+msgstr ""
+
+#: inc/campaign-templates/templates/education/template.php:16
+msgid "Fund a school project, club, or scholarship drive."
+msgstr ""
+
+#. translators: [School] is a literal placeholder the site owner replaces after creating the campaign; keep it as-is.
+#: inc/campaign-templates/templates/education/template.php:18
+msgid "Support [School] students"
+msgstr ""
+
+#: inc/campaign-templates/templates/education/template.php:19
+msgid "Explain the project and rally supporters to hit the goal together."
+msgstr ""
+
+#: inc/campaign-templates/templates/faith/template.php:14
+msgid "Faith / Place of Worship"
+msgstr ""
+
+#: inc/campaign-templates/templates/faith/template.php:15
+msgid "Faith"
+msgstr ""
+
+#: inc/campaign-templates/templates/faith/template.php:16
+msgid "Collect offerings and donations for your congregation."
+msgstr ""
+
+#: inc/campaign-templates/templates/faith/template.php:17
+msgid "Support our congregation"
+msgstr ""
+
+#: inc/campaign-templates/templates/faith/template.php:18
+msgid "Invite your community to give and share how contributions sustain your mission."
+msgstr ""
+
+#: inc/campaign-templates/templates/faith/template.php:25
+msgid "Give"
+msgstr ""
+
+#: inc/campaign-templates/templates/in-memory/template.php:14
+msgid "In Loving Memory"
+msgstr ""
+
+#: inc/campaign-templates/templates/in-memory/template.php:15
+msgid "Memorial"
+msgstr ""
+
+#: inc/campaign-templates/templates/in-memory/template.php:16
+msgid "A tribute campaign to honor a loved one."
+msgstr ""
+
+#. translators: [Name] is a literal placeholder the site owner replaces after creating the campaign; keep it as-is.
+#: inc/campaign-templates/templates/in-memory/template.php:18
+msgid "In loving memory of [Name]"
+msgstr ""
+
+#: inc/campaign-templates/templates/in-memory/template.php:19
+msgid "Celebrate their life and invite friends and family to give in their memory."
+msgstr ""
+
+#: inc/campaign-templates/templates/in-memory/template.php:26
+msgid "Give in their memory"
+msgstr ""
+
+#: inc/campaign-templates/templates/medical/template.php:14
+msgid "Medical Fundraiser"
+msgstr ""
+
+#: inc/campaign-templates/templates/medical/template.php:15
+msgid "Medical"
+msgstr ""
+
+#: inc/campaign-templates/templates/medical/template.php:16
+msgid "Raise funds for treatment, surgery, or medical bills."
+msgstr ""
+
+#. translators: [Name] is a literal placeholder the site owner replaces after creating the campaign; keep it as-is.
+#: inc/campaign-templates/templates/medical/template.php:18
+msgid "Help [Name] with medical costs"
+msgstr ""
+
+#: inc/campaign-templates/templates/medical/template.php:19
+msgid "Share the story, the diagnosis, and how donations will help cover treatment and recovery."
+msgstr ""
+
+#: inc/campaigns/campaign-cpt.php:71
 msgctxt "Post Type General Name"
 msgid "Campaigns"
 msgstr ""
 
-#: inc/campaigns/campaign-cpt.php:61
+#: inc/campaigns/campaign-cpt.php:72
 msgctxt "Post Type Singular Name"
 msgid "Campaign"
 msgstr ""
 
-#: inc/campaigns/campaign-cpt.php:64
+#: inc/campaigns/campaign-cpt.php:77
+msgid "SureDonation Campaign"
+msgstr ""
+
+#: inc/campaigns/campaign-cpt.php:78
 msgid "Campaign Archives"
 msgstr ""
 
-#: inc/campaigns/campaign-cpt.php:65
+#: inc/campaigns/campaign-cpt.php:79
 msgid "Campaign Attributes"
 msgstr ""
 
-#: inc/campaigns/campaign-cpt.php:66
+#: inc/campaigns/campaign-cpt.php:80
 msgid "Parent Campaign:"
 msgstr ""
 
-#: inc/campaigns/campaign-cpt.php:67
-#: assets/build/admin.js:70
+#: inc/campaigns/campaign-cpt.php:81
+#: assets/build/admin.js:74
 msgid "All Campaigns"
 msgstr ""
 
-#: inc/campaigns/campaign-cpt.php:68
+#: inc/campaigns/campaign-cpt.php:82
 msgid "Add New Campaign"
 msgstr ""
 
-#: inc/campaigns/campaign-cpt.php:69
-#: inc/post-types/donation-form.php:117
+#: inc/campaigns/campaign-cpt.php:83
+#: inc/post-types/donation-form.php:125
 msgid "Add New"
 msgstr ""
 
-#: inc/campaigns/campaign-cpt.php:70
+#: inc/campaigns/campaign-cpt.php:84
 #: assets/build/admin.js:10
 msgid "New Campaign"
 msgstr ""
 
-#: inc/campaigns/campaign-cpt.php:71
+#: inc/campaigns/campaign-cpt.php:85
 #: assets/build/admin.js:10
-#: assets/build/admin.js:38
+#: assets/build/admin.js:42
 msgid "Edit Campaign"
 msgstr ""
 
-#: inc/campaigns/campaign-cpt.php:72
+#: inc/campaigns/campaign-cpt.php:86
 msgid "Update Campaign"
 msgstr ""
 
-#: inc/campaigns/campaign-cpt.php:73
-#: assets/build/admin.js:38
+#: inc/campaigns/campaign-cpt.php:87
+#: assets/build/admin.js:42
 msgid "View Campaign"
 msgstr ""
 
-#: inc/campaigns/campaign-cpt.php:74
+#: inc/campaigns/campaign-cpt.php:88
 msgid "View Campaigns"
 msgstr ""
 
-#: inc/campaigns/campaign-cpt.php:75
+#: inc/campaigns/campaign-cpt.php:89
 msgid "Search Campaign"
 msgstr ""
 
-#: inc/campaigns/campaign-cpt.php:76
+#: inc/campaigns/campaign-cpt.php:90
 msgid "Not found"
 msgstr ""
 
-#: inc/campaigns/campaign-cpt.php:77
+#: inc/campaigns/campaign-cpt.php:91
 msgid "Not found in Trash"
 msgstr ""
 
-#: inc/campaigns/campaign-cpt.php:78
+#: inc/campaigns/campaign-cpt.php:92
 msgid "Campaign Image"
 msgstr ""
 
-#: inc/campaigns/campaign-cpt.php:79
+#: inc/campaigns/campaign-cpt.php:93
 msgid "Set campaign image"
 msgstr ""
 
-#: inc/campaigns/campaign-cpt.php:80
+#: inc/campaigns/campaign-cpt.php:94
 msgid "Remove campaign image"
 msgstr ""
 
-#: inc/campaigns/campaign-cpt.php:81
+#: inc/campaigns/campaign-cpt.php:95
 msgid "Use as campaign image"
 msgstr ""
 
-#: inc/campaigns/campaign-cpt.php:82
+#: inc/campaigns/campaign-cpt.php:96
 msgid "Insert into campaign"
 msgstr ""
 
-#: inc/campaigns/campaign-cpt.php:83
+#: inc/campaigns/campaign-cpt.php:97
 msgid "Uploaded to this campaign"
 msgstr ""
 
-#: inc/campaigns/campaign-cpt.php:84
+#: inc/campaigns/campaign-cpt.php:98
 msgid "Campaigns list"
 msgstr ""
 
-#: inc/campaigns/campaign-cpt.php:85
+#: inc/campaigns/campaign-cpt.php:99
 msgid "Campaigns list navigation"
 msgstr ""
 
-#: inc/campaigns/campaign-cpt.php:86
+#: inc/campaigns/campaign-cpt.php:100
 msgid "Filter campaigns list"
 msgstr ""
 
-#: inc/campaigns/campaign-cpt.php:91
+#: inc/campaigns/campaign-cpt.php:105
 msgid "Fundraising Campaigns"
 msgstr ""
 
-#: inc/campaigns/campaign-cpt.php:129
+#: inc/campaigns/campaign-cpt.php:159
 msgid "Consolidated campaign settings."
+msgstr ""
+
+#: inc/campaigns/campaign-cpt.php:178
+msgid "Campaign template the campaign was created from."
 msgstr ""
 
 #: inc/campaigns/campaign-meta-tags.php:177
 msgid "Support this fundraising campaign and help make a difference."
 msgstr ""
 
-#: inc/campaigns/campaign-page.php:113
+#: inc/campaigns/campaign-page.php:115
 msgid "Single Campaign"
 msgstr ""
 
-#: inc/campaigns/campaign-page.php:114
+#: inc/campaigns/campaign-page.php:116
 msgid "Campaign page without the theme byline or duplicate featured image."
 msgstr ""
 
-#: inc/database/tables/donations.php:2140
+#: inc/database/tables/donations.php:2386
 msgid "System"
 msgstr ""
 
@@ -1702,12 +2416,12 @@ msgstr ""
 msgid "Failed to create duplicate form."
 msgstr ""
 
-#: inc/emails/email-handler.php:779
+#: inc/emails/email-handler.php:823
 #: plugin-loader.php:244
 #: plugin-loader.php:270
 #: assets/build/admin.js:1
-#: assets/build/admin.js:38
-#: assets/build/admin.js:70
+#: assets/build/admin.js:42
+#: assets/build/admin.js:74
 msgid "Donor"
 msgstr ""
 
@@ -1729,7 +2443,7 @@ msgstr ""
 
 #: inc/field-validation.php:876
 #: inc/fields/email-markup.php:39
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 #: assets/build/admin/onboarding/index.js:10
 msgid "Please enter a valid email address."
 msgstr ""
@@ -1740,7 +2454,7 @@ msgid "Please enter a valid number."
 msgstr ""
 
 #: inc/field-validation.php:878
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "Please enter a valid phone number."
 msgstr ""
 
@@ -1818,7 +2532,7 @@ msgid "Credit / Debit Card"
 msgstr ""
 
 #: inc/fields/payment-markup.php:346
-#: inc/helper.php:1206
+#: inc/helper.php:1219
 msgid "Offline Donation"
 msgstr ""
 
@@ -1863,17 +2577,17 @@ msgid "Minimum amount: %s"
 msgstr ""
 
 #: inc/fields/payment-markup.php:634
-#: assets/build/admin.js:38
+#: assets/build/admin.js:42
 msgid "day"
 msgstr ""
 
 #: inc/fields/payment-markup.php:635
-#: assets/build/admin.js:38
+#: assets/build/admin.js:42
 msgid "week"
 msgstr ""
 
 #: inc/fields/payment-markup.php:636
-#: assets/build/admin.js:38
+#: assets/build/admin.js:42
 msgid "month"
 msgstr ""
 
@@ -1882,7 +2596,7 @@ msgid "quarter"
 msgstr ""
 
 #: inc/fields/payment-markup.php:638
-#: assets/build/admin.js:38
+#: assets/build/admin.js:42
 msgid "year"
 msgstr ""
 
@@ -1894,190 +2608,194 @@ msgstr ""
 msgid "Click here to enable live mode and accept payment"
 msgstr ""
 
-#: inc/fields/payment-markup.php:704
+#: inc/fields/payment-markup.php:696
+msgid "Payment gateways are not configured."
+msgstr ""
+
+#: inc/fields/payment-markup.php:697
+msgid "Payment gateways are not configured. Please contact the site administrator."
+msgstr ""
+
+#: inc/fields/payment-markup.php:708
 msgid "Edit this form’s payment settings"
 msgstr ""
 
-#: inc/fields/payment-markup.php:709
-#: inc/fields/payment-markup.php:761
+#: inc/fields/payment-markup.php:713
+#: inc/fields/payment-markup.php:765
 #: assets/build/admin.js:1
 msgid "Configure payment gateway"
 msgstr ""
 
-#: inc/fields/payment-markup.php:724
-msgid "Payment gateways are not configured. Please contact the site administrator."
-msgstr ""
-
-#: inc/fields/payment-markup.php:756
+#: inc/fields/payment-markup.php:760
 msgid "No payment gateway is connected, so donors can only give using the offline method."
 msgstr ""
 
-#: inc/form-editor/assets.php:170
+#: inc/form-editor/assets.php:252
 msgid "Form confirmation settings."
 msgstr ""
 
-#: inc/form-editor/assets.php:208
+#: inc/form-editor/assets.php:290
 msgid "We truly appreciate your support"
 msgstr ""
 
-#: inc/form-editor/assets.php:218
+#: inc/form-editor/assets.php:300
 #: inc/helper.php:1030
-#: inc/helper.php:1350
-#: inc/pdf/receipt-generator.php:251
+#: inc/helper.php:1363
+#: inc/pdf/receipt-generator.php:371
 msgid "Donation Receipt"
 msgstr ""
 
-#: inc/form-editor/assets.php:220
+#: inc/form-editor/assets.php:302
 msgid "Thank you for your donation to {campaign_name}"
 msgstr ""
 
-#: inc/form-editor/assets.php:221
-#: inc/form-editor/assets.php:242
-#: inc/form-editor/assets.php:262
-#: inc/form-editor/assets.php:278
+#: inc/form-editor/assets.php:303
+#: inc/form-editor/assets.php:324
+#: inc/form-editor/assets.php:344
+#: inc/form-editor/assets.php:360
 msgid "Hi {donor_name},"
 msgstr ""
 
-#: inc/form-editor/assets.php:222
+#: inc/form-editor/assets.php:304
 msgid "Thank you for supporting {campaign_name}. Your contribution means a lot."
 msgstr ""
 
-#: inc/form-editor/assets.php:223
+#: inc/form-editor/assets.php:305
 msgid "Donation Details:"
 msgstr ""
 
-#: inc/form-editor/assets.php:225
-#: inc/form-editor/assets.php:245
-#: inc/form-editor/assets.php:282
-#: inc/form-editor/assets.php:305
-#: inc/form-editor/assets.php:325
-#: inc/form-editor/assets.php:345
+#: inc/form-editor/assets.php:307
+#: inc/form-editor/assets.php:327
+#: inc/form-editor/assets.php:364
+#: inc/form-editor/assets.php:387
+#: inc/form-editor/assets.php:407
+#: inc/form-editor/assets.php:427
 msgid "Amount:"
 msgstr ""
 
-#: inc/form-editor/assets.php:226
-#: inc/form-editor/assets.php:246
-#: inc/form-editor/assets.php:306
-#: inc/form-editor/assets.php:326
+#: inc/form-editor/assets.php:308
+#: inc/form-editor/assets.php:328
+#: inc/form-editor/assets.php:388
+#: inc/form-editor/assets.php:408
 msgid "Date:"
 msgstr ""
 
-#: inc/form-editor/assets.php:227
+#: inc/form-editor/assets.php:309
 msgid "Transaction ID:"
 msgstr ""
 
-#: inc/form-editor/assets.php:239
+#: inc/form-editor/assets.php:321
 msgid "Donation Processing"
 msgstr ""
 
-#: inc/form-editor/assets.php:241
+#: inc/form-editor/assets.php:323
 msgid "Your donation is being processed"
 msgstr ""
 
-#: inc/form-editor/assets.php:243
+#: inc/form-editor/assets.php:325
 msgid "Your donation to {campaign_name} is currently being processed."
 msgstr ""
 
-#: inc/form-editor/assets.php:248
+#: inc/form-editor/assets.php:330
 msgid "We'll notify you once it's confirmed."
 msgstr ""
 
-#: inc/form-editor/assets.php:259
+#: inc/form-editor/assets.php:341
 msgid "Donation Failed"
 msgstr ""
 
-#: inc/form-editor/assets.php:261
+#: inc/form-editor/assets.php:343
 msgid "We couldn't process your donation"
 msgstr ""
 
-#: inc/form-editor/assets.php:263
+#: inc/form-editor/assets.php:345
 msgid "Unfortunately, your donation to {campaign_name} could not be completed."
 msgstr ""
 
-#: inc/form-editor/assets.php:264
+#: inc/form-editor/assets.php:346
 msgid "If you need help, feel free to contact us."
 msgstr ""
 
-#: inc/form-editor/assets.php:275
-#: assets/build/admin.js:52
+#: inc/form-editor/assets.php:357
+#: assets/build/admin.js:56
 msgid "Refund Processed"
 msgstr ""
 
-#: inc/form-editor/assets.php:277
+#: inc/form-editor/assets.php:359
 msgid "Your donation has been refunded"
 msgstr ""
 
-#: inc/form-editor/assets.php:279
+#: inc/form-editor/assets.php:361
 msgid "Your donation has been refunded."
 msgstr ""
 
-#: inc/form-editor/assets.php:281
-#: inc/form-editor/assets.php:304
-#: inc/form-editor/assets.php:324
-#: inc/form-editor/assets.php:344
+#: inc/form-editor/assets.php:363
+#: inc/form-editor/assets.php:386
+#: inc/form-editor/assets.php:406
+#: inc/form-editor/assets.php:426
 msgid "Campaign:"
 msgstr ""
 
-#: inc/form-editor/assets.php:284
+#: inc/form-editor/assets.php:366
 msgid "If you have any questions, feel free to reach out."
 msgstr ""
 
-#: inc/form-editor/assets.php:297
+#: inc/form-editor/assets.php:379
 msgid "New Donation (Admin)"
 msgstr ""
 
-#: inc/form-editor/assets.php:299
+#: inc/form-editor/assets.php:381
 msgid "New donation received"
 msgstr ""
 
-#: inc/form-editor/assets.php:300
+#: inc/form-editor/assets.php:382
 msgid "A new donation has been received."
 msgstr ""
 
-#: inc/form-editor/assets.php:302
-#: inc/form-editor/assets.php:323
-#: inc/form-editor/assets.php:343
+#: inc/form-editor/assets.php:384
+#: inc/form-editor/assets.php:405
+#: inc/form-editor/assets.php:425
 msgid "Donor:"
 msgstr ""
 
-#: inc/form-editor/assets.php:303
+#: inc/form-editor/assets.php:385
 msgid "Email:"
 msgstr ""
 
-#: inc/form-editor/assets.php:308
-#: inc/form-editor/assets.php:347
+#: inc/form-editor/assets.php:390
+#: inc/form-editor/assets.php:429
 msgid "View details:"
 msgstr ""
 
-#: inc/form-editor/assets.php:318
+#: inc/form-editor/assets.php:400
 msgid "Donation Failed (Admin)"
 msgstr ""
 
-#: inc/form-editor/assets.php:320
+#: inc/form-editor/assets.php:402
 msgid "Donation failed"
 msgstr ""
 
-#: inc/form-editor/assets.php:321
+#: inc/form-editor/assets.php:403
 msgid "A donation attempt has failed."
 msgstr ""
 
-#: inc/form-editor/assets.php:328
+#: inc/form-editor/assets.php:410
 msgid "Check details:"
 msgstr ""
 
-#: inc/form-editor/assets.php:338
+#: inc/form-editor/assets.php:420
 msgid "Refund Processed (Admin)"
 msgstr ""
 
-#: inc/form-editor/assets.php:340
+#: inc/form-editor/assets.php:422
 msgid "Refund issued"
 msgstr ""
 
-#: inc/form-editor/assets.php:341
+#: inc/form-editor/assets.php:423
 msgid "A refund has been processed."
 msgstr ""
 
-#: inc/form-editor/assets.php:380
+#: inc/form-editor/assets.php:462
 msgid "Form email notification settings."
 msgstr ""
 
@@ -2100,46 +2818,46 @@ msgstr ""
 
 #: inc/helper.php:990
 #: inc/helper.php:1067
-#: inc/helper.php:1304
+#: inc/helper.php:1317
 #: inc/import-export/import/column-map.php:55
 #: inc/import-export/import/column-map.php:421
-#: inc/pdf/receipt-generator.php:259
+#: inc/pdf/receipt-generator.php:379
 #: inc/privacy/privacy-data.php:132
 #: assets/build/admin.js:1
-#: assets/build/admin.js:52
-#: assets/build/admin.js:64
-#: assets/build/admin.js:70
+#: assets/build/admin.js:56
+#: assets/build/admin.js:68
+#: assets/build/admin.js:74
 msgid "Donor Name"
 msgstr ""
 
 #: inc/helper.php:994
 #: inc/helper.php:1071
-#: inc/helper.php:1308
+#: inc/helper.php:1321
 #: inc/import-export/import/column-map.php:45
 #: inc/import-export/import/column-map.php:422
-#: inc/pdf/receipt-generator.php:262
+#: inc/pdf/receipt-generator.php:382
 #: inc/privacy/privacy-data.php:133
-#: assets/build/admin.js:52
-#: assets/build/admin.js:64
+#: assets/build/admin.js:56
+#: assets/build/admin.js:68
 msgid "Donor Email"
 msgstr ""
 
 #: inc/helper.php:998
 #: inc/helper.php:1075
-#: inc/helper.php:1329
-#: inc/pdf/receipt-generator.php:278
+#: inc/helper.php:1342
+#: inc/pdf/receipt-generator.php:398
 msgid "Donation Amount"
 msgstr ""
 
 #: inc/helper.php:1002
 #: inc/helper.php:1079
 #: inc/helper.php:1128
-#: inc/helper.php:1315
+#: inc/helper.php:1328
 #: inc/import-export/import/column-map.php:417
-#: inc/pdf/receipt-generator.php:268
+#: inc/pdf/receipt-generator.php:388
 #: assets/build/admin.js:1
 #: assets/build/admin.js:10
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "Campaign Name"
 msgstr ""
 
@@ -2152,8 +2870,8 @@ msgstr ""
 #: inc/helper.php:1087
 #: inc/import-export/import/column-map.php:115
 #: inc/import-export/import/column-map.php:431
-#: inc/pdf/receipt-generator.php:231
-#: assets/build/admin.js:52
+#: inc/pdf/receipt-generator.php:351
+#: assets/build/admin.js:56
 msgid "Transaction ID"
 msgstr ""
 
@@ -2164,16 +2882,16 @@ msgid "Site Title"
 msgstr ""
 
 #: inc/helper.php:1022
-#: inc/helper.php:1344
-#: inc/pdf/receipt-generator.php:282
+#: inc/helper.php:1357
+#: inc/pdf/receipt-generator.php:402
 msgid "Donation Total"
 msgstr ""
 
 #: inc/helper.php:1026
-#: inc/helper.php:1321
+#: inc/helper.php:1334
 #: inc/import-export/import/column-map.php:105
 #: inc/import-export/import/column-map.php:429
-#: inc/pdf/receipt-generator.php:271
+#: inc/pdf/receipt-generator.php:391
 msgid "Payment Status"
 msgstr ""
 
@@ -2208,8 +2926,8 @@ msgid "Donation Tags"
 msgstr ""
 
 #: inc/helper.php:1095
-#: assets/build/admin.js:49
-#: assets/build/admin.js:52
+#: assets/build/admin.js:53
+#: assets/build/admin.js:56
 msgid "Refund Amount"
 msgstr ""
 
@@ -2225,55 +2943,55 @@ msgstr ""
 msgid "Frequency"
 msgstr ""
 
-#: inc/helper.php:1203
+#: inc/helper.php:1216
 #: inc/payments/pay-pal/pay-pal-settings.php:155
 #: inc/payments/pay-pal/pay-pal-settings.php:174
 #: inc/payments/pay-pal/pay-pal-settings.php:212
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "PayPal"
 msgstr ""
 
-#: inc/helper.php:1221
+#: inc/helper.php:1234
 msgid "Success"
 msgstr ""
 
-#: inc/helper.php:1236
-#: inc/helper.php:1240
-#: inc/helper.php:1262
+#: inc/helper.php:1249
+#: inc/helper.php:1253
+#: inc/helper.php:1275
 msgid "Complete"
 msgstr ""
 
-#: inc/helper.php:1244
+#: inc/helper.php:1257
 #: assets/build/admin.js:1
-#: assets/build/admin.js:26
-#: assets/build/admin.js:39
+#: assets/build/admin.js:30
+#: assets/build/admin.js:43
 #: assets/build/admin/onboarding/index.js:1
 #: assets/build/blocks.js:1
 #: assets/build/editor/editor.js:1
 msgid "Pending"
 msgstr ""
 
-#: inc/helper.php:1248
+#: inc/helper.php:1261
 #: assets/build/admin.js:1
-#: assets/build/admin.js:39
+#: assets/build/admin.js:43
 #: assets/build/admin/onboarding/index.js:1
 #: assets/build/blocks.js:1
 #: assets/build/editor/editor.js:1
 msgid "Processing"
 msgstr ""
 
-#: inc/helper.php:1252
+#: inc/helper.php:1265
 #: assets/build/admin.js:1
-#: assets/build/admin.js:39
+#: assets/build/admin.js:43
 #: assets/build/admin/onboarding/index.js:1
 #: assets/build/blocks.js:1
 #: assets/build/editor/editor.js:1
 msgid "Failed"
 msgstr ""
 
-#: inc/helper.php:1256
+#: inc/helper.php:1269
 #: assets/build/admin.js:1
-#: assets/build/admin.js:39
+#: assets/build/admin.js:43
 #: assets/build/admin/onboarding/index.js:1
 #: assets/build/blocks.js:1
 #: assets/build/editor/editor.js:1
@@ -2281,12 +2999,12 @@ msgid "Refunded"
 msgstr ""
 
 #. translators: {donor_name} is a smart tag replaced with the donor's name.
-#: inc/helper.php:1365
+#: inc/helper.php:1378
 msgid "Thank you {donor_name} for your Donation"
 msgstr ""
 
-#: inc/helper.php:1368
-msgid "Your contribution means a lot. We have sent an email to your registered account along with a receipt for your donation."
+#: inc/helper.php:1381
+msgid "Your contribution means a lot. We have sent a confirmation email to your registered address with the details of your donation."
 msgstr ""
 
 #: inc/import-export/import/column-map.php:40
@@ -2322,15 +3040,15 @@ msgstr ""
 
 #: inc/import-export/import/column-map.php:110
 #: inc/import-export/import/column-map.php:430
-#: assets/build/admin.js:52
-#: assets/build/admin.js:70
+#: assets/build/admin.js:56
+#: assets/build/admin.js:74
 msgid "Payment Mode"
 msgstr ""
 
 #: inc/import-export/import/column-map.php:120
 #: inc/import-export/import/column-map.php:425
-#: inc/pdf/receipt-generator.php:242
-#: assets/build/admin.js:52
+#: inc/pdf/receipt-generator.php:362
+#: assets/build/admin.js:56
 msgid "Fees Covered"
 msgstr ""
 
@@ -2341,7 +3059,7 @@ msgstr ""
 
 #: inc/import-export/import/column-map.php:135
 #: inc/import-export/import/column-map.php:432
-#: assets/build/admin.js:39
+#: assets/build/admin.js:43
 msgid "Donation Type"
 msgstr ""
 
@@ -2373,8 +3091,8 @@ msgstr ""
 
 #: inc/import-export/import/column-map.php:181
 #: inc/import-export/import/column-map.php:420
-#: assets/build/admin.js:52
-#: assets/build/admin.js:64
+#: assets/build/admin.js:56
+#: assets/build/admin.js:68
 msgid "Donor ID"
 msgstr ""
 
@@ -2489,7 +3207,7 @@ msgstr ""
 
 #: inc/page-builders/bricks/base-element.php:142
 #: inc/page-builders/page-builders.php:52
-#: assets/build/admin.js:94
+#: assets/build/admin.js:98
 #: assets/build/blocks/donation-form/editor.js:2
 #: assets/build/campaign-blocks.js:1
 msgid "Select a campaign"
@@ -2557,7 +3275,7 @@ msgstr ""
 #: inc/page-builders/bricks/elements/campaign-goal.php:46
 #: inc/page-builders/elementor/widgets/campaign-goal-widget.php:35
 #: inc/page-builders/elementor/widgets/campaign-goal-widget.php:61
-#: assets/build/admin.js:25
+#: assets/build/admin.js:29
 msgid "Campaign Goal"
 msgstr ""
 
@@ -2628,7 +3346,7 @@ msgstr ""
 #: inc/page-builders/bricks/elements/donation-form.php:48
 #: inc/page-builders/elementor/widgets/donation-form-widget.php:37
 #: inc/page-builders/elementor/widgets/donation-form-widget.php:85
-#: inc/post-types/donation-form.php:648
+#: inc/post-types/donation-form.php:723
 msgid "Donation Form"
 msgstr ""
 
@@ -2674,14 +3392,14 @@ msgid "Open Links In New Tab"
 msgstr ""
 
 #: inc/page-builders/elementor/widgets/donation-form-widget.php:142
-#: inc/post-types/donation-form.php:120
+#: inc/post-types/donation-form.php:128
 #: assets/build/blocks/donation-form/editor.js:2
 msgid "Edit Form"
 msgstr ""
 
 #: inc/page-builders/elementor/widgets/donation-form-widget.php:145
 #: assets/build/admin.js:13
-#: assets/build/admin.js:26
+#: assets/build/admin.js:30
 #: assets/build/editor/editor.js:1
 msgid "Edit"
 msgstr ""
@@ -2701,7 +3419,7 @@ msgstr ""
 
 #: inc/payments/offline/offline-frontend.php:98
 #: inc/payments/pay-pal/pay-pal-frontend.php:446
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 #: assets/build/admin/onboarding/index.js:10
 msgid "Email address is required."
 msgstr ""
@@ -2807,7 +3525,7 @@ msgstr ""
 
 #: inc/payments/pay-pal/pay-pal-frontend.php:475
 #: inc/payments/stripe/stripe-frontend.php:143
-#: assets/build/admin.js:55
+#: assets/build/admin.js:59
 msgid "Donation"
 msgstr ""
 
@@ -2853,7 +3571,7 @@ msgid "PayPal SDK failed to load. Please refresh the page."
 msgstr ""
 
 #: inc/payments/pay-pal/pay-pal-settings.php:510
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Failed to get PayPal connect URL."
 msgstr ""
 
@@ -2867,7 +3585,7 @@ msgid "PayPal account setup incomplete: %s. Please complete your PayPal account 
 msgstr ""
 
 #: inc/payments/pay-pal/pay-pal-settings.php:613
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "PayPal account connected successfully!"
 msgstr ""
 
@@ -3226,7 +3944,7 @@ msgid "Invalid payment intent ID"
 msgstr ""
 
 #: inc/payments/stripe/stripe-frontend.php:262
-#: assets/build/admin.js:55
+#: assets/build/admin.js:59
 msgid "Donation not found"
 msgstr ""
 
@@ -3323,7 +4041,7 @@ msgid "Stripe account disconnected successfully"
 msgstr ""
 
 #: inc/payments/stripe/stripe-settings.php:500
-#: assets/build/admin.js:71
+#: assets/build/admin.js:75
 msgid "Default Stripe account updated."
 msgstr ""
 
@@ -3335,7 +4053,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #: inc/payments/stripe/stripe-settings.php:623
-#: assets/build/admin.js:71
+#: assets/build/admin.js:75
 msgid "Failed to create webhook."
 msgstr ""
 
@@ -3402,7 +4120,7 @@ msgid "Permission Denied"
 msgstr ""
 
 #: inc/payments/stripe/stripe-settings.php:1296
-#: assets/build/admin.js:71
+#: assets/build/admin.js:75
 msgid "Failed to connect to Stripe."
 msgstr ""
 
@@ -3497,144 +4215,121 @@ msgstr ""
 msgid "Archive uncompressed size exceeds the safety limit."
 msgstr ""
 
-#: inc/pdf/receipt-generator.php:255
+#: inc/pdf/receipt-generator.php:375
 msgid "Receipt"
 msgstr ""
 
 #. translators: 1: Site name, 2: Site URL.
-#: inc/pdf/receipt-generator.php:293
+#: inc/pdf/receipt-generator.php:413
 msgid "Generated by %1$s · %2$s"
 msgstr ""
 
-#: inc/post-types/donation-form.php:113
+#: inc/post-types/donation-form.php:121
 msgctxt "Post type general name"
 msgid "Donation Forms"
 msgstr ""
 
-#: inc/post-types/donation-form.php:114
+#: inc/post-types/donation-form.php:122
 msgctxt "Post type singular name"
 msgid "Donation Form"
 msgstr ""
 
-#: inc/post-types/donation-form.php:115
+#: inc/post-types/donation-form.php:123
 msgctxt "Admin Menu text"
 msgid "Donation Forms"
 msgstr ""
 
-#: inc/post-types/donation-form.php:116
+#: inc/post-types/donation-form.php:124
 msgctxt "Add New on Toolbar"
 msgid "Donation Form"
 msgstr ""
 
-#: inc/post-types/donation-form.php:118
-#: assets/build/admin.js:38
+#: inc/post-types/donation-form.php:126
+#: assets/build/admin.js:42
 msgid "Add New Form"
 msgstr ""
 
-#: inc/post-types/donation-form.php:119
+#: inc/post-types/donation-form.php:127
 msgid "New Form"
 msgstr ""
 
-#: inc/post-types/donation-form.php:121
+#: inc/post-types/donation-form.php:129
 msgid "View Form"
 msgstr ""
 
-#: inc/post-types/donation-form.php:122
+#: inc/post-types/donation-form.php:130
 msgid "All Forms"
 msgstr ""
 
-#: inc/post-types/donation-form.php:123
+#: inc/post-types/donation-form.php:131
 msgid "Search Forms"
 msgstr ""
 
-#: inc/post-types/donation-form.php:124
+#: inc/post-types/donation-form.php:132
 msgid "Parent Forms:"
 msgstr ""
 
-#: inc/post-types/donation-form.php:125
+#: inc/post-types/donation-form.php:133
 msgid "No forms found."
 msgstr ""
 
-#: inc/post-types/donation-form.php:126
+#: inc/post-types/donation-form.php:134
 msgid "No forms found in Trash."
 msgstr ""
 
-#: inc/post-types/donation-form.php:127
+#: inc/post-types/donation-form.php:135
 msgctxt "The post type archive label used in nav menus."
 msgid "Form archives"
 msgstr ""
 
-#: inc/post-types/donation-form.php:128
+#: inc/post-types/donation-form.php:136
 msgctxt "Overrides the \"Insert into post\" phrase."
 msgid "Insert into form"
 msgstr ""
 
-#: inc/post-types/donation-form.php:129
+#: inc/post-types/donation-form.php:137
 msgctxt "Overrides the \"Uploaded to this post\" phrase."
 msgid "Uploaded to this form"
 msgstr ""
 
-#: inc/post-types/donation-form.php:130
+#: inc/post-types/donation-form.php:138
 msgctxt "Screen reader text for the filter links heading."
 msgid "Filter forms list"
 msgstr ""
 
-#: inc/post-types/donation-form.php:131
+#: inc/post-types/donation-form.php:139
 msgctxt "Screen reader text for the pagination heading."
 msgid "Forms list navigation"
 msgstr ""
 
-#: inc/post-types/donation-form.php:132
+#: inc/post-types/donation-form.php:140
 msgctxt "Screen reader text for the items list heading."
 msgid "Forms list"
 msgstr ""
 
-#: inc/post-types/donation-form.php:137
+#: inc/post-types/donation-form.php:145
 msgid "Donation forms for SureDonation."
 msgstr ""
 
-#: inc/post-types/donation-form.php:168
+#: inc/post-types/donation-form.php:184
 msgid "The ID of the linked campaign."
 msgstr ""
 
-#: inc/post-types/donation-form.php:184
+#: inc/post-types/donation-form.php:200
 msgid "Per-form styling settings (JSON)."
 msgstr ""
 
-#: inc/post-types/donation-form.php:200
+#: inc/post-types/donation-form.php:216
+msgid "Per-form Custom CSS."
+msgstr ""
+
+#: inc/post-types/donation-form.php:239
 msgid "Selected Stripe account for this form (account id, or empty/\"default\" to use the site default)."
 msgstr ""
 
 #. translators: %s: campaign name
-#: inc/post-types/donation-form.php:645
+#: inc/post-types/donation-form.php:720
 msgid "%s - Donation Form"
-msgstr ""
-
-#: inc/post-types/donation-form.php:685
-#: inc/post-types/donation-form.php:775
-msgid "Full Name"
-msgstr ""
-
-#: inc/post-types/donation-form.php:687
-#: inc/post-types/donation-form.php:777
-msgid "Enter your full name"
-msgstr ""
-
-#: inc/post-types/donation-form.php:695
-#: inc/post-types/donation-form.php:787
-#: assets/build/admin.js:70
-#: assets/build/admin/onboarding/index.js:10
-msgid "Email Address"
-msgstr ""
-
-#: inc/post-types/donation-form.php:697
-#: inc/post-types/donation-form.php:789
-msgid "Enter your email"
-msgstr ""
-
-#: inc/post-types/donation-form.php:705
-#: inc/post-types/donation-form.php:799
-msgid "Select Donation Amount"
 msgstr ""
 
 #: inc/privacy/privacy-data.php:57
@@ -3672,7 +4367,7 @@ msgid "Please acknowledge consent before submitting your donation."
 msgstr ""
 
 #: inc/privacy/privacy-frontend.php:161
-#: assets/build/admin.js:91
+#: assets/build/admin.js:95
 #: assets/build/admin/onboarding/index.js:10
 msgid "Privacy Policy"
 msgstr ""
@@ -3694,22 +4389,22 @@ msgid "By donating you agree to our [terms]."
 msgstr ""
 
 #: inc/privacy/privacy-settings.php:88
-#: assets/build/admin.js:90
-#: assets/build/admin.js:91
+#: assets/build/admin.js:94
+#: assets/build/admin.js:95
 #: assets/build/blocks.js:1
 msgid "None"
 msgstr ""
 
 #. translators: %d: number of years.
 #: inc/privacy/privacy-settings.php:94
-#: assets/build/admin.js:91
+#: assets/build/admin.js:95
 msgid "%d year"
 msgid_plural "%d years"
 msgstr[0] ""
 msgstr[1] ""
 
 #: inc/privacy/privacy-settings.php:99
-#: assets/build/admin.js:91
+#: assets/build/admin.js:95
 msgid "Forever"
 msgstr ""
 
@@ -3770,7 +4465,7 @@ msgid "Failed to install PDF library."
 msgstr ""
 
 #: assets/build/admin.js:1
-#: assets/build/admin.js:90
+#: assets/build/admin.js:94
 #: assets/build/editor/editor.js:1
 msgid "Installing…"
 msgstr ""
@@ -3786,7 +4481,7 @@ msgstr ""
 #: assets/build/admin.js:1
 #: assets/build/admin.js:10
 #: assets/build/admin.js:13
-#: assets/build/admin.js:39
+#: assets/build/admin.js:43
 #: assets/build/admin/onboarding/index.js:1
 #: assets/build/blocks.js:1
 #: assets/build/editor/editor.js:1
@@ -3801,7 +4496,7 @@ msgid "Partially Refunded"
 msgstr ""
 
 #: assets/build/admin.js:1
-#: assets/build/admin.js:39
+#: assets/build/admin.js:43
 #: assets/build/admin/onboarding/index.js:1
 #: assets/build/blocks.js:1
 #: assets/build/editor/editor.js:1
@@ -3812,12 +4507,19 @@ msgstr ""
 #: assets/build/admin/onboarding/index.js:1
 #: assets/build/blocks.js:1
 #: assets/build/editor/editor.js:1
+msgid "Suspicious"
+msgstr ""
+
+#: assets/build/admin.js:1
+#: assets/build/admin/onboarding/index.js:1
+#: assets/build/blocks.js:1
+#: assets/build/editor/editor.js:1
 msgid "One Time"
 msgstr ""
 
 #: assets/build/admin.js:1
-#: assets/build/admin.js:95
-#: assets/build/admin.js:96
+#: assets/build/admin.js:99
+#: assets/build/admin.js:100
 #: assets/build/admin/onboarding/index.js:1
 #: assets/build/admin/onboarding/index.js:2
 #: assets/build/blocks.js:1
@@ -3886,18 +4588,18 @@ msgid "Install Free"
 msgstr ""
 
 #: assets/build/admin.js:1
-#: assets/build/admin.js:110
+#: assets/build/admin.js:114
 msgid "Activated"
 msgstr ""
 
 #: assets/build/admin.js:1
-#: assets/build/admin.js:90
+#: assets/build/admin.js:94
 #: assets/build/editor/editor.js:1
 msgid "Activate"
 msgstr ""
 
 #: assets/build/admin.js:1
-#: assets/build/admin.js:90
+#: assets/build/admin.js:94
 #: assets/build/editor/editor.js:1
 msgid "Install & Activate"
 msgstr ""
@@ -3908,43 +4610,43 @@ msgstr ""
 
 #: assets/build/admin.js:1
 #: assets/build/admin.js:13
-#: assets/build/admin.js:39
-#: assets/build/admin.js:58
-#: assets/build/admin.js:64
+#: assets/build/admin.js:43
+#: assets/build/admin.js:62
+#: assets/build/admin.js:68
 msgid "Clear Filters"
 msgstr ""
 
 #: assets/build/admin.js:1
-#: assets/build/admin.js:96
+#: assets/build/admin.js:100
 #: assets/build/admin/onboarding/index.js:2
 msgid "Clear"
 msgstr ""
 
 #: assets/build/admin.js:1
-#: assets/build/admin.js:38
-#: assets/build/admin.js:39
+#: assets/build/admin.js:42
+#: assets/build/admin.js:43
 msgid "mm/dd/yyyy - mm/dd/yyyy"
 msgstr ""
 
 #: assets/build/admin.js:1
-#: assets/build/admin.js:38
-#: assets/build/admin.js:64
+#: assets/build/admin.js:42
+#: assets/build/admin.js:68
 msgid "Select Date Range"
 msgstr ""
 
 #: assets/build/admin.js:1
-#: assets/build/admin.js:38
-#: assets/build/admin.js:64
+#: assets/build/admin.js:42
+#: assets/build/admin.js:68
 msgid "Apply"
 msgstr ""
 
 #: assets/build/admin.js:1
 #: assets/build/admin.js:10
-#: assets/build/admin.js:38
-#: assets/build/admin.js:52
-#: assets/build/admin.js:64
-#: assets/build/admin.js:70
-#: assets/build/admin.js:97
+#: assets/build/admin.js:42
+#: assets/build/admin.js:56
+#: assets/build/admin.js:68
+#: assets/build/admin.js:74
+#: assets/build/admin.js:101
 #: assets/build/admin/onboarding/index.js:3
 #: assets/build/blocks.js:1
 #: assets/build/editor/editor.js:1
@@ -3960,8 +4662,8 @@ msgid "Once you start receiving donations, insights will appear here."
 msgstr ""
 
 #: assets/build/admin.js:1
-#: assets/build/admin.js:64
-#: assets/build/admin.js:70
+#: assets/build/admin.js:68
+#: assets/build/admin.js:74
 msgid "Total Donors"
 msgstr ""
 
@@ -3970,21 +4672,21 @@ msgid "Live Campaigns"
 msgstr ""
 
 #: assets/build/admin.js:1
-#: assets/build/admin.js:38
-#: assets/build/admin.js:52
+#: assets/build/admin.js:42
+#: assets/build/admin.js:56
 msgid "Amount Paid"
 msgstr ""
 
 #: assets/build/admin.js:1
-#: assets/build/admin.js:38
-#: assets/build/admin.js:52
-#: assets/build/admin.js:58
-#: assets/build/admin.js:64
+#: assets/build/admin.js:42
+#: assets/build/admin.js:56
+#: assets/build/admin.js:62
+#: assets/build/admin.js:68
 msgid "N/A"
 msgstr ""
 
 #: assets/build/admin.js:1
-#: assets/build/admin.js:55
+#: assets/build/admin.js:59
 msgid "Subscription"
 msgstr ""
 
@@ -4001,13 +4703,13 @@ msgid "Recent donation activity will appear here once donations start coming in.
 msgstr ""
 
 #: assets/build/admin.js:1
-#: assets/build/admin.js:64
+#: assets/build/admin.js:68
 msgid "View All"
 msgstr ""
 
 #: assets/build/admin.js:1
-#: assets/build/admin.js:39
-#: assets/build/admin.js:58
+#: assets/build/admin.js:43
+#: assets/build/admin.js:62
 msgid "Search…"
 msgstr ""
 
@@ -4085,7 +4787,7 @@ msgid "Raised Amount"
 msgstr ""
 
 #: assets/build/admin.js:10
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 #: assets/build/admin/onboarding/index.js:10
 msgid "Number of Donations"
 msgstr ""
@@ -4099,6 +4801,7 @@ msgid "Tell us about your fundraising cause."
 msgstr ""
 
 #: assets/build/admin.js:10
+#: assets/build/admin.js:25
 #: assets/build/admin/onboarding/index.js:10
 msgid "Name your campaign"
 msgstr ""
@@ -4113,7 +4816,7 @@ msgid "Remove"
 msgstr ""
 
 #: assets/build/admin.js:10
-#: assets/build/admin.js:94
+#: assets/build/admin.js:98
 #: assets/build/editor/editor.js:1
 msgid "Replace"
 msgstr ""
@@ -4123,6 +4826,7 @@ msgid "This will be displayed in your campaign block and campaign grid."
 msgstr ""
 
 #: assets/build/admin.js:10
+#: assets/build/admin.js:25
 #: assets/build/admin/onboarding/index.js:10
 msgid "Describe your campaign"
 msgstr ""
@@ -4147,13 +4851,11 @@ msgid "e.g. 100"
 msgstr ""
 
 #: assets/build/admin.js:10
-#: assets/build/admin/onboarding/index.js:10
-msgid "Set the target amount for your campaign to raise."
+msgid "Set the target amount for your campaign to raise. Leave empty for no limit."
 msgstr ""
 
 #: assets/build/admin.js:10
-#: assets/build/admin/onboarding/index.js:10
-msgid "Set the target number of donations for your campaign."
+msgid "Set the target number of donations for your campaign. Leave empty for no limit."
 msgstr ""
 
 #: assets/build/admin.js:10
@@ -4169,15 +4871,7 @@ msgid "Goal must be a valid number"
 msgstr ""
 
 #: assets/build/admin.js:10
-msgid "Goal must be greater than zero"
-msgstr ""
-
-#: assets/build/admin.js:10
-msgid "Goal amount is required"
-msgstr ""
-
-#: assets/build/admin.js:10
-msgid "Number of donations is required"
+msgid "Goal cannot be negative"
 msgstr ""
 
 #: assets/build/admin.js:10
@@ -4189,25 +4883,77 @@ msgid "An error occurred while saving the campaign"
 msgstr ""
 
 #: assets/build/admin.js:10
-#: assets/build/admin.js:70
 #: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Saving…"
 msgstr ""
 
 #: assets/build/admin.js:10
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "Save Changes"
 msgstr ""
 
 #: assets/build/admin.js:10
-#: assets/build/admin.js:25
-#: assets/build/admin.js:55
+msgid "Choose a starting point"
+msgstr ""
+
+#: assets/build/admin.js:10
+msgid "Start from scratch, or pick a ready-made template you can edit."
+msgstr ""
+
+#: assets/build/admin.js:10
+msgid "Search templates…"
+msgstr ""
+
+#: assets/build/admin.js:10
+msgid "All"
+msgstr ""
+
+#: assets/build/admin.js:10
+msgid "Blank campaign"
+msgstr ""
+
+#: assets/build/admin.js:10
+msgid "Failed to create campaign from template"
+msgstr ""
+
+#: assets/build/admin.js:10
+msgid "Campaign was created but no ID was returned."
+msgstr ""
+
+#: assets/build/admin.js:10
+msgid "Could not create campaign"
+msgstr ""
+
+#: assets/build/admin.js:10
+msgid "Please try again."
+msgstr ""
+
+#: assets/build/admin.js:10
+msgid "Use template"
+msgstr ""
+
+#: assets/build/admin.js:10
+msgid "No templates match your search."
+msgstr ""
+
+#: assets/build/admin.js:10
+msgid "Clear search"
+msgstr ""
+
+#: assets/build/admin.js:10
+msgid "Templates could not be loaded. You can still start from scratch."
+msgstr ""
+
+#: assets/build/admin.js:10
+#: assets/build/admin.js:29
+#: assets/build/admin.js:59
 msgid "Bulk action completed successfully."
 msgstr ""
 
 #: assets/build/admin.js:10
-#: assets/build/admin.js:25
-#: assets/build/admin.js:55
+#: assets/build/admin.js:29
+#: assets/build/admin.js:59
 msgid "Failed to perform bulk action."
 msgstr ""
 
@@ -4249,13 +4995,13 @@ msgid "%1$s of %2$s"
 msgstr ""
 
 #: assets/build/admin.js:13
-#: assets/build/admin.js:26
+#: assets/build/admin.js:30
 msgid "Created On"
 msgstr ""
 
 #: assets/build/admin.js:13
-#: assets/build/admin.js:39
-#: assets/build/admin.js:58
+#: assets/build/admin.js:43
+#: assets/build/admin.js:62
 #: assets/build/editor/editor.js:1
 msgid "Actions"
 msgstr ""
@@ -4265,7 +5011,7 @@ msgid "View"
 msgstr ""
 
 #: assets/build/admin.js:13
-#: assets/build/admin.js:26
+#: assets/build/admin.js:30
 msgid "Duplicate"
 msgstr ""
 
@@ -4275,32 +5021,32 @@ msgstr ""
 
 #: assets/build/admin.js:13
 #: assets/build/admin.js:16
-#: assets/build/admin.js:26
 #: assets/build/admin.js:30
-#: assets/build/admin.js:39
+#: assets/build/admin.js:34
+#: assets/build/admin.js:43
 msgid "Restore"
 msgstr ""
 
 #: assets/build/admin.js:13
 #: assets/build/admin.js:16
-#: assets/build/admin.js:32
-#: assets/build/admin.js:39
+#: assets/build/admin.js:36
+#: assets/build/admin.js:43
 msgid "Delete Permanently"
 msgstr ""
 
 #: assets/build/admin.js:13
-#: assets/build/admin.js:96
+#: assets/build/admin.js:100
 #: assets/build/admin/onboarding/index.js:2
 msgid "Search campaigns…"
 msgstr ""
 
 #: assets/build/admin.js:13
-#: assets/build/admin.js:39
+#: assets/build/admin.js:43
 msgid "All Statuses"
 msgstr ""
 
 #: assets/build/admin.js:13
-#: assets/build/admin.js:26
+#: assets/build/admin.js:30
 msgid "Trash"
 msgstr ""
 
@@ -4346,2356 +5092,2492 @@ msgid "No campaigns found"
 msgstr ""
 
 #: assets/build/admin.js:25
+msgid "Give your campaign a clear, memorable name - this is what donors see first."
+msgstr ""
+
+#: assets/build/admin.js:25
+msgid "Add a campaign image"
+msgstr ""
+
+#: assets/build/admin.js:25
+msgid "Upload a hero image - it appears on the campaign block and in the campaign grid."
+msgstr ""
+
+#: assets/build/admin.js:25
+msgid "Tell donors what their support achieves. A short, specific story converts best."
+msgstr ""
+
+#: assets/build/admin.js:25
+msgid "Set your goal"
+msgstr ""
+
+#: assets/build/admin.js:25
+msgid "Choose an amount goal or a donation-count goal, or leave it open. You can change this anytime."
+msgstr ""
+
+#. translators: %s: template name
+#: assets/build/admin.js:26
+msgid "This campaign was created from the “%s” template. Click Edit Campaign to fine-tune its details - I’ll walk you through them."
+msgstr ""
+
+#: assets/build/admin.js:26
+msgid "Click Edit Campaign to fine-tune its details - I’ll walk you through them."
+msgstr ""
+
+#: assets/build/admin.js:26
+msgid "Edit your campaign"
+msgstr ""
+
+#: assets/build/admin.js:26
+#: assets/build/admin.js:27
+msgid "Your campaign page"
+msgstr ""
+
+#: assets/build/admin.js:26
+msgid "Open this menu to View your live campaign page or Edit its content."
+msgstr ""
+
+#: assets/build/admin.js:26
+#: assets/build/admin.js:27
+msgid "Edit your donation form"
+msgstr ""
+
+#: assets/build/admin.js:26
+msgid "Use Edit to customize your donation form’s fields, amounts and settings."
+msgstr ""
+
+#. translators: %s: template name
+#: assets/build/admin.js:27
+msgid "This campaign was created from the “%s” template. Here’s a quick tour of everything you can edit."
+msgstr ""
+
+#: assets/build/admin.js:27
+msgid "Your campaign is ready. Here’s a quick tour of everything you can do from this page."
+msgstr ""
+
+#: assets/build/admin.js:27
+msgid "Welcome to your campaign"
+msgstr ""
+
+#: assets/build/admin.js:27
+msgid "Edit campaign details"
+msgstr ""
+
+#: assets/build/admin.js:27
+msgid "Add a donation form"
+msgstr ""
+
+#: assets/build/admin.js:27
+msgid "Create and manage the donation forms attached to this campaign."
+msgstr ""
+
+#: assets/build/admin.js:27
+msgid "View or edit the public campaign page your donors will see."
+msgstr ""
+
+#: assets/build/admin.js:27
+msgid "Edit an existing form to customize its fields, amounts and settings."
+msgstr ""
+
+#: assets/build/admin.js:27
+msgid "Track your goal"
+msgstr ""
+
+#: assets/build/admin.js:27
+msgid "Watch progress toward your fundraising goal at a glance."
+msgstr ""
+
+#: assets/build/admin.js:27
+msgid "Monitor performance"
+msgstr ""
+
+#: assets/build/admin.js:27
+msgid "See revenue and key stats for the selected date range."
+msgstr ""
+
+#: assets/build/admin.js:27
+msgid "Filter by date"
+msgstr ""
+
+#: assets/build/admin.js:27
+msgid "Change the date range to focus the charts and stats."
+msgstr ""
+
+#. translators: {{current}} and {{total}} are literal driver.js placeholders — do not translate or alter them.
+#: assets/build/admin.js:29
+msgid "{{current}} of {{total}}"
+msgstr ""
+
+#: assets/build/admin.js:29
+#: assets/build/admin.js:56
+#: assets/build/admin.js:59
+msgid "Next"
+msgstr ""
+
+#: assets/build/admin.js:29
+#: assets/build/admin/onboarding/index.js:8
+#: assets/build/admin/onboarding/index.js:10
+msgid "Back"
+msgstr ""
+
+#: assets/build/admin.js:29
+msgid "Done"
+msgstr ""
+
+#: assets/build/admin.js:29
+msgid "Don't show this again"
+msgstr ""
+
+#: assets/build/admin.js:29
 msgid "Donations Received"
 msgstr ""
 
-#: assets/build/admin.js:25
+#: assets/build/admin.js:29
 msgid "Amount Donated"
 msgstr ""
 
-#: assets/build/admin.js:25
+#: assets/build/admin.js:29
 msgid "Donations Remaining"
 msgstr ""
 
-#: assets/build/admin.js:25
+#: assets/build/admin.js:29
 msgid "Amount Pending"
 msgstr ""
 
-#: assets/build/admin.js:25
+#: assets/build/admin.js:29
 msgid "Total Raised:"
 msgstr ""
 
-#: assets/build/admin.js:25
+#: assets/build/admin.js:29
 msgid "Total Donors:"
 msgstr ""
 
-#: assets/build/admin.js:25
+#: assets/build/admin.js:29
 msgid "Total Donations:"
 msgstr ""
 
-#: assets/build/admin.js:25
+#: assets/build/admin.js:29
 msgid "Overview"
 msgstr ""
 
-#: assets/build/admin.js:25
+#: assets/build/admin.js:29
 msgid "Loading revenue data…"
 msgstr ""
 
-#: assets/build/admin.js:25
+#: assets/build/admin.js:29
 msgid "No revenue data available"
 msgstr ""
 
-#: assets/build/admin.js:25
+#: assets/build/admin.js:29
 msgid "Revenue data will appear here once donations are received"
 msgstr ""
 
-#: assets/build/admin.js:25
+#: assets/build/admin.js:29
 msgid "Failed to set the default form."
 msgstr ""
 
-#: assets/build/admin.js:25
+#: assets/build/admin.js:29
 msgid "Form moved to trash."
 msgstr ""
 
-#: assets/build/admin.js:25
+#: assets/build/admin.js:29
 msgid "Form restored."
 msgstr ""
 
-#: assets/build/admin.js:25
+#: assets/build/admin.js:29
 msgid "Form permanently deleted."
 msgstr ""
 
-#: assets/build/admin.js:25
+#: assets/build/admin.js:29
 msgid "Failed to perform action."
 msgstr ""
 
 #. translators: %s: new form title
-#: assets/build/admin.js:26
+#: assets/build/admin.js:30
 msgid "Form duplicated successfully: %s"
 msgstr ""
 
-#: assets/build/admin.js:26
+#: assets/build/admin.js:30
 msgid "Failed to duplicate form."
 msgstr ""
 
-#: assets/build/admin.js:26
+#: assets/build/admin.js:30
 msgid "Title"
 msgstr ""
 
-#: assets/build/admin.js:26
-#: assets/build/admin.js:38
+#: assets/build/admin.js:30
+#: assets/build/admin.js:42
 msgid "(Untitled)"
 msgstr ""
 
-#: assets/build/admin.js:26
-#: assets/build/admin.js:71
+#: assets/build/admin.js:30
+#: assets/build/admin.js:75
 #: assets/build/blocks.js:1
 msgid "Default"
 msgstr ""
 
-#: assets/build/admin.js:26
+#: assets/build/admin.js:30
 msgid "Shortcode"
 msgstr ""
 
-#: assets/build/admin.js:26
+#: assets/build/admin.js:30
 msgid "Copied!"
 msgstr ""
 
-#: assets/build/admin.js:26
+#: assets/build/admin.js:30
 msgid "Copy Shortcode"
 msgstr ""
 
-#: assets/build/admin.js:26
+#: assets/build/admin.js:30
 msgid "Published"
 msgstr ""
 
-#: assets/build/admin.js:26
+#: assets/build/admin.js:30
 msgid "Draft"
 msgstr ""
 
-#: assets/build/admin.js:26
+#: assets/build/admin.js:30
 msgid "Revenue"
 msgstr ""
 
-#: assets/build/admin.js:26
-#: assets/build/admin.js:52
+#: assets/build/admin.js:30
+#: assets/build/admin.js:56
 msgid "Action"
 msgstr ""
 
-#: assets/build/admin.js:26
-#: assets/build/admin.js:28
-#: assets/build/admin.js:38
-#: assets/build/admin.js:39
-#: assets/build/admin.js:58
+#: assets/build/admin.js:30
+#: assets/build/admin.js:32
+#: assets/build/admin.js:42
+#: assets/build/admin.js:43
+#: assets/build/admin.js:62
 msgid "Delete"
 msgstr ""
 
-#: assets/build/admin.js:26
+#: assets/build/admin.js:30
 msgid "Permanently Delete"
 msgstr ""
 
 #. translators: %s: form title
-#: assets/build/admin.js:28
+#: assets/build/admin.js:32
 msgid "Delete \"%s\"?"
 msgstr ""
 
-#: assets/build/admin.js:28
+#: assets/build/admin.js:32
 msgid "The form will be moved to trash and can be restored later."
 msgstr ""
 
 #. translators: %s: form title
-#: assets/build/admin.js:30
+#: assets/build/admin.js:34
 msgid "Restore \"%s\"?"
 msgstr ""
 
-#: assets/build/admin.js:30
+#: assets/build/admin.js:34
 msgid "The form will be restored from trash."
 msgstr ""
 
 #. translators: %s: form title
-#: assets/build/admin.js:32
+#: assets/build/admin.js:36
 msgid "Permanently Delete \"%s\"?"
 msgstr ""
 
-#: assets/build/admin.js:32
+#: assets/build/admin.js:36
 msgid "This action cannot be undone. The form will be permanently deleted."
 msgstr ""
 
 #. translators: %d: number of forms.
-#: assets/build/admin.js:34
+#: assets/build/admin.js:38
 msgid "Delete %d form?"
 msgid_plural "Delete %d forms?"
 msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %d: number of forms.
-#: assets/build/admin.js:36
+#: assets/build/admin.js:40
 msgid "Restore %d form?"
 msgid_plural "Restore %d forms?"
 msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %d: number of forms.
-#: assets/build/admin.js:38
+#: assets/build/admin.js:42
 msgid "Permanently Delete %d form?"
 msgid_plural "Permanently Delete %d forms?"
 msgstr[0] ""
 msgstr[1] ""
 
-#: assets/build/admin.js:38
+#: assets/build/admin.js:42
 msgid "Campaign Form"
 msgstr ""
 
-#: assets/build/admin.js:38
+#: assets/build/admin.js:42
 msgid "Set as Default"
 msgstr ""
 
-#: assets/build/admin.js:38
+#: assets/build/admin.js:42
 msgid "No forms found"
 msgstr ""
 
-#: assets/build/admin.js:38
+#: assets/build/admin.js:42
 msgid "Select date"
 msgstr ""
 
-#: assets/build/admin.js:38
+#: assets/build/admin.js:42
 msgid "Select Date"
 msgstr ""
 
-#: assets/build/admin.js:38
+#: assets/build/admin.js:42
 msgid "Campaign page created."
 msgstr ""
 
-#: assets/build/admin.js:38
+#: assets/build/admin.js:42
 msgid "Failed to create campaign page."
 msgstr ""
 
-#: assets/build/admin.js:38
+#: assets/build/admin.js:42
 msgid "Campaign not found"
 msgstr ""
 
-#: assets/build/admin.js:38
+#: assets/build/admin.js:42
+msgid "Take a tour"
+msgstr ""
+
+#: assets/build/admin.js:42
 msgid "Campaign Page"
 msgstr ""
 
-#: assets/build/admin.js:38
+#: assets/build/admin.js:42
 msgid "Edit Page"
 msgstr ""
 
-#: assets/build/admin.js:38
+#: assets/build/admin.js:42
 msgid "Create Campaign Page"
 msgstr ""
 
-#: assets/build/admin.js:38
+#: assets/build/admin.js:42
 msgid "All Donations"
 msgstr ""
 
-#: assets/build/admin.js:38
+#: assets/build/admin.js:42
 msgid "No donations yet"
 msgstr ""
 
-#: assets/build/admin.js:38
+#: assets/build/admin.js:42
 msgid "Donations will appear here once someone contributes through your campaign."
 msgstr ""
 
-#: assets/build/admin.js:38
+#: assets/build/admin.js:42
 msgid "Donation amount and payment status"
 msgstr ""
 
-#: assets/build/admin.js:38
+#: assets/build/admin.js:42
 msgid "Donor details and contact information"
 msgstr ""
 
-#: assets/build/admin.js:38
+#: assets/build/admin.js:42
 msgid "Campaign linked to each donation"
 msgstr ""
 
-#: assets/build/admin.js:38
+#: assets/build/admin.js:42
 msgid "Receipts and transaction records"
 msgstr ""
 
-#: assets/build/admin.js:38
-#: assets/build/admin.js:55
+#: assets/build/admin.js:42
+#: assets/build/admin.js:59
 msgid "Create a Campaign"
 msgstr ""
 
-#: assets/build/admin.js:38
-#: assets/build/admin.js:58
+#: assets/build/admin.js:42
+#: assets/build/admin.js:62
 msgid "No Name"
 msgstr ""
 
-#: assets/build/admin.js:38
+#: assets/build/admin.js:42
 msgid "Shown as \"Anonymous\" on public donor lists."
 msgstr ""
 
-#: assets/build/admin.js:38
+#: assets/build/admin.js:42
 msgid "Campaign name"
 msgstr ""
 
 #. translators: %s: billing interval.
-#: assets/build/admin.js:39
+#: assets/build/admin.js:43
 msgid "%s interval"
 msgstr ""
 
-#: assets/build/admin.js:39
+#: assets/build/admin.js:43
 msgid "fees"
 msgstr ""
 
-#: assets/build/admin.js:39
+#: assets/build/admin.js:43
 msgid "Date & Time"
 msgstr ""
 
-#: assets/build/admin.js:39
-#: assets/build/admin.js:58
+#: assets/build/admin.js:43
+#: assets/build/admin.js:62
 msgid "View Details"
 msgstr ""
 
 #. translators: %d is the number of donations
-#: assets/build/admin.js:42
+#: assets/build/admin.js:46
 msgid "Delete %d donation(s)?"
 msgstr ""
 
-#: assets/build/admin.js:42
-#: assets/build/admin.js:45
+#: assets/build/admin.js:46
+#: assets/build/admin.js:49
 msgid "This action cannot be undone. All donation data will be permanently deleted."
 msgstr ""
 
 #. translators: %s is the donor name
-#: assets/build/admin.js:45
+#: assets/build/admin.js:49
 msgid "Delete donation from %s?"
 msgstr ""
 
-#: assets/build/admin.js:45
-#: assets/build/admin.js:52
-#: assets/build/admin.js:64
+#: assets/build/admin.js:49
+#: assets/build/admin.js:56
+#: assets/build/admin.js:68
 msgid "Unknown"
 msgstr ""
 
-#: assets/build/admin.js:45
+#: assets/build/admin.js:49
 msgid "No donations found"
 msgstr ""
 
-#: assets/build/admin.js:45
+#: assets/build/admin.js:49
 msgid "Refund failed. Please try again."
 msgstr ""
 
-#: assets/build/admin.js:45
+#: assets/build/admin.js:49
 msgid "Please enter a valid refund amount."
 msgstr ""
 
 #. translators: %s: maximum refundable amount
-#: assets/build/admin.js:46
+#: assets/build/admin.js:50
 msgid "Amount cannot exceed %s."
 msgstr ""
 
 #. translators: %s: refund amount
-#: assets/build/admin.js:47
+#: assets/build/admin.js:51
 msgid "This will issue a complete refund of %s. The entire payment will be refunded."
 msgstr ""
 
 #. translators: 1: partial refund amount, 2: remaining balance
-#: assets/build/admin.js:48
+#: assets/build/admin.js:52
 msgid "This will issue a partial refund of %1$s. Remaining balance of %2$s will still be valid."
 msgstr ""
 
-#: assets/build/admin.js:48
+#: assets/build/admin.js:52
 msgid "Refund Donation"
 msgstr ""
 
 #. translators: %s: donation ID
-#: assets/build/admin.js:49
+#: assets/build/admin.js:53
 msgid "Process refund for donation #%s. The refunded amount will be sent to the donor's original payment method."
 msgstr ""
 
 #. translators: %s: maximum refundable amount
-#: assets/build/admin.js:50
+#: assets/build/admin.js:54
 msgid "Max: %s"
 msgstr ""
 
 #. translators: %s: maximum refundable amount
-#: assets/build/admin.js:51
+#: assets/build/admin.js:55
 msgid "Maximum refundable amount: %s"
 msgstr ""
 
-#: assets/build/admin.js:51
+#: assets/build/admin.js:55
 msgid "Refund Notes (Optional)"
 msgstr ""
 
-#: assets/build/admin.js:51
+#: assets/build/admin.js:55
 msgid "Add a reason or note for this refund…"
 msgstr ""
 
-#: assets/build/admin.js:51
+#: assets/build/admin.js:55
 msgid "This note will be stored with the refund record for future reference."
 msgstr ""
 
 #. translators: %s: already refunded amount
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "Already refunded: %s"
 msgstr ""
 
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "Processing…"
 msgstr ""
 
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "Process Refund"
 msgstr ""
 
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "Failed to update donation status."
 msgstr ""
 
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "Donation Details"
 msgstr ""
 
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "Transaction Date"
 msgstr ""
 
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "Refund"
 msgstr ""
 
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "Updating…"
 msgstr ""
 
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "Mark as Complete"
 msgstr ""
 
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "-"
 msgstr ""
 
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "Guest"
 msgstr ""
 
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "Parent Subscription"
 msgstr ""
 
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "PayPal Subscription ID"
 msgstr ""
 
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "Stripe Subscription ID"
 msgstr ""
 
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "Payment ID"
 msgstr ""
 
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "Form Name"
 msgstr ""
 
-#: assets/build/admin.js:52
-#: assets/build/admin.js:70
+#: assets/build/admin.js:56
 #: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Live Mode"
 msgstr ""
 
-#: assets/build/admin.js:52
-#: assets/build/admin.js:70
+#: assets/build/admin.js:56
 #: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Test Mode"
 msgstr ""
 
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "Payment Type"
 msgstr ""
 
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "Billing Cycle"
 msgstr ""
 
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "Received On"
 msgstr ""
 
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "Payment Information"
 msgstr ""
 
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "View In Stripe"
 msgstr ""
 
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "View In PayPal"
 msgstr ""
 
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "Additional Information"
 msgstr ""
 
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "Payment Logs"
 msgstr ""
 
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "Customer ID"
 msgstr ""
 
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "Refund ID"
 msgstr ""
 
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "Total Refunded"
 msgstr ""
 
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "Original Amount"
 msgstr ""
 
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "Canceled Amount"
 msgstr ""
 
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "Remaining Refunded"
 msgstr ""
 
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "Mode"
 msgstr ""
 
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "Error"
 msgstr ""
 
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "Amount Verified"
 msgstr ""
 
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "Expected Amount"
 msgstr ""
 
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "Actual Amount"
 msgstr ""
 
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "Cancellation Reason"
 msgstr ""
 
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "Yes"
 msgstr ""
 
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "No"
 msgstr ""
 
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "Donation Created"
 msgstr ""
 
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "Payment Succeeded"
 msgstr ""
 
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "Payment Failed"
 msgstr ""
 
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "Payment Canceled"
 msgstr ""
 
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "Refund Canceled"
 msgstr ""
 
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "Payment Completed"
 msgstr ""
 
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "Status Change"
 msgstr ""
 
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "Security Warning"
 msgstr ""
 
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "Warning"
 msgstr ""
 
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "Webhook Event"
 msgstr ""
 
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "Webhook Rejected"
 msgstr ""
 
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "Delete Log?"
 msgstr ""
 
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "This action cannot be undone. The log will be permanently deleted."
 msgstr ""
 
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "Delete Log"
 msgstr ""
 
-#: assets/build/admin.js:52
+#: assets/build/admin.js:56
 msgid "Delete log"
 msgstr ""
 
-#: assets/build/admin.js:52
-#: assets/build/admin.js:55
+#: assets/build/admin.js:56
+#: assets/build/admin.js:59
 msgid "Previous"
 msgstr ""
 
-#: assets/build/admin.js:52
-#: assets/build/admin.js:55
-msgid "Next"
-msgstr ""
-
 #. translators: %1$s is author name, %2$s is date
-#: assets/build/admin.js:55
+#: assets/build/admin.js:59
 msgid "Submitted by %1$s - %2$s"
 msgstr ""
 
-#: assets/build/admin.js:55
+#: assets/build/admin.js:59
 msgid "Delete note"
 msgstr ""
 
-#: assets/build/admin.js:55
+#: assets/build/admin.js:59
 msgid "Failed to delete note."
 msgstr ""
 
-#: assets/build/admin.js:55
+#: assets/build/admin.js:59
 msgid "Delete Note?"
 msgstr ""
 
-#: assets/build/admin.js:55
+#: assets/build/admin.js:59
 msgid "This action cannot be undone. The note will be permanently deleted."
 msgstr ""
 
-#: assets/build/admin.js:55
+#: assets/build/admin.js:59
 msgid "Delete Note"
 msgstr ""
 
-#: assets/build/admin.js:55
+#: assets/build/admin.js:59
 msgid "Notes"
 msgstr ""
 
-#: assets/build/admin.js:55
+#: assets/build/admin.js:59
 msgid "Cancel Note"
 msgstr ""
 
-#: assets/build/admin.js:55
+#: assets/build/admin.js:59
 msgid "Add Note"
 msgstr ""
 
-#: assets/build/admin.js:55
+#: assets/build/admin.js:59
 msgid "Add an internal note about this transaction"
 msgstr ""
 
-#: assets/build/admin.js:55
+#: assets/build/admin.js:59
 msgid "Submit Note"
 msgstr ""
 
-#: assets/build/admin.js:55
+#: assets/build/admin.js:59
 msgid "Add an internal note about this transaction."
 msgstr ""
 
-#: assets/build/admin.js:55
+#: assets/build/admin.js:59
 msgid "Donors exported successfully."
 msgstr ""
 
-#: assets/build/admin.js:55
-#: assets/build/admin.js:92
+#: assets/build/admin.js:59
+#: assets/build/admin.js:96
 msgid "Failed to export donors."
 msgstr ""
 
-#: assets/build/admin.js:55
+#: assets/build/admin.js:59
 msgid "Donors List"
 msgstr ""
 
-#: assets/build/admin.js:55
+#: assets/build/admin.js:59
 msgid "No donors yet"
 msgstr ""
 
-#: assets/build/admin.js:55
+#: assets/build/admin.js:59
 msgid "Donors will appear here once someone contributes to your campaigns. You'll be able to manage supporter relationships and track their donation activity."
 msgstr ""
 
-#: assets/build/admin.js:55
+#: assets/build/admin.js:59
 msgid "Donor contact details and profile information"
 msgstr ""
 
-#: assets/build/admin.js:55
+#: assets/build/admin.js:59
 msgid "Donation history and total contribution"
 msgstr ""
 
-#: assets/build/admin.js:55
+#: assets/build/admin.js:59
 msgid "Active recurring donations and subscriptions"
 msgstr ""
 
-#: assets/build/admin.js:55
+#: assets/build/admin.js:59
 msgid "Notes and tags for managing supporter relationships"
 msgstr ""
 
-#: assets/build/admin.js:55
-#: assets/build/admin.js:64
+#: assets/build/admin.js:59
+#: assets/build/admin.js:68
 msgid "Donor Info"
 msgstr ""
 
 #. translators: %s is the donor name
-#: assets/build/admin.js:58
+#: assets/build/admin.js:62
 msgid "View donor %s"
 msgstr ""
 
-#: assets/build/admin.js:58
+#: assets/build/admin.js:62
 msgid "No of Donations"
 msgstr ""
 
-#: assets/build/admin.js:58
+#: assets/build/admin.js:62
 msgid "Last Donation Date"
 msgstr ""
 
-#: assets/build/admin.js:58
+#: assets/build/admin.js:62
 msgid "View donor details"
 msgstr ""
 
-#: assets/build/admin.js:58
+#: assets/build/admin.js:62
 msgid "Delete donor"
 msgstr ""
 
-#: assets/build/admin.js:58
-#: assets/build/admin.js:64
+#: assets/build/admin.js:62
+#: assets/build/admin.js:68
 msgid "mm/dd/yyyy"
 msgstr ""
 
 #. translators: %d is the number of donors
-#: assets/build/admin.js:61
+#: assets/build/admin.js:65
 msgid "Delete %d donor(s)?"
 msgstr ""
 
-#: assets/build/admin.js:61
-#: assets/build/admin.js:64
+#: assets/build/admin.js:65
+#: assets/build/admin.js:68
 msgid "This action cannot be undone. All donor data will be permanently deleted."
 msgstr ""
 
 #. translators: %s is the donor name
-#: assets/build/admin.js:64
+#: assets/build/admin.js:68
 msgid "Delete donor %s?"
 msgstr ""
 
-#: assets/build/admin.js:64
+#: assets/build/admin.js:68
 msgid "No donors found"
 msgstr ""
 
-#: assets/build/admin.js:64
+#: assets/build/admin.js:68
 msgid "Donors Overview"
 msgstr ""
 
-#: assets/build/admin.js:64
-#: assets/build/admin.js:91
+#: assets/build/admin.js:68
+#: assets/build/admin.js:95
 msgid "Exporting…"
 msgstr ""
 
-#: assets/build/admin.js:64
-#: assets/build/admin.js:70
-#: assets/build/admin.js:91
-#: assets/build/admin.js:92
+#: assets/build/admin.js:68
+#: assets/build/admin.js:74
+#: assets/build/admin.js:95
+#: assets/build/admin.js:96
 msgid "Export CSV"
 msgstr ""
 
-#: assets/build/admin.js:64
+#: assets/build/admin.js:68
 msgid "Total Donations"
 msgstr ""
 
-#: assets/build/admin.js:64
+#: assets/build/admin.js:68
 msgid "Donor Activity"
 msgstr ""
 
-#: assets/build/admin.js:64
+#: assets/build/admin.js:68
 msgid "No Donation Activity"
 msgstr ""
 
-#: assets/build/admin.js:64
+#: assets/build/admin.js:68
 msgid "Donation activity for this donor will appear here once they make contributions."
 msgstr ""
 
-#: assets/build/admin.js:64
+#: assets/build/admin.js:68
 msgid "Lifetime Donation"
 msgstr ""
 
-#: assets/build/admin.js:64
+#: assets/build/admin.js:68
 msgid "Highest Donation"
 msgstr ""
 
-#: assets/build/admin.js:64
+#: assets/build/admin.js:68
 msgid "First Contribution"
 msgstr ""
 
-#: assets/build/admin.js:64
+#: assets/build/admin.js:68
 msgid "Recent Transactions"
 msgstr ""
 
 #. translators: %s is the campaign name
-#: assets/build/admin.js:67
+#: assets/build/admin.js:71
 msgid "Donated to %s"
 msgstr ""
 
 #. translators: %s is the formatted amount
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "Amount: %s"
 msgstr ""
 
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "No transactions yet."
 msgstr ""
 
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "Failed to update donor."
 msgstr ""
 
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "Edit Donor Profile"
 msgstr ""
 
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "Update the donor's profile information."
 msgstr ""
 
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "Phone Number"
 msgstr ""
 
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "Company Name"
 msgstr ""
 
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "Donor name is required."
 msgstr ""
 
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "Donor exported successfully."
 msgstr ""
 
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "Failed to export donor."
 msgstr ""
 
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "Failed to load donor. Please try again."
 msgstr ""
 
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "Donor Profile"
 msgstr ""
 
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "Send Email"
 msgstr ""
 
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "Donor not found"
 msgstr ""
 
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "Food for Children"
 msgstr ""
 
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "18 donations · 12 donors"
 msgstr ""
 
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "Animal Welfare"
 msgstr ""
 
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "10 donations · 6 donors"
 msgstr ""
 
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "Clothes for Old Age Home"
 msgstr ""
 
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "4 donations · 3 donors"
 msgstr ""
 
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "Campaign Performance"
 msgstr ""
 
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "Campaigns ranked by revenue with progress toward each campaign goal."
 msgstr ""
 
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "Goal progress"
 msgstr ""
 
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "3 active campaigns"
 msgstr ""
 
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "$350 raised this period"
 msgstr ""
 
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "Top Donor"
 msgstr ""
 
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "Aaditya Sharma"
 msgstr ""
 
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "3 donations · One Time"
 msgstr ""
 
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "Avg Donation"
 msgstr ""
 
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "Refunds"
 msgstr ""
 
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "Track revenue, campaigns, and donor insights"
 msgstr ""
 
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "Last 30 Days"
 msgstr ""
 
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "Export as CSV"
 msgstr ""
 
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "Donation Trend"
 msgstr ""
 
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "Daily donation amounts for the selected period."
 msgstr ""
 
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "Unlock advanced reports"
 msgstr ""
 
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "Get deeper insights into your donations, campaigns, and donors with advanced analytics."
 msgstr ""
 
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "Revenue trends · Campaign performance · Donor insights"
 msgstr ""
 
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "Upgrade to Pro"
 msgstr ""
 
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "Unsaved changes"
 msgstr ""
 
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "Some fields have unsaved changes. Discard them to continue, or stay to save your edits."
 msgstr ""
 
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "Discard & switch"
 msgstr ""
 
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "Keep editing"
 msgstr ""
 
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "Select Currency"
 msgstr ""
 
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "Select the default currency for donation forms."
 msgstr ""
 
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "Test mode allows you to process payments without real charges. Switch to Live mode for actual transactions."
 msgstr ""
 
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "Auto (Left)"
 msgstr ""
 
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "Left ($100)"
 msgstr ""
 
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "Right (100$)"
 msgstr ""
 
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "Left Space ($ 100)"
 msgstr ""
 
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "Right Space (100 $)"
 msgstr ""
 
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "Currency Sign Position"
 msgstr ""
 
-#: assets/build/admin.js:70
+#: assets/build/admin.js:74
 msgid "Auto follows your site locale in the dashboard and places the symbol on the left for donation forms, receipts, and emails. Choose a specific position to override this everywhere."
 msgstr ""
 
 #. translators: %s: payment gateway name (e.g. Stripe, PayPal).
-#: assets/build/admin.js:71
+#: assets/build/admin.js:75
 msgid "You'll pay a 2.9%% transaction fee plus standard %s fees."
 msgstr ""
 
-#: assets/build/admin.js:71
+#: assets/build/admin.js:75
 #: assets/build/blocks.js:1
 #: assets/build/editor/editor.js:1
 msgid "Visual"
 msgstr ""
 
-#: assets/build/admin.js:71
+#: assets/build/admin.js:75
 #: assets/build/blocks.js:1
 #: assets/build/editor/editor.js:1
 msgid "HTML"
 msgstr ""
 
-#: assets/build/admin.js:71
+#: assets/build/admin.js:75
 #: assets/build/blocks.js:1
 #: assets/build/editor/editor.js:1
 msgid "Add Tag"
 msgstr ""
 
-#: assets/build/admin.js:71
+#: assets/build/admin.js:75
 msgid "Enable Offline Donations"
 msgstr ""
 
-#: assets/build/admin.js:71
+#: assets/build/admin.js:75
 msgid "Allow donors to submit donations without online payment. You can manually mark them as complete."
 msgstr ""
 
-#: assets/build/admin.js:71
+#: assets/build/admin.js:75
 msgid "Payment Instructions"
 msgstr ""
 
-#: assets/build/admin.js:71
+#: assets/build/admin.js:75
 msgid "These instructions will be shown to donors who choose offline payment."
 msgstr ""
 
-#: assets/build/admin.js:71
+#: assets/build/admin.js:75
 msgid "Successfully connected to Stripe!"
 msgstr ""
 
-#: assets/build/admin.js:71
+#: assets/build/admin.js:75
 msgid "Invalid response from server. Please try again."
 msgstr ""
 
-#: assets/build/admin.js:71
+#: assets/build/admin.js:75
 msgid "Webhook active"
 msgstr ""
 
-#: assets/build/admin.js:71
+#: assets/build/admin.js:75
 msgid "Webhook created successfully!"
 msgstr ""
 
-#: assets/build/admin.js:71
+#: assets/build/admin.js:75
 msgid "Creating webhook…"
 msgstr ""
 
-#: assets/build/admin.js:71
+#: assets/build/admin.js:75
 msgid "Create webhook"
 msgstr ""
 
-#: assets/build/admin.js:71
+#: assets/build/admin.js:75
 msgid "Failed to set default account."
 msgstr ""
 
-#: assets/build/admin.js:71
+#: assets/build/admin.js:75
 msgid "Setting…"
 msgstr ""
 
-#: assets/build/admin.js:71
+#: assets/build/admin.js:75
 msgid "Set as default"
 msgstr ""
 
-#: assets/build/admin.js:71
+#: assets/build/admin.js:75
 msgid "Disconnect Stripe Account"
 msgstr ""
 
 #. translators: %s is the account name or id.
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Are you sure you want to disconnect “%s”? Donation forms using this account will fall back to the default account, and it will stop processing new payments."
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Disconnect"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Failed to disconnect Stripe account."
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Stripe account disconnected successfully."
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Disconnecting…"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Connected Accounts"
 msgstr ""
 
-#: assets/build/admin.js:74
-#: assets/build/admin.js:90
+#: assets/build/admin.js:78
+#: assets/build/admin.js:94
 #: assets/build/editor/editor.js:1
 msgid "Connecting…"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Connect another account"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Connect your Stripe account to start accepting donations through your forms."
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Connect to Stripe"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Securely connect to Stripe with just a few clicks to begin accepting donations!"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Learn More"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "PayPal onboarding failed: merchant ID not received."
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "PayPal onboarding failed: could not verify merchant status."
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "PayPal account setup is incomplete. Please complete your PayPal account setup and try again."
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "PayPal onboarding failed."
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Failed to disconnect PayPal."
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "PayPal account disconnected successfully."
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Connection Status"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Disconnect PayPal Account"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Are you sure you want to disconnect your PayPal account? This will stop all active PayPal donations."
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Webhook"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Webhook successfully connected. PayPal events are being tracked."
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Set up a webhook to receive real-time payment notifications from PayPal."
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Failed to create PayPal webhook."
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "PayPal webhook created successfully!"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Creating…"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Create Webhook"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Connect your PayPal account to start accepting donations through PayPal."
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Failed to connect to PayPal."
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Waiting for PayPal setup…"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Connect to PayPal"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Complete the setup in the PayPal tab that just opened. This page will update automatically."
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "A new tab will open for you to complete the PayPal setup."
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Payment Gateways"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "General Settings"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Fee Recovery"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Let donors cover the processing fees so your cause receives the full donation amount."
 msgstr ""
 
-#: assets/build/admin.js:74
-#: assets/build/admin.js:91
+#: assets/build/admin.js:78
+#: assets/build/admin.js:95
 msgid "Payments"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Connect and manage your payment gateways to securely accept donations."
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Donor Management"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Control how donor records relate to WordPress user accounts."
 msgstr ""
 
-#: assets/build/admin.js:74
-#: assets/build/admin.js:90
+#: assets/build/admin.js:78
+#: assets/build/admin.js:94
 #: assets/build/editor/editor.js:1
 msgid "OttoKit"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Connect your donations to 1,000+ apps and automate workflows with OttoKit."
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "MCP"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Control AI agent access to your donation data through the WordPress Abilities API."
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Spam Protection"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Honeypot"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Protect your donation forms from spam submissions."
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Form Validation"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Customize the default validation messages shown on donation form fields."
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Privacy"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Control donor data retention, consent, and the privacy policy and terms shown on donation forms."
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Miscellaneous"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Additional settings to improve your experience."
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 #: assets/build/blocks.js:1
 #: assets/build/editor/editor.js:1
 msgid "Save"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 #: assets/build/blocks.js:4
 msgid "Fee Percentage (%)"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 #: assets/build/blocks.js:4
 msgid "Fixed Fee"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 #: assets/build/blocks.js:4
 msgid "Fee Configuration"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Set the default processing fee rates. These apply when donors opt to cover fees, unless overridden per form."
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 #: assets/build/blocks.js:4
 msgid "All Gateways"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 #: assets/build/blocks.js:4
 msgid "Per Gateway"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "The percentage fee charged by Stripe (e.g., 2.9 for US accounts)."
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "The fixed fee per transaction charged by Stripe (e.g., 0.30 for US accounts)."
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Stripe fees vary by country and account. Check your Stripe dashboard for your actual processing rates."
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Copy to clipboard"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Create an Application Password"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Open Application Passwords"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Copy the JSON config below into your AI client's MCP config file."
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Replace \"your-application-password\" with the password from Step 1."
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Add to .mcp.json (Claude Code), claude_desktop_config.json (Claude Desktop), or your client's MCP settings."
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Experimental"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Enable Abilities"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Register SureDonation abilities with the WordPress Abilities API. When enabled, AI clients can list, read, create, edit, and delete your campaigns, donations, and donors. When disabled, no abilities are registered."
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Abilities API - Edit"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Enable Edit Abilities"
 msgstr ""
 
-#: assets/build/admin.js:74
-msgid "When enabled, AI clients can create new campaigns, update campaign settings, modify donations, and manage donor records. When disabled, these abilities are unregistered and AI clients can only read your data."
+#: assets/build/admin.js:78
+msgid "When enabled, AI clients can create new campaigns, update campaign settings, change donation statuses, issue refunds through your payment gateway, and manage donor records. Refunds move real money and cannot be undone. When disabled, these abilities are unregistered and AI clients can only read your data."
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Abilities API - Delete"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Enable Delete Abilities"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "When enabled, AI clients can permanently delete campaigns, donations, and donors. Deleted data cannot be recovered. When disabled, delete abilities are unregistered."
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "MCP Server"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Enable MCP Server"
 msgstr ""
 
-#: assets/build/admin.js:74
-msgid "Creates a dedicated SureDonation MCP endpoint that AI clients like Claude can connect to. When disabled, the endpoint is removed and external AI clients cannot discover or call any SureDonation abilities."
+#: assets/build/admin.js:78
+msgid "Creates a dedicated SureDonation MCP endpoint that AI clients like Claude can connect to. When disabled, only this endpoint is removed — whenever abilities are enabled above they remain available to authenticated clients through the WordPress Abilities REST API."
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Learn more"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Connect Your AI Client"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Enable Honeypot Security"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Add a hidden field that genuine visitors never fill in to block automated spam submissions, without affecting real donors."
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Contribute to SureDonation"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Help shape the future of SureDonation. Share how you use the plugin so we can build features that matter, fix issues faster, and make smarter decisions."
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Create WordPress accounts for donors"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "When enabled, a WordPress user account is automatically created for each new donor and a new-account email is sent to them. Leave this off to keep guest donations from creating accounts."
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Required Error Messages"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Other Error Messages"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Input Field"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Email Field"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Number Field"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Dropdown Field"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Phone Field"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "URL Field"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Invalid Email"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Invalid Number"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Invalid Phone"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Invalid URL"
 msgstr ""
 
-#: assets/build/admin.js:74
+#: assets/build/admin.js:78
 msgid "Maximum Length"
 msgstr ""
 
 #. translators: %s is replaced with the configured maximum length.
-#: assets/build/admin.js:76
+#: assets/build/admin.js:80
 msgid "%s is replaced with the configured maximum. For example: \"Maximum length is 100 characters.\""
 msgstr ""
 
-#: assets/build/admin.js:76
+#: assets/build/admin.js:80
 msgid "Email — Local Part Too Long"
 msgstr ""
 
 #. translators: %s is replaced with the configured maximum local-part length.
-#: assets/build/admin.js:78
+#: assets/build/admin.js:82
 msgid "%s is replaced with the configured maximum for the part before @. For example: \"The part before @ may not exceed 64 characters.\""
 msgstr ""
 
-#: assets/build/admin.js:78
+#: assets/build/admin.js:82
 msgid "Email — Domain Part Too Long"
 msgstr ""
 
 #. translators: %s is replaced with the configured maximum domain-part length.
-#: assets/build/admin.js:80
+#: assets/build/admin.js:84
 msgid "%s is replaced with the configured maximum for the part after @. For example: \"The part after @ may not exceed 255 characters.\""
 msgstr ""
 
-#: assets/build/admin.js:80
+#: assets/build/admin.js:84
 msgid "Email — Too Long"
 msgstr ""
 
 #. translators: %s is replaced with the configured maximum email length.
-#: assets/build/admin.js:82
+#: assets/build/admin.js:86
 msgid "%s is replaced with the maximum total email length (254). For example: \"The email address may not exceed 254 characters.\""
 msgstr ""
 
-#: assets/build/admin.js:82
+#: assets/build/admin.js:86
 #: assets/build/blocks.js:1
 msgid "Minimum Value"
 msgstr ""
 
 #. translators: %s is replaced with the configured minimum value.
-#: assets/build/admin.js:84
+#: assets/build/admin.js:88
 msgid "%s is replaced with the configured minimum. For example: \"Minimum value is 10.\""
 msgstr ""
 
-#: assets/build/admin.js:84
+#: assets/build/admin.js:88
 #: assets/build/blocks.js:1
 msgid "Maximum Value"
 msgstr ""
 
 #. translators: %s is replaced with the configured maximum value.
-#: assets/build/admin.js:86
+#: assets/build/admin.js:90
 msgid "%s is replaced with the configured maximum. For example: \"Maximum value is 100.\""
 msgstr ""
 
-#: assets/build/admin.js:86
+#: assets/build/admin.js:90
 msgid "Dropdown Minimum Selections"
 msgstr ""
 
 #. translators: %s is replaced with the configured minimum number of selections.
-#: assets/build/admin.js:88
+#: assets/build/admin.js:92
 msgid "%s is replaced with the configured minimum. For example: \"Please select at least 2 option(s).\""
 msgstr ""
 
-#: assets/build/admin.js:88
+#: assets/build/admin.js:92
 msgid "Dropdown Maximum Selections"
 msgstr ""
 
 #. translators: %s is replaced with the configured maximum number of selections.
-#: assets/build/admin.js:90
+#: assets/build/admin.js:94
 msgid "%s is replaced with the configured maximum. For example: \"Please select no more than 5 option(s).\""
 msgstr ""
 
-#: assets/build/admin.js:90
+#: assets/build/admin.js:94
 #: assets/build/editor/editor.js:1
 msgid "Send donations to 1,000+ popular apps."
 msgstr ""
 
-#: assets/build/admin.js:90
+#: assets/build/admin.js:94
 #: assets/build/editor/editor.js:1
 msgid "Build automated workflows that run instantly."
 msgstr ""
 
-#: assets/build/admin.js:90
+#: assets/build/admin.js:94
 #: assets/build/editor/editor.js:1
 msgid "Notify your team on Slack, add donors to your CRM, or update Google Sheets."
 msgstr ""
 
-#: assets/build/admin.js:90
+#: assets/build/admin.js:94
 #: assets/build/editor/editor.js:1
 msgid "Keep your tools in sync automatically."
 msgstr ""
 
-#: assets/build/admin.js:90
+#: assets/build/admin.js:94
 #: assets/build/editor/editor.js:1
 msgid "OttoKit Settings"
 msgstr ""
 
-#: assets/build/admin.js:90
+#: assets/build/admin.js:94
 #: assets/build/editor/editor.js:1
 msgid "Couldn’t load the OttoKit builder. A browser ad blocker may be blocking it — allow it for this page and retry."
 msgstr ""
 
-#: assets/build/admin.js:90
+#: assets/build/admin.js:94
 #: assets/build/editor/editor.js:1
 msgid "Retry"
 msgstr ""
 
-#: assets/build/admin.js:90
+#: assets/build/admin.js:94
 #: assets/build/editor/editor.js:1
 msgid "OttoKit Automations"
 msgstr ""
 
-#: assets/build/admin.js:90
+#: assets/build/admin.js:94
 #: assets/build/editor/editor.js:1
 msgid "Link this form to a campaign first to set up automations."
 msgstr ""
 
-#: assets/build/admin.js:90
+#: assets/build/admin.js:94
 #: assets/build/editor/editor.js:1
 msgid "Automate Your Donations with OttoKit"
 msgstr ""
 
-#: assets/build/admin.js:90
+#: assets/build/admin.js:94
 #: assets/build/editor/editor.js:1
 msgid "Every completed donation should trigger something: a Slack alert, a CRM contact, a thank-you email, or a new row in Google Sheets."
 msgstr ""
 
-#: assets/build/admin.js:90
+#: assets/build/admin.js:94
 #: assets/build/editor/editor.js:1
 msgid "Plugin installation failed."
 msgstr ""
 
-#: assets/build/admin.js:90
+#: assets/build/admin.js:94
 #: assets/build/editor/editor.js:1
 msgid "Activating…"
 msgstr ""
 
-#: assets/build/admin.js:90
+#: assets/build/admin.js:94
 #: assets/build/editor/editor.js:1
 msgid "Plugin activation failed."
 msgstr ""
 
-#: assets/build/admin.js:90
+#: assets/build/admin.js:94
 #: assets/build/editor/editor.js:1
 msgid "Something went wrong. Please try again."
 msgstr ""
 
-#: assets/build/admin.js:90
+#: assets/build/admin.js:94
 #: assets/build/blocks/donation-form/editor.js:1
 #: assets/build/campaign-blocks.js:1
 #: assets/build/editor/editor.js:1
 msgid "Loading…"
 msgstr ""
 
-#: assets/build/admin.js:90
+#: assets/build/admin.js:94
 #: assets/build/editor/editor.js:1
 msgid "Please allow popups for this site to connect with OttoKit, then try again."
 msgstr ""
 
-#: assets/build/admin.js:90
+#: assets/build/admin.js:94
 #: assets/build/editor/editor.js:1
 msgid "Could not connect to OttoKit."
 msgstr ""
 
-#: assets/build/admin.js:90
+#: assets/build/admin.js:94
 #: assets/build/editor/editor.js:1
 msgid "Get Started"
 msgstr ""
 
-#: assets/build/admin.js:90
+#: assets/build/admin.js:94
 #: assets/build/editor/editor.js:1
 msgid "Connect with OttoKit"
 msgstr ""
 
-#: assets/build/admin.js:90
+#: assets/build/admin.js:94
 #: assets/build/editor/editor.js:1
 msgid "Go to OttoKit Settings"
 msgstr ""
 
-#: assets/build/admin.js:91
+#: assets/build/admin.js:95
 #: assets/build/editor/editor.js:1
 msgid "Select a page"
 msgstr ""
 
-#: assets/build/admin.js:91
+#: assets/build/admin.js:95
 msgid "SureDonation stores personal data such as donors’ names, emails, and phone numbers. Donors may request erasure, but you may be legally required to retain donation data for a certain time. Control how long personal data is retained below."
 msgstr ""
 
-#: assets/build/admin.js:91
+#: assets/build/admin.js:95
 msgid "Minimum Data Retention Period"
 msgstr ""
 
-#: assets/build/admin.js:91
+#: assets/build/admin.js:95
 msgid "Prevent personal data from being erased for donations made within this period. \"None\" allows any donation’s data to be erased; \"Forever\" prevents erasure regardless of age."
 msgstr ""
 
-#: assets/build/admin.js:91
+#: assets/build/admin.js:95
 msgid "Contact Consent Field"
 msgstr ""
 
-#: assets/build/admin.js:91
+#: assets/build/admin.js:95
 msgid "Display a checkbox asking donors for their consent to being contacted."
 msgstr ""
 
-#: assets/build/admin.js:91
+#: assets/build/admin.js:95
 msgid "Make Consent Field Required For Donation Forms"
 msgstr ""
 
-#: assets/build/admin.js:91
+#: assets/build/admin.js:95
 msgid "Requires the donor acknowledge consent before submitting a donation."
 msgstr ""
 
-#: assets/build/admin.js:91
+#: assets/build/admin.js:95
 msgid "Note: on sites using full-page caching, forms cached before enabling this may not show the checkbox until the cache is purged — those submissions are rejected until then."
 msgstr ""
 
-#: assets/build/admin.js:91
+#: assets/build/admin.js:95
 msgid "Contact Consent Label"
 msgstr ""
 
-#: assets/build/admin.js:91
+#: assets/build/admin.js:95
 msgid "A short statement describing how you would like to contact people."
 msgstr ""
 
-#: assets/build/admin.js:91
+#: assets/build/admin.js:95
 msgid "Privacy Policy Field"
 msgstr ""
 
-#: assets/build/admin.js:91
+#: assets/build/admin.js:95
 msgid "Display the privacy policy statement on donation forms."
 msgstr ""
 
-#: assets/build/admin.js:91
+#: assets/build/admin.js:95
 msgid "Shown to donors on the form. Use [privacy_policy] to link to the Privacy Policy page selected below."
 msgstr ""
 
-#: assets/build/admin.js:91
+#: assets/build/admin.js:95
 msgid "Privacy Policy Page"
 msgstr ""
 
-#: assets/build/admin.js:91
+#: assets/build/admin.js:95
 msgid "The page the [privacy_policy] shortcode links to. Falls back to WordPress Settings → Privacy when not set."
 msgstr ""
 
-#: assets/build/admin.js:91
+#: assets/build/admin.js:95
 msgid "Terms And Conditions Field"
 msgstr ""
 
-#: assets/build/admin.js:91
+#: assets/build/admin.js:95
 msgid "Display the terms and conditions statement on donation forms."
 msgstr ""
 
-#: assets/build/admin.js:91
+#: assets/build/admin.js:95
 msgid "Terms And Conditions"
 msgstr ""
 
-#: assets/build/admin.js:91
+#: assets/build/admin.js:95
 msgid "Shown to donors on the form. Use [terms] to link to the Terms & Conditions page selected below."
 msgstr ""
 
-#: assets/build/admin.js:91
+#: assets/build/admin.js:95
 msgid "Terms & Conditions Page"
 msgstr ""
 
-#: assets/build/admin.js:91
+#: assets/build/admin.js:95
 msgid "The page the [terms] shortcode links to."
 msgstr ""
 
-#: assets/build/admin.js:91
+#: assets/build/admin.js:95
 msgid "Let donors give manually. Turn it on and set the instructions they see."
 msgstr ""
 
-#: assets/build/admin.js:91
+#: assets/build/admin.js:95
 msgid "Set your donation currency and mode, then connect a payment gateway."
 msgstr ""
 
-#: assets/build/admin.js:91
+#: assets/build/admin.js:95
 msgid "Failed to save some settings"
 msgstr ""
 
-#: assets/build/admin.js:91
+#: assets/build/admin.js:95
 msgid "Import & Export"
 msgstr ""
 
-#: assets/build/admin.js:91
+#: assets/build/admin.js:95
 msgid "Export your donations, donors, campaigns, and settings, or import them back from a file."
 msgstr ""
 
-#: assets/build/admin.js:91
-#: assets/build/admin.js:104
+#: assets/build/admin.js:95
+#: assets/build/admin.js:108
 #: assets/build/admin/onboarding/index.js:8
 msgid "Migrate"
 msgstr ""
 
-#: assets/build/admin.js:91
+#: assets/build/admin.js:95
 msgid "Migrate donor data from other plugins."
 msgstr ""
 
-#: assets/build/admin.js:91
+#: assets/build/admin.js:95
 msgid "The file is larger than 20 MB."
 msgstr ""
 
-#: assets/build/admin.js:91
+#: assets/build/admin.js:95
 msgid "The file is not valid JSON."
 msgstr ""
 
-#: assets/build/admin.js:91
+#: assets/build/admin.js:95
 msgid "Could not read the file."
 msgstr ""
 
-#: assets/build/admin.js:91
+#: assets/build/admin.js:95
 msgid "Export your one-time donations to a CSV file, including submitted form fields."
 msgstr ""
 
-#: assets/build/admin.js:91
+#: assets/build/admin.js:95
 msgid "Failed to export donations."
 msgstr ""
 
 #. translators: %d: number of donations exported.
-#: assets/build/admin.js:92
+#: assets/build/admin.js:96
 msgid "Exported %d donation."
 msgid_plural "Exported %d donations."
 msgstr[0] ""
 msgstr[1] ""
 
-#: assets/build/admin.js:92
+#: assets/build/admin.js:96
 msgid "No donations to export."
 msgstr ""
 
-#: assets/build/admin.js:92
+#: assets/build/admin.js:96
 msgid "Export was capped at 10,000 rows. Narrow the date range to export the rest."
 msgstr ""
 
-#: assets/build/admin.js:92
+#: assets/build/admin.js:96
 msgid "Export your donor database with names, contact details, and giving totals to a CSV file."
 msgstr ""
 
 #. translators: %d: number of donors exported.
-#: assets/build/admin.js:93
+#: assets/build/admin.js:97
 msgid "Exported %d donor."
 msgid_plural "Exported %d donors."
 msgstr[0] ""
 msgstr[1] ""
 
-#: assets/build/admin.js:93
+#: assets/build/admin.js:97
 msgid "No donors to export."
 msgstr ""
 
-#: assets/build/admin.js:93
+#: assets/build/admin.js:97
 msgid "Export was capped at 10,000 rows. Narrow the results to export the rest."
 msgstr ""
 
-#: assets/build/admin.js:93
+#: assets/build/admin.js:97
 msgid "Export your campaigns and their donation forms to a JSON file for backup or moving to another site."
 msgstr ""
 
-#: assets/build/admin.js:93
-#: assets/build/admin.js:94
+#: assets/build/admin.js:97
+#: assets/build/admin.js:98
 msgid "Export JSON"
 msgstr ""
 
-#: assets/build/admin.js:93
+#: assets/build/admin.js:97
 msgid "Failed to export campaigns."
 msgstr ""
 
 #. translators: %d: number of campaigns exported.
-#: assets/build/admin.js:94
+#: assets/build/admin.js:98
 msgid "Exported %d campaign."
 msgid_plural "Exported %d campaigns."
 msgstr[0] ""
 msgstr[1] ""
 
-#: assets/build/admin.js:94
+#: assets/build/admin.js:98
 msgid "No campaigns to export."
 msgstr ""
 
-#: assets/build/admin.js:94
+#: assets/build/admin.js:98
 msgid "Export your SureDonation settings to a JSON file. Payment credentials and other secrets are never included."
 msgstr ""
 
-#: assets/build/admin.js:94
+#: assets/build/admin.js:98
 msgid "Failed to export settings."
 msgstr ""
 
-#: assets/build/admin.js:94
+#: assets/build/admin.js:98
 msgid "Settings exported."
 msgstr ""
 
-#: assets/build/admin.js:94
+#: assets/build/admin.js:98
 msgid "Merge"
 msgstr ""
 
-#: assets/build/admin.js:94
+#: assets/build/admin.js:98
 msgid "Please select a .json file."
 msgstr ""
 
-#: assets/build/admin.js:94
+#: assets/build/admin.js:98
 msgid "Restore from JSON"
 msgstr ""
 
-#: assets/build/admin.js:94
+#: assets/build/admin.js:98
 msgid "Import campaigns or settings from a JSON file exported by SureDonation."
 msgstr ""
 
-#: assets/build/admin.js:94
+#: assets/build/admin.js:98
 msgid "Imported campaigns and their forms are added as published campaigns."
 msgstr ""
 
-#: assets/build/admin.js:94
+#: assets/build/admin.js:98
 msgid "Campaigns imported."
 msgstr ""
 
-#: assets/build/admin.js:94
+#: assets/build/admin.js:98
 msgid "Failed to import campaigns."
 msgstr ""
 
-#: assets/build/admin.js:94
-#: assets/build/admin.js:95
-#: assets/build/admin.js:102
-#: assets/build/admin.js:104
+#: assets/build/admin.js:98
+#: assets/build/admin.js:99
+#: assets/build/admin.js:106
+#: assets/build/admin.js:108
 #: assets/build/admin/onboarding/index.js:8
 msgid "Importing…"
 msgstr ""
 
-#: assets/build/admin.js:94
-#: assets/build/admin.js:95
-#: assets/build/admin.js:104
+#: assets/build/admin.js:98
+#: assets/build/admin.js:99
+#: assets/build/admin.js:108
 msgid "Import"
 msgstr ""
 
-#: assets/build/admin.js:94
+#: assets/build/admin.js:98
 msgid "Choose Merge to update only the keys in the file, or Replace to overwrite all settings. Payment credentials and other secrets are never imported."
 msgstr ""
 
-#: assets/build/admin.js:94
+#: assets/build/admin.js:98
 msgid "Import mode"
 msgstr ""
 
-#: assets/build/admin.js:94
+#: assets/build/admin.js:98
 msgid "Failed to import settings."
 msgstr ""
 
-#: assets/build/admin.js:94
-#: assets/build/admin.js:104
+#: assets/build/admin.js:98
+#: assets/build/admin.js:108
 msgid "Import from CSV"
 msgstr ""
 
-#: assets/build/admin.js:94
+#: assets/build/admin.js:98
 msgid "Import donations or donors from a CSV exported by SureDonation. Columns are matched automatically."
 msgstr ""
 
-#: assets/build/admin.js:94
+#: assets/build/admin.js:98
 msgid "Import type"
 msgstr ""
 
-#: assets/build/admin.js:94
+#: assets/build/admin.js:98
 msgid "Import into campaign"
 msgstr ""
 
-#: assets/build/admin.js:94
+#: assets/build/admin.js:98
 msgid "All imported donations are added to this campaign."
 msgstr ""
 
-#: assets/build/admin.js:94
+#: assets/build/admin.js:98
 msgid "Create a campaign first — imported donations need a campaign to belong to."
 msgstr ""
 
-#: assets/build/admin.js:94
+#: assets/build/admin.js:98
 msgid "Upload CSV file"
 msgstr ""
 
-#: assets/build/admin.js:94
-#: assets/build/admin.js:103
+#: assets/build/admin.js:98
+#: assets/build/admin.js:107
 msgid "Please select a .csv file."
 msgstr ""
 
-#: assets/build/admin.js:94
+#: assets/build/admin.js:98
 msgid "Import progress"
 msgstr ""
 
-#: assets/build/admin.js:94
+#: assets/build/admin.js:98
 msgid "Import complete"
 msgstr ""
 
 #. translators: 1: imported count, 2: skipped count, 3: error count.
-#: assets/build/admin.js:95
+#: assets/build/admin.js:99
 msgid "Imported %1$d, skipped %2$d, %3$d error."
 msgid_plural "Imported %1$d, skipped %2$d, %3$d errors."
 msgstr[0] ""
 msgstr[1] ""
 
-#: assets/build/admin.js:95
+#: assets/build/admin.js:99
 msgid "Import failed."
 msgstr ""
 
-#: assets/build/admin.js:95
+#: assets/build/admin.js:99
 msgid "The import did not finish. It may still be running - reload to check."
 msgstr ""
 
-#: assets/build/admin.js:95
+#: assets/build/admin.js:99
 msgid "Export"
 msgstr ""
 
-#: assets/build/admin.js:95
+#: assets/build/admin.js:99
 #: assets/build/admin/onboarding/index.js:1
 msgid "Could not load GiveWP data"
 msgstr ""
 
-#: assets/build/admin.js:95
+#: assets/build/admin.js:99
 #: assets/build/admin/onboarding/index.js:1
 msgid "Failed to fetch GiveWP preview."
 msgstr ""
 
-#: assets/build/admin.js:95
+#: assets/build/admin.js:99
 #: assets/build/admin/onboarding/index.js:1
 msgid "No GiveWP campaigns found"
 msgstr ""
 
-#: assets/build/admin.js:95
+#: assets/build/admin.js:99
 #: assets/build/admin/onboarding/index.js:1
 msgid "We didn't find any GiveWP campaigns to migrate. If you've recently moved sites, restore the GiveWP database tables and try again."
 msgstr ""
 
 #. translators: %d: campaign count
-#: assets/build/admin.js:96
+#: assets/build/admin.js:100
 #: assets/build/admin/onboarding/index.js:2
 msgid "Found %d campaign. Select what to migrate."
 msgid_plural "Found %d campaigns. Select what to migrate."
 msgstr[0] ""
 msgstr[1] ""
 
-#: assets/build/admin.js:96
+#: assets/build/admin.js:100
 #: assets/build/admin/onboarding/index.js:2
 msgid "Picking a campaign migrates all its donations, donors, and recurring donations."
 msgstr ""
 
-#: assets/build/admin.js:96
+#: assets/build/admin.js:100
 #: assets/build/admin/onboarding/index.js:2
 msgid "Select all"
 msgstr ""
 
-#: assets/build/admin.js:96
+#: assets/build/admin.js:100
 #: assets/build/admin/onboarding/index.js:2
 msgid "With donations"
 msgstr ""
 
-#: assets/build/admin.js:96
+#: assets/build/admin.js:100
 #: assets/build/admin/onboarding/index.js:2
 msgid "No campaigns match your search."
 msgstr ""
 
-#: assets/build/admin.js:96
+#: assets/build/admin.js:100
 #: assets/build/admin/onboarding/index.js:2
 msgid "Include standalone donors"
 msgstr ""
 
 #. translators: %d: standalone donor count
-#: assets/build/admin.js:97
+#: assets/build/admin.js:101
 #: assets/build/admin/onboarding/index.js:3
 msgid "Also import %d standalone donor"
 msgid_plural "Also import %d standalone donors"
 msgstr[0] ""
 msgstr[1] ""
 
-#: assets/build/admin.js:97
+#: assets/build/admin.js:101
 #: assets/build/admin/onboarding/index.js:3
 msgid "Donors that exist in GiveWP without any donation linked to them."
 msgstr ""
 
 #. translators: 1: item count, 2: campaign count
-#: assets/build/admin.js:98
+#: assets/build/admin.js:102
 #: assets/build/admin/onboarding/index.js:4
 msgid "%1$d item across %2$d campaign"
 msgid_plural "%1$d items across %2$d campaigns"
 msgstr[0] ""
 msgstr[1] ""
 
-#: assets/build/admin.js:98
+#: assets/build/admin.js:102
 #: assets/build/admin/onboarding/index.js:4
 msgid "Proceed"
 msgstr ""
 
-#: assets/build/admin.js:98
 #: assets/build/admin.js:102
+#: assets/build/admin.js:106
 #: assets/build/admin/onboarding/index.js:4
 #: assets/build/admin/onboarding/index.js:8
 msgid "Recurring Donations"
 msgstr ""
 
-#: assets/build/admin.js:98
+#: assets/build/admin.js:102
 #: assets/build/admin/onboarding/index.js:4
 msgid "Importing campaigns and settings from GiveWP"
 msgstr ""
 
-#: assets/build/admin.js:98
+#: assets/build/admin.js:102
 #: assets/build/admin/onboarding/index.js:4
 msgid "Importing donations from GiveWP"
 msgstr ""
 
-#: assets/build/admin.js:98
+#: assets/build/admin.js:102
 #: assets/build/admin/onboarding/index.js:4
 msgid "Importing recurring donations from GiveWP"
 msgstr ""
 
-#: assets/build/admin.js:98
+#: assets/build/admin.js:102
 #: assets/build/admin/onboarding/index.js:4
 msgid "Importing donors from GiveWP"
 msgstr ""
 
-#: assets/build/admin.js:98
 #: assets/build/admin.js:102
+#: assets/build/admin.js:106
 #: assets/build/admin/onboarding/index.js:4
 #: assets/build/admin/onboarding/index.js:8
 msgid "Migration complete"
 msgstr ""
 
-#: assets/build/admin.js:98
-#: assets/build/admin.js:103
+#: assets/build/admin.js:102
+#: assets/build/admin.js:107
 #: assets/build/admin/onboarding/index.js:4
 #: assets/build/admin/onboarding/index.js:9
 msgid "Migration cancelled"
 msgstr ""
 
-#: assets/build/admin.js:98
-#: assets/build/admin.js:103
+#: assets/build/admin.js:102
+#: assets/build/admin.js:107
 #: assets/build/admin/onboarding/index.js:4
 #: assets/build/admin/onboarding/index.js:9
 msgid "Migration failed"
 msgstr ""
 
-#: assets/build/admin.js:98
+#: assets/build/admin.js:102
 #: assets/build/admin/onboarding/index.js:4
 msgid "Importing data from GiveWP"
 msgstr ""
 
-#: assets/build/admin.js:98
+#: assets/build/admin.js:102
 #: assets/build/admin/onboarding/index.js:4
 msgid "All done."
 msgstr ""
 
-#: assets/build/admin.js:98
+#: assets/build/admin.js:102
 #: assets/build/admin/onboarding/index.js:4
 msgid "Cancelled."
 msgstr ""
 
-#: assets/build/admin.js:98
-#: assets/build/admin.js:103
+#: assets/build/admin.js:102
+#: assets/build/admin.js:107
 #: assets/build/admin/onboarding/index.js:4
 #: assets/build/admin/onboarding/index.js:9
 msgid "Migration failed."
 msgstr ""
 
 #. translators: %s: current phase label, e.g. "Donations"
-#: assets/build/admin.js:99
+#: assets/build/admin.js:103
 #: assets/build/admin/onboarding/index.js:5
 msgid "Importing %s…"
 msgstr ""
 
 #. translators: %s is the completion percentage (always 100%).
-#: assets/build/admin.js:101
+#: assets/build/admin.js:105
 #: assets/build/admin/onboarding/index.js:7
 msgid "%s completed"
 msgstr ""
 
 #. translators: 1: processed count 2: total count
-#: assets/build/admin.js:102
+#: assets/build/admin.js:106
 #: assets/build/admin/onboarding/index.js:8
 msgid "%1$d/%2$d items imported"
 msgstr ""
 
 #. translators: 1: imported 2: skipped 3: errors
-#: assets/build/admin.js:103
-#: assets/build/admin.js:104
+#: assets/build/admin.js:107
+#: assets/build/admin.js:108
 #: assets/build/admin/onboarding/index.js:9
 msgid "Imported %1$d, skipped %2$d, %3$d errors."
 msgstr ""
 
-#: assets/build/admin.js:103
+#: assets/build/admin.js:107
 msgid "Could not check GiveWP"
 msgstr ""
 
-#: assets/build/admin.js:103
+#: assets/build/admin.js:107
 msgid "Failed to fetch GiveWP data."
 msgstr ""
 
-#: assets/build/admin.js:103
+#: assets/build/admin.js:107
 msgid "No GiveWP data found"
 msgstr ""
 
-#: assets/build/admin.js:103
+#: assets/build/admin.js:107
 msgid "We didn't find any GiveWP records in this site's database, so there's nothing to migrate. If you've recently moved sites, restore the GiveWP database tables and try again. You can still upload a CSV export from the Import from CSV tab."
 msgstr ""
 
-#: assets/build/admin.js:103
+#: assets/build/admin.js:107
 #: assets/build/admin/onboarding/index.js:9
 msgid "Your data has been imported successfully."
 msgstr ""
 
-#: assets/build/admin.js:103
+#: assets/build/admin.js:107
 msgid "We've Imported Your Donation Data. Here's What's Done:"
 msgstr ""
 
-#: assets/build/admin.js:103
+#: assets/build/admin.js:107
 #: assets/build/admin/onboarding/index.js:9
 msgid "Data Type"
 msgstr ""
 
-#: assets/build/admin.js:103
+#: assets/build/admin.js:107
 #: assets/build/admin/onboarding/index.js:9
 msgid "Imported"
 msgstr ""
 
-#: assets/build/admin.js:103
+#: assets/build/admin.js:107
 #: assets/build/admin/onboarding/index.js:9
 msgid "Skipped"
 msgstr ""
 
-#: assets/build/admin.js:103
+#: assets/build/admin.js:107
 msgid "Some settings may not migrate exactly due to differences between platforms. Donation forms are not imported and will be automatically generated for each imported campaign. Please review your imported data."
 msgstr ""
 
-#: assets/build/admin.js:103
+#: assets/build/admin.js:107
 msgid "Review Campaigns"
 msgstr ""
 
-#: assets/build/admin.js:103
+#: assets/build/admin.js:107
 #: assets/build/admin/onboarding/index.js:9
 msgid "The migration did not finish. You can try again."
 msgstr ""
 
-#: assets/build/admin.js:103
+#: assets/build/admin.js:107
 msgid "Back to selector"
 msgstr ""
 
-#: assets/build/admin.js:103
-#: assets/build/admin.js:104
+#: assets/build/admin.js:107
+#: assets/build/admin.js:108
 #: assets/build/admin/onboarding/index.js:8
 msgid "GiveWP"
 msgstr ""
 
-#: assets/build/admin.js:103
+#: assets/build/admin.js:107
 msgid "Select Source Plugin"
 msgstr ""
 
-#: assets/build/admin.js:103
+#: assets/build/admin.js:107
 msgid "Choose the platform that exported your CSV file to ensure the data is mapped correctly."
 msgstr ""
 
-#: assets/build/admin.js:103
+#: assets/build/admin.js:107
 msgid "Upload CSV File"
 msgstr ""
 
-#: assets/build/admin.js:103
+#: assets/build/admin.js:107
 msgid "Upload your donation export CSV to import donations into SureDonation."
 msgstr ""
 
-#: assets/build/admin.js:103
+#: assets/build/admin.js:107
 msgid "Upload failed."
 msgstr ""
 
-#: assets/build/admin.js:104
+#: assets/build/admin.js:108
 msgid "CSV processed with errors"
 msgstr ""
 
-#: assets/build/admin.js:104
+#: assets/build/admin.js:108
 msgid "CSV imported successfully"
 msgstr ""
 
-#: assets/build/admin.js:104
+#: assets/build/admin.js:108
 msgid "CSV import failed"
 msgstr ""
 
-#: assets/build/admin.js:104
+#: assets/build/admin.js:108
 msgid "Something went wrong while importing this CSV."
 msgstr ""
 
-#: assets/build/admin.js:104
+#: assets/build/admin.js:108
 #: assets/build/admin/onboarding/index.js:8
 msgid "Import Donation Information"
 msgstr ""
 
-#: assets/build/admin.js:104
+#: assets/build/admin.js:108
 msgid "Unlock Full Migration Support"
 msgstr ""
 
-#: assets/build/admin.js:104
+#: assets/build/admin.js:108
 msgid "Migrate recurring donations, import standalone donors and more with SureDonation Pro."
 msgstr ""
 
-#: assets/build/admin.js:104
+#: assets/build/admin.js:108
 msgid "Upgrade now"
 msgstr ""
 
-#: assets/build/admin.js:104
+#: assets/build/admin.js:108
 msgid "Migrate from Plugin"
 msgstr ""
 
-#: assets/build/admin.js:104
+#: assets/build/admin.js:108
 msgid "What's New?"
 msgstr ""
 
-#: assets/build/admin.js:104
+#: assets/build/admin.js:108
 msgid "Tools"
 msgstr ""
 
 #. translators: %s is the donation ID
-#: assets/build/admin.js:107
+#: assets/build/admin.js:111
 msgid "Donation #%s"
 msgstr ""
 
 #. translators: %s is the donor ID
-#: assets/build/admin.js:110
+#: assets/build/admin.js:114
 msgid "Donor #%s"
 msgstr ""
 
-#: assets/build/admin.js:110
+#: assets/build/admin.js:114
 msgid "Core"
 msgstr ""
 
-#: assets/build/admin.js:110
+#: assets/build/admin.js:114
 msgid "Pro"
 msgstr ""
 
-#: assets/build/admin.js:110
+#: assets/build/admin.js:114
 msgid "Unlicensed"
 msgstr ""
 
-#: assets/build/admin.js:110
+#: assets/build/admin.js:114
 msgid "Knowledge Base"
 msgstr ""
 
-#: assets/build/admin.js:110
+#: assets/build/admin.js:114
 msgid "What's New"
 msgstr ""
 
-#: assets/build/admin.js:110
+#: assets/build/admin.js:114
 msgid "Something went wrong"
 msgstr ""
 
-#: assets/build/admin.js:110
+#: assets/build/admin.js:114
 msgid "This section failed to load. Try again, or reload the page if the problem continues."
 msgstr ""
 
-#: assets/build/admin.js:110
+#: assets/build/admin.js:114
 msgid "Try again"
 msgstr ""
 
@@ -6737,11 +7619,6 @@ msgstr ""
 
 #: assets/build/admin/onboarding/index.js:1
 msgid "Let's Get Started"
-msgstr ""
-
-#: assets/build/admin/onboarding/index.js:8
-#: assets/build/admin/onboarding/index.js:10
-msgid "Back"
 msgstr ""
 
 #: assets/build/admin/onboarding/index.js:8
@@ -6798,6 +7675,14 @@ msgstr ""
 
 #: assets/build/admin/onboarding/index.js:10
 msgid "What is the goal of your campaign"
+msgstr ""
+
+#: assets/build/admin/onboarding/index.js:10
+msgid "Set the target amount for your campaign to raise."
+msgstr ""
+
+#: assets/build/admin/onboarding/index.js:10
+msgid "Set the target number of donations for your campaign."
 msgstr ""
 
 #: assets/build/admin/onboarding/index.js:10
@@ -6910,11 +7795,6 @@ msgstr ""
 
 #: assets/build/admin/onboarding/index.js:10
 msgid "Set Up Payments"
-msgstr ""
-
-#: assets/build/blocks.js:1
-#: assets/build/editor/editor.js:1
-msgid "General"
 msgstr ""
 
 #: assets/build/blocks.js:1
@@ -7403,10 +8283,6 @@ msgid "Form Field"
 msgstr ""
 
 #: assets/build/blocks.js:3
-msgid "Payment Block Preview"
-msgstr ""
-
-#: assets/build/blocks.js:3
 msgid "Amount Type"
 msgstr ""
 
@@ -7494,10 +8370,6 @@ msgstr ""
 
 #: assets/build/blocks.js:4
 msgid "Optionally map a Phone field to the donor’s phone number. When set, its value is saved to the donation’s phone column instead of Additional Information."
-msgstr ""
-
-#: assets/build/blocks.js:4
-msgid "Donate Button Preview"
 msgstr ""
 
 #: assets/build/blocks.js:4
@@ -7894,6 +8766,26 @@ msgstr ""
 
 #: assets/build/editor/editor.js:1
 msgid "Failed to save email notifications."
+msgstr ""
+
+#: assets/build/editor/editor.js:1
+msgid "Custom CSS"
+msgstr ""
+
+#: assets/build/editor/editor.js:1
+msgid "Add custom CSS rules to style this donation form independently of your global styles."
+msgstr ""
+
+#: assets/build/editor/editor.js:1
+msgid "Custom CSS saved."
+msgstr ""
+
+#: assets/build/editor/editor.js:1
+msgid "Failed to save custom CSS."
+msgstr ""
+
+#: assets/build/editor/editor.js:1
+msgid "Rules are scoped to this form automatically. Target elements inside it (for example .sd-donate-button), or write plain declarations to style the form container itself."
 msgstr ""
 
 #: assets/build/editor/editor.js:1

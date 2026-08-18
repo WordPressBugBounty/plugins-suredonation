@@ -3,7 +3,7 @@
  * Plugin Name: SureDonation
  * Plugin URI: https://suredonation.com
  * Description: A powerful donation management plugin for WordPress with campaign tracking, payment processing, and donor management.
- * Version: 1.4.0
+ * Version: 1.5.0
  * Author: SureDonation
  * Text Domain: suredonation
  * Domain Path: /languages
@@ -23,7 +23,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Define plugin constants.
  */
-define( 'SUREDONATION_VER', '1.4.0' );
+define( 'SUREDONATION_VER', '1.5.0' );
 define( 'SUREDONATION_FILE', __FILE__ );
 define( 'SUREDONATION_DIR', plugin_dir_path( __FILE__ ) );
 define( 'SUREDONATION_URL', plugin_dir_url( __FILE__ ) );

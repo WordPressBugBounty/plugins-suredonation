@@ -9,13 +9,18 @@
  * makes it obvious — while browsing the live site — that no real payments are
  * being accepted. Modeled on the toolbar indicators in GiveWP and Charitable.
  *
+ * Also owns SureDonation's other toolbar adjustments, such as pointing the
+ * "+ New" campaign entry at the campaign creation drawer.
+ *
  * @package SureDonation
  */
 
 namespace SureDonation\Inc\Admin;
 
+use SureDonation\Inc\Campaigns\Campaign_Cpt;
 use SureDonation\Inc\Payments\Payment_Helper;
 use WP_Admin_Bar;
+use WP_Post_Type;
 
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
@@ -53,6 +58,9 @@ class Admin_Bar {
 	private function __construct() {
 		// Priority 100 so the badge is added after the core toolbar items.
 		add_action( 'admin_bar_menu', [ $this, 'add_mode_indicator' ], 100 );
+		// Core builds the "+ New" menu at priority 70, so run after it to
+		// repoint the campaign entry.
+		add_action( 'admin_bar_menu', [ $this, 'retarget_new_campaign_link' ], 100 );
 		// The toolbar shows on the front-end too, so register the styles on both
 		// contexts.
 		add_action( 'wp_enqueue_scripts', [ $this, 'enqueue_style' ] );
@@ -112,6 +120,57 @@ class Admin_Bar {
 				'title'  => $title,
 				'href'   => Payment_Helper::get_settings_url(),
 				'meta'   => [ 'title' => $tooltip ],
+			]
+		);
+	}
+
+	/**
+	 * Point the "+ New → SureDonation Campaign" item at the creation drawer.
+	 *
+	 * Core links the item to post-new.php, which opens an empty block editor and
+	 * skips the drawer where a campaign's goal, currency and default form are
+	 * set. Re-adding the node under the same id keeps core's placement and
+	 * label while swapping the destination.
+	 *
+	 * The item is dropped entirely for anyone who cannot manage options. Core
+	 * shows it to any role with `edit_posts` (Editor, Author, Contributor), but
+	 * every step of campaign creation — the admin app, the REST routes and the
+	 * campaign meta — requires `manage_options`, so for those roles the entry
+	 * only leads to a permission error.
+	 *
+	 * @param WP_Admin_Bar $wp_admin_bar The admin bar instance.
+	 * @return void
+	 * @since 1.5.0
+	 */
+	public function retarget_new_campaign_link( $wp_admin_bar ) {
+		$post_type = get_post_type_object( Campaign_Cpt::POST_TYPE );
+
+		if ( ! $post_type instanceof WP_Post_Type ) {
+			return;
+		}
+
+		$node_id = 'new-' . Campaign_Cpt::POST_TYPE;
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			$wp_admin_bar->remove_node( $node_id );
+			return;
+		}
+
+		/*
+		 * add_node() creates the node when the id is absent, so mirror core's
+		 * own capability check too — otherwise this would resurrect the entry
+		 * for users core deliberately hid it from.
+		 */
+		if ( ! current_user_can( $post_type->cap->create_posts ) ) {
+			return;
+		}
+
+		$wp_admin_bar->add_node(
+			[
+				'id'     => $node_id,
+				'parent' => 'new-content',
+				'title'  => $post_type->labels->name_admin_bar,
+				'href'   => Campaign_Cpt::get_create_url(),
 			]
 		);
 	}

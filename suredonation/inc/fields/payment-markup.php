@@ -684,13 +684,17 @@ class Payment_Markup extends Base {
 	private function render_gateway_unavailable_notice() {
 		$field_classes = $this->get_field_classes( [ 'sd-payment-unavailable' ] );
 
-		// The notice text is shown to everyone (admins and donors). Admins
-		// additionally get an actionable button; donors see the notice without
-		// it. Mirrors the capability + settings-URL pattern used by
+		// Both audiences are told the gateways are not configured, but only donors
+		// are told to contact the administrator — an admin *is* that person and
+		// gets the actionable button below, so the sentence would send them in a
+		// circle. Mirrors the capability + settings-URL pattern used by
 		// get_test_mode_notice().
 		$is_admin       = current_user_can( 'manage_options' );
 		$configure_url  = '';
 		$configure_text = '';
+		$notice_text    = $is_admin
+			? __( 'Payment gateways are not configured.', 'suredonation' )
+			: __( 'Payment gateways are not configured. Please contact the site administrator.', 'suredonation' );
 
 		if ( $is_admin ) {
 			// Route the admin to the right place. If a gateway is already usable
@@ -721,7 +725,7 @@ class Payment_Markup extends Base {
 			<?php echo wp_kses_post( $this->label_markup ); ?>
 			<div class="sd-payment-field-wrapper">
 				<div class="sd-payment-notice" role="status">
-					<p><?php esc_html_e( 'Payment gateways are not configured. Please contact the site administrator.', 'suredonation' ); ?></p>
+					<p><?php echo esc_html( $notice_text ); ?></p>
 					<?php echo wp_kses_post( $is_admin ? $this->render_configure_link( $configure_url, $configure_text ) : '' ); ?>
 				</div>
 			</div>

@@ -7,6 +7,8 @@
 
 namespace SureDonation\Inc\Admin;
 
+use SureDonation\Inc\Campaigns\Campaign_Cpt;
+use SureDonation\Inc\API\Onboarding_API;
 use SureDonation\Inc\Helper;
 use SureDonation\Inc\Onboarding;
 use SureDonation\Inc\Pdf\Pdf_Utils;
@@ -151,18 +153,37 @@ class Admin {
 	 * from the referer (the "back" arrow on the form editor sends the
 	 * user here) and redirect to that campaign's single view.
 	 *
+	 * Campaign creation (post-new.php) is redirected too, so bookmarks and
+	 * third-party links to the raw editor land in the creation drawer rather
+	 * than producing a half-configured campaign. New forms keep using
+	 * post-new.php — the campaign screen links there with a campaign_id.
+	 *
 	 * @return void
 	 * @since 1.0.0
 	 */
 	public function redirect_cpt_listings() {
 		global $pagenow;
 
-		if ( 'edit.php' !== $pagenow ) {
+		if ( 'edit.php' !== $pagenow && 'post-new.php' !== $pagenow ) {
 			return;
 		}
 
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Reading post_type from query, no state mutation.
 		$post_type = isset( $_GET['post_type'] ) ? sanitize_key( wp_unslash( $_GET['post_type'] ) ) : '';
+
+		if ( 'post-new.php' === $pagenow ) {
+			/*
+			 * Only for users who can actually open the destination: the admin app
+			 * requires manage_options, while the campaign post type is creatable
+			 * by any role with edit_posts. Redirecting those roles would trade the
+			 * editor for a permission error.
+			 */
+			if ( Campaign_Cpt::POST_TYPE === $post_type && current_user_can( 'manage_options' ) ) {
+				wp_safe_redirect( Campaign_Cpt::get_create_url() );
+				exit;
+			}
+			return;
+		}
 
 		if ( 'suredonation_form' === $post_type ) {
 			$campaign_id = $this->resolve_campaign_id_from_referer();
@@ -174,7 +195,7 @@ class Admin {
 			exit;
 		}
 
-		if ( 'suredonation_cmpgn' === $post_type ) {
+		if ( Campaign_Cpt::POST_TYPE === $post_type ) {
 			wp_safe_redirect( admin_url( 'admin.php?page=suredonation#/campaigns' ) );
 			exit;
 		}
@@ -282,6 +303,14 @@ class Admin {
 		// Load JS translations for the admin app.
 		wp_set_script_translations( 'suredonation-admin', 'suredonation' );
 
+		// Campaign guided tour resume point (empty when there is none).
+		$campaign_tour_progress = get_user_meta( get_current_user_id(), Onboarding_API::TOUR_PROGRESS_META, true );
+		$campaign_tour_progress = is_string( $campaign_tour_progress ) ? $campaign_tour_progress : '';
+
+		// Campaign whose first-run tour the onboarding wizard armed (empty = none).
+		$campaign_tour_pending = get_user_meta( get_current_user_id(), Onboarding_API::TOUR_PENDING_META, true );
+		$campaign_tour_pending = is_scalar( $campaign_tour_pending ) ? (string) $campaign_tour_pending : '';
+
 		// Localize script with plugin data.
 		/**
 		 * Filters the bootstrap data localized to the SureDonation admin React app
@@ -303,6 +332,9 @@ class Admin {
 				'admin_url'                 => admin_url(),
 				'is_first_campaign_created' => $this->has_campaigns(),
 				'is_onboarding_completed'   => Onboarding::get_instance()->is_completed(),
+				'campaign_tour_seen'        => 'yes' === get_user_meta( get_current_user_id(), Onboarding_API::TOUR_SEEN_META, true ),
+				'campaign_tour_progress'    => $campaign_tour_progress,
+				'campaign_tour_pending'     => $campaign_tour_pending,
 				'rotating_plugin_banner'    => $this->get_rotating_plugin_banner(),
 				'smart_tags'                => Helper::get_smart_tags(),
 				'is_pro_active'             => defined( 'SUREDONATION_PRO_VER' ),

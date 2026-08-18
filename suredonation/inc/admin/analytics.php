@@ -7,6 +7,8 @@
 
 namespace SureDonation\Inc\Admin;
 
+use SureDonation\Inc\Campaign_Templates\Campaign_Templates;
+use SureDonation\Inc\Campaigns\Campaign_Cpt;
 use SureDonation\Inc\Helper;
 use SureDonation\Inc\Payments\Offline\Offline_Helper;
 use SureDonation\Inc\Payments\Payment_Helper;
@@ -91,6 +93,10 @@ class Analytics {
 		// Event tracking hooks. Registered outside is_admin() on purpose —
 		// onboarding completion and campaign publishes fire during REST requests.
 		add_action( 'suredonation_onboarding_user_details_saved', [ $this, 'track_onboarding_completed' ] );
+		add_action( 'suredonation_campaign_tour_shown', [ $this, 'track_campaign_tour_shown' ] );
+		add_action( 'suredonation_campaign_tour_outcome', [ $this, 'track_campaign_tour_outcome' ], 10, 2 );
+		add_action( 'suredonation_campaign_template_picker_opened', [ $this, 'track_campaign_template_picker_opened' ] );
+		add_action( 'suredonation_campaign_created_from_template', [ $this, 'track_campaign_created_from_template' ] );
 		add_action( 'transition_post_status', [ $this, 'track_first_campaign_published' ], 10, 3 );
 		add_action( 'current_screen', [ $this, 'track_first_campaign_editor_opened' ] );
 		add_action( 'suredonation_privacy_data_exported', [ $this, 'track_privacy_data_exported' ] );
@@ -279,9 +285,12 @@ class Analytics {
 
 		$privacy_settings = Privacy_Settings::get_settings();
 
+		// Computed once: the headline total below is derived from the same rows.
+		$template_usage = $this->get_campaign_template_usage();
+
 		$plugin_data = [
-			'free_version'           => SUREDONATION_VER,
-			'numeric_values'         => [
+			'free_version'            => SUREDONATION_VER,
+			'numeric_values'          => [
 				'total_campaigns'                 => absint( $campaign_counts->publish ?? 0 ),
 				'total_donation_forms'            => absint( $form_counts->publish ?? 0 ),
 				'total_donations'                 => $aggregates['total'],
@@ -291,8 +300,20 @@ class Analytics {
 				'forms_with_image_block'          => $this->get_image_block_form_count(),
 				'posts_with_social_sharing_block' => $this->get_social_sharing_block_count(),
 				'stripe_accounts_count'           => count( Stripe_Helper::get_all_accounts() ),
+				// Campaigns started from a gallery template — excludes both the
+				// scratch path and the `general` fallback, so this is the count
+				// of campaigns that actually adopted a cause template.
+				'campaigns_from_template'         => array_sum(
+					array_diff_key(
+						$template_usage,
+						[
+							'scratch'                   => 0,
+							Campaign_Templates::GENERAL => 0,
+						]
+					)
+				),
 			],
-			'boolean_values'         => [
+			'boolean_values'          => [
 				'stripe_enabled'               => Stripe_Helper::is_stripe_connected(),
 				'paypal_enabled'               => PayPal_Helper::is_paypal_connected(),
 				'offline_enabled'              => Offline_Helper::is_offline_enabled(),
@@ -303,11 +324,12 @@ class Analytics {
 				'privacy_policy_field_enabled' => ! empty( $privacy_settings['privacy_policy_field'] ),
 				'terms_field_enabled'          => ! empty( $privacy_settings['terms_conditions_field'] ),
 			],
-			'data_retention_period'  => isset( $privacy_settings['minimum_data_retention_period'] ) ? Helper::get_string_value( $privacy_settings['minimum_data_retention_period'] ) : 'none',
-			'block_usage'            => $this->get_block_usage(),
-			'elementor_widget_usage' => $this->get_elementor_widget_usage(),
-			'bricks_element_usage'   => $this->get_bricks_element_usage(),
-			'internal_referer'       => $internal_referer,
+			'data_retention_period'   => isset( $privacy_settings['minimum_data_retention_period'] ) ? Helper::get_string_value( $privacy_settings['minimum_data_retention_period'] ) : 'none',
+			'block_usage'             => $this->get_block_usage(),
+			'campaign_template_usage' => $template_usage,
+			'elementor_widget_usage'  => $this->get_elementor_widget_usage(),
+			'bricks_element_usage'    => $this->get_bricks_element_usage(),
+			'internal_referer'        => $internal_referer,
 		];
 
 		// Add KPI tracking data.
@@ -378,6 +400,116 @@ class Analytics {
 				'opted_in' => ! empty( $payload['opted_in'] ) ? 'yes' : 'no',
 			]
 		);
+	}
+
+	/**
+	 * Track the first time the campaign guided tour is shown to a user.
+	 *
+	 * Fired from the REST layer on the tour's first render. The events tracker
+	 * dedups by name, so this is recorded once per site regardless of how many
+	 * users see the tour or how often it re-triggers.
+	 *
+	 * @return void
+	 * @since 1.5.0
+	 */
+	public function track_campaign_tour_shown() {
+		$events = self::events();
+		if ( null === $events ) {
+			return;
+		}
+
+		$events->track( 'campaign_tour_shown' );
+	}
+
+	/**
+	 * Track how a campaign guided-tour run ended.
+	 *
+	 * `campaign_tour_shown` tells us the tour was seen; these tell us whether it
+	 * worked. Four outcomes, each recorded under its own event name:
+	 *
+	 *  - `completed`      — the user reached the final step.
+	 *  - `dismissed`      — closed part-way; the step key rides along as the
+	 *                       event value so we can see where runs are abandoned.
+	 *  - `opted_out`      — ticked "Don't show this again".
+	 *  - `manual_started` — replayed deliberately via "Take a tour".
+	 *
+	 * `dismissed` is tracked with $force so the most recent drop-off step wins
+	 * rather than only the first one ever recorded on the site; the others keep
+	 * the default once-per-site semantics.
+	 *
+	 * @param string $outcome How the run ended. Unknown values are ignored.
+	 * @param string $step    Step key the run ended on. Only used for `dismissed`.
+	 * @return void
+	 * @since 1.5.0
+	 */
+	public function track_campaign_tour_outcome( $outcome, $step = '' ) {
+		$events = self::events();
+		if ( null === $events ) {
+			return;
+		}
+
+		$outcome = Helper::get_string_value( $outcome );
+		$step    = Helper::get_string_value( $step );
+
+		switch ( $outcome ) {
+			case 'completed':
+				$events->track( 'campaign_tour_completed' );
+				break;
+			case 'dismissed':
+				// Retrackable: the latest abandonment point is the useful one.
+				$events->track( 'campaign_tour_dismissed', $step, [], true );
+				break;
+			case 'opted_out':
+				$events->track( 'campaign_tour_opted_out', $step );
+				break;
+			case 'manual_started':
+				$events->track( 'campaign_tour_manual_started' );
+				break;
+		}
+	}
+
+	/**
+	 * Track the first time the campaign template picker is opened.
+	 *
+	 * Deduped, so it answers "did this site ever discover the picker?" — the
+	 * denominator for template adoption, since `campaign_template_usage` in the
+	 * stats payload only counts campaigns that were actually created from one.
+	 *
+	 * @return void
+	 * @since 1.5.0
+	 */
+	public function track_campaign_template_picker_opened() {
+		$events = self::events();
+		if ( null === $events ) {
+			return;
+		}
+
+		$events->track( 'campaign_template_picker_opened' );
+	}
+
+	/**
+	 * Track the first campaign a site creates from a template.
+	 *
+	 * Deduped, so the event value is the template the site reached for *first* —
+	 * the running per-template totals live in `campaign_template_usage` on the
+	 * stats payload, which is recomputed on every send.
+	 *
+	 * @param string $template_id Template the campaign was created from.
+	 * @return void
+	 * @since 1.5.0
+	 */
+	public function track_campaign_created_from_template( $template_id ) {
+		$events = self::events();
+		if ( null === $events ) {
+			return;
+		}
+
+		$template_id = Helper::get_string_value( $template_id );
+		if ( '' === $template_id ) {
+			return;
+		}
+
+		$events->track( 'first_campaign_from_template', $template_id );
 	}
 
 	/**
@@ -593,6 +725,79 @@ class Analytics {
 		$usage = [];
 		foreach ( array_keys( $blocks ) as $key ) {
 			$usage[ $key ] = absint( is_array( $row ) ? ( $row[ $key ] ?? 0 ) : 0 );
+		}
+
+		return $usage;
+	}
+
+	/**
+	 * How many published campaigns were created from each campaign template.
+	 *
+	 * The running answer to "which template gets used, and how often" — a
+	 * snapshot rather than an event, because the stats payload is rebuilt on
+	 * every send while events dedup by name and fire once per site.
+	 *
+	 * Every known template id is seeded to 0 so the payload keeps the same shape
+	 * across sites (same contract as get_block_usage()). Campaigns with no
+	 * template meta — anything created before templates shipped, or via "Start
+	 * from scratch" — land in `scratch`. Ids that are no longer registered are
+	 * dropped rather than passed through, so a stale or hand-edited meta value
+	 * can never widen the payload.
+	 *
+	 * @return array<string, int> Template id => number of published campaigns.
+	 * @since 1.5.0
+	 */
+	private function get_campaign_template_usage() {
+		global $wpdb;
+
+		$registry = Campaign_Templates::get_instance();
+
+		// Seed the known ids, plus the two buckets that are not gallery cards:
+		// `general` (the built-in fallback) and `scratch` (no meta at all).
+		$usage = [ 'scratch' => 0 ];
+		foreach ( $registry->get_all() as $template ) {
+			$id = Helper::get_string_value( $template['id'] ?? '' );
+			if ( '' !== $id ) {
+				$usage[ $id ] = 0;
+			}
+		}
+		$usage[ Campaign_Templates::GENERAL ] = 0;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Single grouped scan at analytics send time only.
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				'SELECT pm.meta_value AS template_id, COUNT(*) AS total
+				FROM %i AS p
+				LEFT JOIN %i AS pm ON pm.post_id = p.ID AND pm.meta_key = %s
+				WHERE p.post_type = %s AND p.post_status = %s
+				GROUP BY pm.meta_value',
+				$wpdb->posts,
+				$wpdb->postmeta,
+				Campaign_Cpt::META_TEMPLATE_ID,
+				SUREDONATION_POST_TYPE,
+				'publish'
+			),
+			ARRAY_A
+		);
+
+		if ( ! is_array( $rows ) ) {
+			return $usage;
+		}
+
+		foreach ( $rows as $row ) {
+			$id    = Helper::get_string_value( $row['template_id'] ?? '' );
+			$total = absint( $row['total'] ?? 0 );
+
+			// No meta (NULL from the LEFT JOIN, or an empty string) => scratch.
+			if ( '' === $id ) {
+				$usage['scratch'] += $total;
+				continue;
+			}
+
+			// Only report ids we still recognise.
+			if ( array_key_exists( $id, $usage ) ) {
+				$usage[ $id ] += $total;
+			}
 		}
 
 		return $usage;

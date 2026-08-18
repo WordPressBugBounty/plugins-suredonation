@@ -45,6 +45,7 @@ class Form_Renderer {
 		$campaign_id    = (int) $campaign_id;
 		$unique_form_id = 'suredonation-form-' . $form_id . '-' . wp_rand();
 		$form_style     = Form_Styling::get_style_attr( $form_id );
+		$custom_css     = Form_Custom_CSS::get_style_block( $form_id );
 		$nonce_action   = Helper::get_donation_nonce_action( $campaign_id );
 		$blocks         = parse_blocks( $form->post_content );
 
@@ -58,6 +59,14 @@ class Form_Renderer {
 		ob_start();
 		?>
 		<div id="<?php echo esc_attr( $unique_form_id ); ?>" class="<?php echo esc_attr( $container_classes ); ?>" data-form-id="<?php echo esc_attr( (string) $form_id ); ?>" data-campaign-id="<?php echo esc_attr( (string) $campaign_id ); ?>"<?php echo '' !== $form_style ? ' style="' . esc_attr( $form_style ) . '"' : ''; ?>>
+			<?php
+			// Generated markup whose CSS is already sanitized by
+			// Form_Custom_CSS::sanitize(). It must not go through
+			// Helper::get_allowed_form_html() like the block output below: that
+			// allowlist permits `style` attributes but not the `style` tag, so kses
+			// would strip the whole block.
+			echo $custom_css; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+			?>
 			<form class="sd-form" method="post">
 				<?php wp_nonce_field( $nonce_action, 'suredonation_nonce' ); ?>
 				<input type="hidden" name="form_id" value="<?php echo esc_attr( (string) $form_id ); ?>">

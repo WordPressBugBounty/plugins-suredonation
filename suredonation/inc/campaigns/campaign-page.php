@@ -14,6 +14,8 @@
 namespace SureDonation\Inc\Campaigns;
 
 use SureDonation\Inc\Traits\Get_Instance;
+use SureDonation\Inc\Helper;
+use SureDonation\Inc\Campaign_Templates\Campaign_Templates;
 
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
@@ -217,18 +219,64 @@ class Campaign_Page {
 			return false;
 		}
 
+		// Resolve the campaign template (falling back to `general`), apply its hero
+		// image, and build its page markup. `general` delegates to the default
+		// layout, so the scratch path is unchanged.
+		$registry = Campaign_Templates::get_instance();
+		$template = $registry->get( Helper::get_string_value( get_post_meta( $campaign_id, Campaign_Cpt::META_TEMPLATE_ID, true ) ) )
+			?? $registry->get( Campaign_Templates::GENERAL );
+
+		self::maybe_apply_template_hero( $campaign_id, $template );
+
+		$content = ( $template && isset( $template['get_page_blocks'] ) && is_callable( $template['get_page_blocks'] ) )
+			? ( $template['get_page_blocks'] )(
+				[
+					'campaign_id' => $campaign_id,
+					'form_id'     => Campaign_Cpt::get_default_form_id( $campaign_id ),
+				]
+			)
+			: self::get_default_layout( $campaign_id );
+
 		$instance             = self::get_instance();
 		$instance->is_seeding = true;
 		$result               = wp_update_post(
 			[
 				'ID'           => $campaign_id,
-				'post_content' => self::get_default_layout( $campaign_id ),
+				'post_content' => $content,
 			],
 			true
 		);
 		$instance->is_seeding = false;
 
 		return ! is_wp_error( $result );
+	}
+
+	/**
+	 * Sideload a template's hero image into the Media Library and set it as the
+	 * campaign's featured image, which the page's dynamic post-featured-image block
+	 * renders. No-op for templates without a hero (e.g. `general`) or when the
+	 * campaign already has a featured image. Fail-soft.
+	 *
+	 * @param int                       $campaign_id Campaign post ID.
+	 * @param array<string, mixed>|null $template    Resolved template.
+	 * @return void
+	 * @since 1.5.0
+	 */
+	private static function maybe_apply_template_hero( $campaign_id, $template ) {
+		if ( ! is_array( $template ) || empty( $template['hero_path'] ) ) {
+			return;
+		}
+
+		// Respect an image the user already set.
+		if ( has_post_thumbnail( $campaign_id ) ) {
+			return;
+		}
+
+		$attachment_id = Campaign_Templates::import_image( Helper::get_string_value( $template['hero_path'] ), $campaign_id );
+
+		if ( $attachment_id ) {
+			set_post_thumbnail( $campaign_id, $attachment_id );
+		}
 	}
 
 	/**

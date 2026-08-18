@@ -30,6 +30,18 @@ class Register {
 	use Get_Instance;
 
 	/**
+	 * Memoized block-inserter preview map (block key => image URL).
+	 *
+	 * Built once per request in get_field_preview_images() so every localized
+	 * copy is identical and the `suredonation_block_preview_images` filter runs
+	 * once.
+	 *
+	 * @var array<string,string>|null
+	 * @since 1.5.0
+	 */
+	private $preview_images = null;
+
+	/**
 	 * Constructor.
 	 *
 	 * @since 0.0.1
@@ -39,6 +51,7 @@ class Register {
 		add_action( 'init', [ $this, 'register_blocks' ] );
 		add_action( 'enqueue_block_editor_assets', [ $this, 'enqueue_editor_assets' ] );
 		add_action( 'enqueue_block_editor_assets', [ $this, 'enqueue_campaign_editor_assets' ] );
+		add_action( 'enqueue_block_editor_assets', [ $this, 'localize_embed_preview_images' ] );
 		add_filter( 'block_categories_all', [ $this, 'register_block_category' ], 10, 2 );
 		add_filter( 'block_editor_settings_all', [ $this, 'add_campaign_iframe_styles' ], 10, 2 );
 		add_filter( 'block_editor_settings_all', [ $this, 'add_donation_form_iframe_styles' ], 10, 2 );
@@ -192,11 +205,45 @@ class Register {
 			$this->get_campaign_blocks_data()
 		);
 
+		// Note: the inserter preview map is localized on this handle later, in
+		// localize_embed_preview_images() on enqueue_block_editor_assets, not here
+		// on init:5 — see that method for why.
+
+		// Load JS translations for the embed editor bundle so the "Field preview"
+		// string and the block's own UI strings can be translated.
+		wp_set_script_translations( 'suredonation-donation-form-editor', 'suredonation' );
+
 		wp_register_style(
 			'suredonation-donation-form-editor',
 			SUREDONATION_URL . 'assets/build/blocks/donation-form/editor.css',
 			[],
 			$asset['version']
+		);
+	}
+
+	/**
+	 * Localize the inserter preview map onto the donation-form embed script.
+	 *
+	 * The embed block is insertable on any post type, so this runs on every
+	 * editor screen (no post-type guard, unlike enqueue_editor_assets()).
+	 *
+	 * It runs on `enqueue_block_editor_assets` rather than at `init` — where the
+	 * handle is registered — deliberately: get_field_preview_images() memoizes on
+	 * its first call, so the first localizer to run fixes the map for the request.
+	 * Building it here (after `init`) lets consumers of the
+	 * `suredonation_block_preview_images` filter register on the default `init`
+	 * priority — the obvious thing to do, and what SureDonation Pro does on
+	 * `plugins_loaded` — and still be captured. The handle is registered by
+	 * register_embed_block_script() on init:5, so wp_localize_script attaches here.
+	 *
+	 * @return void
+	 * @since 1.5.0
+	 */
+	public function localize_embed_preview_images() {
+		wp_localize_script(
+			'suredonation-donation-form-editor',
+			'suredonation_fields_preview',
+			$this->get_field_preview_images()
 		);
 	}
 
@@ -312,18 +359,21 @@ class Register {
 			$this->get_campaign_blocks_data()
 		);
 
-		// Style the server-side-rendered block previews in the editor.
-		$style_file    = SUREDONATION_DIR . 'assets/build/blocks/campaign/style-style.css';
-		$style_version = file_exists( $style_file )
-			? (string) filemtime( $style_file )
-			: SUREDONATION_VER;
-
-		wp_enqueue_style(
+		// Block-inserter preview images (see withFieldPreview / get_field_preview_images()).
+		wp_localize_script(
 			'suredonation-campaign-blocks',
-			SUREDONATION_URL . 'assets/build/blocks/campaign/style-style.css',
-			[],
-			$style_version
+			'suredonation_fields_preview',
+			$this->get_field_preview_images()
 		);
+
+		// No stylesheet is enqueued here. The campaign blocks only ever render in
+		// the canvas, and add_campaign_iframe_styles() inlines this exact CSS into
+		// it through the editor settings, where it carries no element id and so is
+		// invisible to the compatibility pass. Enqueueing it on the outer frame as
+		// well put its one `.editor-styles-wrapper` rule in the admin document,
+		// which is all it takes for WordPress to clone the whole sheet into the
+		// canvas and log "suredonation-campaign-blocks-css was added to the iframe
+		// incorrectly" on every campaign editor load.
 	}
 
 	/**
@@ -402,9 +452,18 @@ class Register {
 	 * @since 1.0.0
 	 */
 	public function add_campaign_iframe_styles( $settings, $context ) {
-		// Inject wherever the campaign blocks can be used (everywhere except the
-		// donation form editor), so their editor previews match the frontend.
-		if ( ! isset( $context->post ) || 'suredonation_form' === $context->post->post_type ) {
+		// Inject wherever the campaign blocks can be used, which is every editor
+		// except the donation form builder — matching the blocks' own registration
+		// and add_donation_form_iframe_styles() below.
+		//
+		// The post is checked only when there is one. Requiring it excluded exactly
+		// the contexts that have none: the widget editor never sets it
+		// (wp-admin/widgets-form-blocks.php), and the Site Editor only sets it for a
+		// numeric postId, so editing any template or template part
+		// (postId=theme//slug) has none either. The campaign blocks are insertable in
+		// both, and this stylesheet also carries the placeholder rules the donation
+		// form embed block reuses, so bailing there left both unstyled.
+		if ( isset( $context->post ) && 'suredonation_form' === $context->post->post_type ) {
 			return $settings;
 		}
 
@@ -581,6 +640,118 @@ class Register {
 				'validationMessages' => \SureDonation\Inc\Field_Validation::get_resolved_validation_messages(),
 			]
 		);
+
+		// Field-preview images shown in the block inserter's preview pane (mirrors
+		// SureForms). Blocks whose block.json sets example.attributes.preview render
+		// this image via the withFieldPreview HOC; unmapped blocks fall back to the
+		// shared placeholder key on the JS side.
+		wp_localize_script(
+			'suredonation-blocks',
+			'suredonation_fields_preview',
+			$this->get_field_preview_images()
+		);
+	}
+
+	/**
+	 * Block-inserter preview images, keyed by block name (slug, hyphens as
+	 * underscores) to mirror the JS lookup in withFieldPreview.
+	 *
+	 * Shared by every editor bundle (field blocks, campaign blocks, donation-form
+	 * embed) so the same map is localized wherever a SureDonation block can be
+	 * inserted. Field-type blocks reuse the SureForms field-preview art; campaign
+	 * and donation-form display blocks use SureDonation's own mockups; anything not
+	 * listed falls back to the shared placeholder on the JS side.
+	 *
+	 * Pro-only field blocks (date/time picker) register their own art through the
+	 * `suredonation_block_preview_images` filter — Pro owns those assets, so they
+	 * are not listed here.
+	 *
+	 * Memoized so the map is built once per request: every localized copy is then
+	 * identical regardless of which editor hook fires first, and the filter runs
+	 * exactly once.
+	 *
+	 * @return array<string,string> Map of block key => image URL.
+	 * @since 1.5.0
+	 */
+	public function get_field_preview_images() {
+		if ( null !== $this->preview_images ) {
+			return $this->preview_images;
+		}
+
+		$base = SUREDONATION_URL . 'images/field-previews/';
+
+		/**
+		 * Filters the block-inserter preview image map.
+		 *
+		 * Keys are block slugs with hyphens replaced by underscores
+		 * (`suredonation/date-picker` => `date_picker`) to match the JS lookup in
+		 * withFieldPreview; values are absolute image URLs.
+		 *
+		 * Register no later than `init` — SureDonation Pro adds its date/time
+		 * picker art on `plugins_loaded`. The map is first built on
+		 * `enqueue_block_editor_assets` and then memoized, so a filter added after
+		 * that first build is silently ignored.
+		 *
+		 * @since 1.5.0
+		 *
+		 * @param array<string,string> $images Map of block key => image URL.
+		 */
+		$images = apply_filters(
+			'suredonation_block_preview_images',
+			[
+				// Field blocks.
+				'input'                   => $base . 'input.svg',
+				'email'                   => $base . 'email.svg',
+				'number'                  => $base . 'number.svg',
+				'checkbox'                => $base . 'checkbox.svg',
+				// Anonymous-donation and cover-fees both render a single checkbox.
+				'anonymous_donation'      => $base . 'checkbox.svg',
+				'cover_fees'              => $base . 'checkbox.svg',
+				'dropdown'                => $base . 'dropdown.svg',
+				// Donation-amount is a grid of selectable amounts (radio options).
+				'donation_amount'         => $base . 'multi-choice.svg',
+				'address'                 => $base . 'address.svg',
+				'phone'                   => $base . 'phone.svg',
+				'url'                     => $base . 'url.svg',
+				'heading'                 => $base . 'heading.svg',
+				'html'                    => $base . 'html.svg',
+				'image'                   => $base . 'image.svg',
+				'payment'                 => $base . 'payment.svg',
+				'donate_button'           => $base . 'button.svg',
+				// Campaign + donation-form display blocks.
+				'donation_form'           => $base . 'donation-form.svg',
+				'campaign_goal'           => $base . 'campaign-goal.svg',
+				'campaign_stats'          => $base . 'campaign-stats.svg',
+				'campaign_donations'      => $base . 'campaign-donations.svg',
+				'campaign_donors'         => $base . 'campaign-donors.svg',
+				'campaign_social_sharing' => $base . 'campaign-social-sharing.svg',
+				'campaign_donate_button'  => $base . 'button.svg',
+				// Fallback for any block without its own image.
+				'placeholder'             => $base . 'placeholder.svg',
+			]
+		);
+
+		// Coerce defensively: a filter returning a non-array or non-string values
+		// must not poison the map (mirrors the JS-side guard).
+		if ( ! is_array( $images ) ) {
+			$this->preview_images = [];
+			return $this->preview_images;
+		}
+
+		$result = [];
+		foreach ( $images as $key => $value ) {
+			if ( is_string( $key ) && is_string( $value ) ) {
+				// esc_url_raw for consistency with get_campaign_blocks_data(); the
+				// value is consumed by JS as an <img src>, not printed as HTML. The
+				// plugin version busts the browser cache when redesigned art ships
+				// in a release (filemtime is avoided: filter-supplied Pro URLs do
+				// not resolve to a local path).
+				$result[ $key ] = esc_url_raw( add_query_arg( 'ver', SUREDONATION_VER, $value ) );
+			}
+		}
+
+		$this->preview_images = $result;
+		return $this->preview_images;
 	}
 
 	/**
