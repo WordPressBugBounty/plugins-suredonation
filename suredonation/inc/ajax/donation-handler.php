@@ -35,6 +35,43 @@ class Donation_Handler {
 	public function __construct() {
 		add_action( 'wp_ajax_suredonation_submit_donation', [ $this, 'handle_donation_submission' ] );
 		add_action( 'wp_ajax_nopriv_suredonation_submit_donation', [ $this, 'handle_donation_submission' ] );
+
+		// Runtime gateway configuration, read by the form script when it initialises.
+		add_action( 'wp_ajax_suredonation_gateway_config', [ $this, 'get_gateway_config' ] );
+		add_action( 'wp_ajax_nopriv_suredonation_gateway_config', [ $this, 'get_gateway_config' ] );
+	}
+
+	/**
+	 * Serve the gateway configuration for a donation form.
+	 *
+	 * Public read, fetched by the form script when it initialises so the Stripe
+	 * key, PayPal SDK URL, payment mode and currency reflect the settings as
+	 * they are now — not as they were when a page cache stored the form. It
+	 * goes through admin-ajax, which page caches leave alone by default and
+	 * which keeps working on sites that restrict the REST API for visitors.
+	 *
+	 * @return void
+	 * @since 1.5.1
+	 */
+	public function get_gateway_config() {
+		// Throttle abuse as every other public endpoint does. The ceiling is
+		// far above the default because this fires once per form page view,
+		// not per donor action, and many visitors can legitimately share one
+		// address (an office or campus NAT). When it trips, the scripts fall
+		// back to the rendered configuration rather than failing.
+		if ( ! Helper::check_rate_limit( 'gateway_config', 120 ) ) {
+			wp_send_json_error( [ 'message' => __( 'Too many requests. Please wait a moment and try again.', 'suredonation' ) ], 429 );
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Public read of non-secret data; nothing changes state, and a nonce would be cached with the page it is meant to protect.
+		$form_id = isset( $_GET['form_id'] ) ? absint( $_GET['form_id'] ) : 0;
+
+		// Freshness is the whole point of this response. admin-ajax already
+		// sends these, but an edge cache with a blanket rule would not care,
+		// so the guarantee is made explicit rather than inherited.
+		nocache_headers();
+
+		wp_send_json_success( Payment_Helper::get_frontend_gateway_config( $form_id ) );
 	}
 
 	/**
@@ -121,7 +158,7 @@ class Donation_Handler {
 		// Validate field values + amount against block configuration. Pass the
 		// offline gateway so the Stripe-only minimum floor is not applied here.
 		$currency          = Payment_Helper::get_currency();
-		$validation_result = Payment_Helper::validate_submission( Payment_Helper::get_submitted_fields(), $amount, $currency, $form_id, $block_id, 'offline' );
+		$validation_result = Payment_Helper::validate_submission( Payment_Helper::get_submitted_fields(), $amount, $currency, $form_id, $block_id, 'offline', 'one-time' );
 		if ( ! $validation_result['valid'] ) {
 			wp_send_json_error( esc_html( $validation_result['message'] ) );
 		}
@@ -210,6 +247,11 @@ class Donation_Handler {
 			'fees_covered'  => $fees_covered,
 			'currency'      => Payment_Helper::get_currency(),
 			'gateway'       => 'manual',
+			// One-time regardless of the block's configured type, and intentionally
+			// unguarded: this handler has no remaining caller in src/, writes a
+			// record rather than moving money, and gating it on payment type would
+			// reject manual entries on recurring forms. Whether it should still be
+			// registered at all is the better question, tracked separately.
 			'donation_type' => 'one-time',
 		];
 

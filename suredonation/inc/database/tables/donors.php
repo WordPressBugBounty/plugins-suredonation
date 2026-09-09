@@ -602,7 +602,65 @@ class Donors extends Base {
 	}
 
 	/**
+	 * Record a donation against a donor's aggregates exactly once.
+	 *
+	 * Two paths complete the same Stripe donation — the client-side confirm
+	 * (`complete_donation()`) and the `payment_intent.succeeded` webhook — and
+	 * neither knows whether the other got there first. The webhook applies no
+	 * "still pending" guard, so calling record_donation() from both would double
+	 * a donor's total; calling it from neither (until now) left the totals stale
+	 * on every donation whose webhook never arrived.
+	 *
+	 * Keyed on the donation, not the donor, so a second genuine gift still
+	 * counts. Marked before the write: a duplicated total is harder to notice
+	 * and impossible to unpick, whereas a missed one is visible against the
+	 * donation list and recomputable.
+	 *
+	 * @param  int   $donor_id    Donor row ID.
+	 * @param  float $amount      Donation amount.
+	 * @param  int   $donation_id Donation row ID this call is for.
+	 * @return bool True when this call recorded it, false when already recorded or invalid.
+	 * @since  x.x.x
+	 */
+	public static function record_donation_once( $donor_id, $amount, $donation_id ) {
+		$donation_id = absint( $donation_id );
+
+		if ( $donation_id <= 0 ) {
+			return false;
+		}
+
+		$key = 'suredonation_donor_recorded_' . $donation_id;
+
+		if ( get_transient( $key ) ) {
+			return false;
+		}
+
+		// Marked before the write, so two racers cannot both get through on a
+		// read that saw nothing.
+		set_transient( $key, true, WEEK_IN_SECONDS );
+
+		$recorded = (bool) self::record_donation( $donor_id, $amount );
+
+		if ( ! $recorded ) {
+			// record_donation() refuses a non-positive amount or a donor row
+			// that no longer exists (the privacy eraser can remove one), and
+			// returns false without writing anything. Leaving the marker up
+			// after that would be worse than not having it: the gateway
+			// webhook retry is this row's safety net, and it would find the
+			// marker and skip, so the donation would never reach the donor's
+			// totals at all.
+			delete_transient( $key );
+		}
+
+		return $recorded;
+	}
+
+	/**
 	 * Update donor statistics after a donation.
+	 *
+	 * Unconditional: it takes no status and no donation id, so it cannot tell a
+	 * repeat call for the same donation from a second gift. Callers that can be
+	 * reached twice for one donation should use record_donation_once().
 	 *
 	 * @param int   $donor_id Donor ID.
 	 * @param float $amount   Donation amount.

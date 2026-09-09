@@ -112,30 +112,9 @@ class Receipt_Generator {
 		Pdf_Utils::ensure_receipts_dir();
 
 		$receipts_dir     = Pdf_Utils::get_receipts_dir();
-		$default_filename = sprintf( 'suredonation-receipt-%d-%s.pdf', $donation_id, wp_generate_password( 8, false ) );
+		$default_filename = self::generate_storage_filename();
 
-		/**
-		 * Filter the receipt PDF filename.
-		 *
-		 * The default filename carries a random suffix; the receipts directory
-		 * is access-protected, but the suffix keeps individual filenames
-		 * unguessable as defense in depth. The filtered value is passed through
-		 * sanitize_file_name() and forced to a .pdf extension; an empty result
-		 * falls back to the default.
-		 *
-		 * @param string                    $default_filename Generated filename.
-		 * @param array<string, mixed>      $donation         Donation data.
-		 * @param array<string, mixed>|null $donor            Donor data.
-		 * @since 1.5.0
-		 */
-		$filename = apply_filters( 'suredonation_receipt_filename', $default_filename, $donation, $donor );
-		$filename = sanitize_file_name( Helper::get_string_value( $filename ) );
-
-		if ( '' === $filename ) {
-			$filename = $default_filename;
-		} elseif ( 'pdf' !== strtolower( pathinfo( $filename, PATHINFO_EXTENSION ) ) ) {
-			$filename .= '.pdf';
-		}
+		$filename = self::resolve_storage_filename( $default_filename, $donation, $donor );
 
 		$filepath = $receipts_dir . '/' . $filename;
 
@@ -178,6 +157,89 @@ class Receipt_Generator {
 		do_action( 'suredonation_receipt_generated', $donation_id, $filepath, $donation );
 
 		return $filepath;
+	}
+
+	/**
+	 * Build the opaque on-disk filename for a receipt.
+	 *
+	 * 128 bits of lowercase hex and nothing else. The name is sized as a
+	 * capability token rather than as a collision-avoidance suffix, because on
+	 * servers that ignore the receipts directory's .htaccess it is the only
+	 * thing standing between a request and a document carrying the donor's
+	 * name, email and amount. Lowercase keeps the entropy honest on
+	 * case-insensitive filesystems (macOS, Windows), where a mixed-case name
+	 * collapses to a much smaller space than it appears to occupy.
+	 *
+	 * @return string
+	 * @since 1.5.1
+	 */
+	private static function generate_storage_filename() {
+		try {
+			$token = bin2hex( random_bytes( 16 ) );
+		} catch ( \Exception $e ) {
+			// random_bytes() only throws when the platform has no CSPRNG at all.
+			// Be honest about the fallback: wp_rand() reaches for random_int()
+			// first, which draws on the same source that just failed, so it lands
+			// on its seeded md5/mt_rand stream -- salted and not trivially
+			// predictable, but not cryptographic either. A host in that state
+			// cannot keep any secret; a receipt name is the least of it.
+			$token = strtolower( wp_generate_password( 32, false ) );
+		}
+
+		return 'sd-receipt-' . $token . '.pdf';
+	}
+
+	/**
+	 * Get the filename a donor sees when a receipt is delivered.
+	 *
+	 * Deliberately separate from the name on disk: the stored file is named
+	 * for unguessability, while the delivered copy is named for the person
+	 * reading it. Used for the email attachment name and for the
+	 * Content-Disposition of any authenticated download.
+	 *
+	 * @param array<string, mixed> $donation Donation data. Carries donor_name and
+	 *                                       donor_email, so no separate donor record
+	 *                                       is needed to build a donor-facing name.
+	 * @return string
+	 * @since 1.5.1
+	 */
+	public static function get_download_filename( $donation ) {
+		$donation_id      = Helper::get_integer_value( $donation['id'] ?? 0 );
+		$default_filename = $donation_id > 0
+			? sprintf( 'donation-receipt-%d.pdf', $donation_id )
+			: 'donation-receipt.pdf';
+
+		/**
+		 * Filter the filename a donor sees when a receipt is delivered.
+		 *
+		 * This never names anything on disk -- it is the name attached to the
+		 * email and sent as Content-Disposition -- so it is free to carry
+		 * donor-facing detail such as a receipt number.
+		 *
+		 * Deliberately NOT shaped like the storage name any more. That one
+		 * collapses interior dots to guarantee a single extension, because it
+		 * names a file inside a web-accessible directory; this one only ever
+		 * becomes a Content-Disposition value or an email attachment key, never
+		 * a path, so it keeps whatever dots the filter supplied and a filtered
+		 * "x.php" stays "x.php.pdf". Nothing here touches a filesystem, and the
+		 * name still ends in .pdf, so the OS treats it as one.
+		 *
+		 * @param string               $default_filename Default download filename.
+		 * @param array<string, mixed> $donation         Donation data.
+		 * @since 1.5.1
+		 */
+		$filename = apply_filters( 'suredonation_receipt_download_filename', $default_filename, $donation );
+		$filename = sanitize_file_name( Helper::get_string_value( $filename ) );
+
+		if ( '' === $filename ) {
+			return $default_filename;
+		}
+
+		if ( 'pdf' !== strtolower( pathinfo( $filename, PATHINFO_EXTENSION ) ) ) {
+			$filename .= '.pdf';
+		}
+
+		return $filename;
 	}
 
 	/**
@@ -448,5 +510,99 @@ class Receipt_Generator {
 		$upload_dir = wp_upload_dir();
 
 		return $upload_dir['basedir'] . '/' . $relative_path;
+	}
+
+	/**
+	 * Resolve the filename the receipt is stored under on disk.
+	 *
+	 * Extracted so the normalisation rules below are testable without
+	 * rendering a PDF, which needs mPDF present.
+	 *
+	 * @param string                    $default_filename Generated opaque filename.
+	 * @param array<string, mixed>      $donation         Donation data.
+	 * @param array<string, mixed>|null $donor            Donor data.
+	 * @return string Filename ending in exactly one .pdf extension.
+	 * @since 1.5.1
+	 */
+	private static function resolve_storage_filename( $default_filename, $donation, $donor ) {
+		/**
+		 * Filter the receipt PDF filename ON DISK.
+		 *
+		 * This is not the name anyone receives: donors get the file under
+		 * {@see self::get_download_filename()}, so the stored name deliberately
+		 * carries no donation id, no configured prefix and no donor data -- only
+		 * randomness. The receipts directory denies direct access through
+		 * .htaccess, but servers that ignore it (nginx, IIS) serve the file as a
+		 * static asset, which leaves this name as the only thing gating it. Treat
+		 * a filtered value as a capability token and keep it unguessable.
+		 *
+		 * The filtered value is passed through sanitize_file_name() -- which
+		 * strips path separators and collapses '..' -- and forced to a .pdf
+		 * extension; an empty result falls back to the default.
+		 *
+		 * @param string                    $default_filename Generated filename.
+		 * @param array<string, mixed>      $donation         Donation data.
+		 * @param array<string, mixed>|null $donor            Donor data.
+		 * @since 1.5.0
+		 * @since 1.5.1 Names only the file on disk. To name the copy a donor
+		 *              receives, use {@see 'suredonation_receipt_download_filename'}.
+		 */
+		$filename = apply_filters( 'suredonation_receipt_filename', $default_filename, $donation, $donor );
+
+		// This is the call that makes the value safe: it strips path separators
+		// and null bytes and collapses '..', so everything after it works on a
+		// bare filename. It also normalises before the two tests below, which is
+		// what keeps a filter's intended stem — "receipt.pdf " still ends in
+		// .pdf once trimmed, and so resolves to receipt.pdf rather than
+		// receipt-pdf.pdf.
+		//
+		// There is a second sanitize_file_name() inside the else. Measured
+		// against 35 filtered values, including traversal, null bytes and bare
+		// extension words, it changes no outcome's safety — the single-extension
+		// guarantee comes from this call plus the dot collapse plus the appended
+		// .pdf. What it does change is the name: it is why a stem left as a bare
+		// extension word comes back as unnamed-file-exe.pdf instead of exe.pdf.
+		// It is kept as defence in depth on a name that lands in a
+		// web-accessible directory; the tests pin both effects.
+		$filename = sanitize_file_name( Helper::get_string_value( $filename ) );
+
+		if ( '' === $filename ) {
+			$filename = $default_filename;
+		} else {
+			// Force exactly one extension, and make it .pdf. Appending to the
+			// filtered value produced a double extension — a filter returning
+			// "x.php" landed on disk as "x.php.pdf", which sanitize_file_name()
+			// does not underscore (it early-returns for a two-part name) and
+			// which some Apache configurations still hand to the PHP handler on
+			// the strength of the inner extension. Stripping only the last
+			// segment is not enough either: "x.php.pdf" would survive intact.
+			//
+			// So a trailing .pdf is dropped first — that is the normal case, and
+			// the currently-released Pro's filter returns exactly that shape —
+			// then every remaining dot is removed and one .pdf added back. That
+			// is safe for this value specifically: it names the file on disk
+			// only, is
+			// documented as a capability token rather than anything a donor
+			// sees, and the default is already dot-free (sd-receipt-<hex>). The
+			// donor-facing name comes from get_download_filename() and is
+			// untouched by this.
+			// Order matters, and getting it wrong is what the first attempt at
+			// this did. sanitize_file_name() *re-inserts* an extension when the
+			// name it is given has none — it runs
+			// wp_check_filetype( 'test.' . $filename ), so a bare 'exe' comes
+			// back as 'unnamed-file.exe'. Collapsing the dots first therefore
+			// handed core a token it turned back into a two-part name, and
+			// 'exe.pdf' landed as 'unnamed-file.exe.pdf': two extensions, from
+			// the very code meant to guarantee one.
+			//
+			// So sanitize first, collapse whatever dots that leaves, and make
+			// .pdf the genuinely last operation on a dot-free token.
+			$filename = (string) preg_replace( '/\.pdf$/i', '', $filename );
+			$filename = sanitize_file_name( $filename );
+			$filename = str_replace( '.', '-', $filename );
+			$filename = '' === $filename ? $default_filename : $filename . '.pdf';
+		}
+
+		return $filename;
 	}
 }

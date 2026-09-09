@@ -4,7 +4,7 @@ Donate link: https://www.paypal.me/BrainstormForce
 Tags: donation, donation form, fundraising, nonprofit, recurring donations
 Requires at least: 6.4
 Tested up to: 7.1
-Stable tag: 1.5.0
+Stable tag: 1.5.1
 Requires PHP: 8.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -186,6 +186,16 @@ This plugin connects to external services only when the related feature or payme
 
 == Changelog ==
 
+= 1.5.1 - 9th September 2026 =
+* New: Added a Charitable migration tool that imports campaigns, donors, and donations.
+* New: Added a Checkbox field to the donation form editor.
+* Improvement: Improved the payment gateway connection status, including a warning when Stripe cannot accept card payments.
+* Improvement: Improved donation form handling on sites using a caching plugin.
+* Fix: Donation confirmation emails are now sent only after the payment succeeds.
+* Fix: Unapproved PayPal donations are now recorded as abandoned.
+* Fix: Forms created from a template now carry their block IDs and payment methods, so field and payment settings save correctly.
+* Fix: Improved accuracy when importing donations, so revenue totals are correct and duplicate rows are not created.
+
 = 1.5.0 - 18th August 2026 =
 * New: Added campaign templates so you can start a campaign from a ready-made design for causes such as medical, education, animal rescue, disaster relief, and faith, or start from scratch.
 * New: Added a guided tour of the campaign screen for first-time setup.
@@ -202,11 +212,5 @@ This plugin connects to external services only when the related feature or payme
 * Improvement: Improved Stripe and PayPal connection and webhook handling.
 * Improvement: Strengthened payment validation and gateway endpoint security.
 * Fix: Resolved an issue with the email notification logic.
-
-= 1.3.0 - 29th July 2026 =
-* New: Added support for multiple Stripe accounts, with a per-form account selector.
-* New: Added the ability to import and export donations, donors, campaigns, and settings.
-* New: Added an Image field to the donation form editor.
-* New: Added a Currency Sign Position setting to General Settings.
 
 The full changelog is available [here](https://suredonation.com/whats-new/?utm_source=wordpress.org&utm_medium=whats_new).

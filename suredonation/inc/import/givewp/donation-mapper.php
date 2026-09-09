@@ -331,7 +331,7 @@ class Donation_Mapper {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Migration scope, one row lookup.
 		$existing = $wpdb->get_var(
 			$wpdb->prepare(
-				'SELECT id FROM %i WHERE import_source_id = %d AND import_source = "givewp" LIMIT 1',
+				"SELECT id FROM %i WHERE import_source_id = %d AND import_source = 'givewp' LIMIT 1",
 				$table,
 				absint( $give_payment_id )
 			)

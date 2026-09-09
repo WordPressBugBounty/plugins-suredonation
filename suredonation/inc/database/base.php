@@ -74,7 +74,7 @@ abstract class Base {
 	 * @var bool
 	 * @since 0.0.1
 	 */
-	private $db_upgradable;
+	protected $db_upgradable;
 
 	/**
 	 * Previously stored version of this table before the current upgrade

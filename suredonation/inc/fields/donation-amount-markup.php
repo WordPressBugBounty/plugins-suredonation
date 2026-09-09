@@ -238,41 +238,6 @@ class Donation_Amount_Markup extends Base {
 	}
 
 	/**
-	 * Get SVG icon for radio/checkbox
-	 *
-	 * @param string $type Icon type (circle-checked, circle-unchecked, square-checked, square-unchecked).
-	 * @param string $classes CSS class.
-	 * @return string SVG markup.
-	 * @since 0.0.1
-	 */
-	private function get_svg_icon( $type, $classes = '' ) {
-		$class_attr = $classes ? ' class="' . esc_attr( $classes ) . '"' : '';
-
-		switch ( $type ) {
-			case 'circle-checked':
-				return '<svg' . $class_attr . ' width="17" height="16" viewBox="0 0 17 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-					<path d="M15.1663 7.38674V8.00007C15.1655 9.43769 14.7 10.8365 13.8392 11.988C12.9785 13.1394 11.7685 13.9817 10.3899 14.3893C9.0113 14.797 7.53785 14.748 6.18932 14.2498C4.8408 13.7516 3.68944 12.8308 2.90698 11.6248C2.12452 10.4188 1.75287 8.99211 1.84746 7.55761C1.94205 6.12312 2.49781 4.75762 3.43186 3.66479C4.36591 2.57195 5.6282 1.81033 7.03047 1.4935C8.43274 1.17668 9.89985 1.32163 11.213 1.90674" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-					<path d="M15.1667 2.6665L8.5 9.33984L6.5 7.33984" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-				</svg>';
-			case 'circle-unchecked':
-				return '<svg' . $class_attr . ' width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-					<path d="M7.99967 14.6668C11.6816 14.6668 14.6663 11.6821 14.6663 8.00016C14.6663 4.31826 11.6816 1.3335 7.99967 1.3335C4.31778 1.3335 1.33301 4.31826 1.33301 8.00016C1.33301 11.6821 4.31778 14.6668 7.99967 14.6668Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-				</svg>';
-			case 'square-checked':
-				return '<svg' . $class_attr . ' width="17" height="16" viewBox="0 0 17 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-					<path d="M6.5 7.33366L8.5 9.33366L15.1667 2.66699" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-					<path d="M14.5 8V12.6667C14.5 13.0203 14.3595 13.3594 14.1095 13.6095C13.8594 13.8595 13.5203 14 13.1667 14H3.83333C3.47971 14 3.14057 13.8595 2.89052 13.6095C2.64048 13.3594 2.5 13.0203 2.5 12.6667V3.33333C2.5 2.97971 2.64048 2.64057 2.89052 2.39052C3.14057 2.14048 3.47971 2 3.83333 2H11.1667" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-				</svg>';
-			case 'square-unchecked':
-				return '<svg' . $class_attr . ' width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-					<path d="M12.6667 2H3.33333C2.59695 2 2 2.59695 2 3.33333V12.6667C2 13.403 2.59695 14 3.33333 14H12.6667C13.403 14 14 13.403 14 12.6667V3.33333C14 2.59695 13.403 2 12.6667 2Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-				</svg>';
-			default:
-				return '';
-		}
-	}
-
-	/**
 	 * Format an option label — if the label is purely numeric, prepend the
 	 * configured currency symbol. Custom (non-numeric) labels render as-is.
 	 *

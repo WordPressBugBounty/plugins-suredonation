@@ -43,6 +43,14 @@ class Stripe_Settings {
 	private const WEBHOOK_SYNC_OPTION = 'suredonation_stripe_webhook_events_synced';
 
 	/**
+	 * Throttle for re-reading accounts believed unable to charge.
+	 *
+	 * @var string
+	 * @since 1.5.1
+	 */
+	private const CAPABILITY_REFRESH_TRANSIENT = 'suredonation_stripe_capability_refreshed';
+
+	/**
 	 * Transient that backs off retries after a failed sync.
 	 *
 	 * @since 1.4.0
@@ -222,6 +230,10 @@ class Stripe_Settings {
 	 */
 	public function get_settings( $request ) {
 		unset( $request ); // Unused parameter.
+
+		// Give a blocked account a chance to report that it is fixed before the
+		// screen renders a warning about it.
+		$this->maybe_refresh_blocked_accounts();
 
 		$stripe_settings = Stripe_Helper::get_all_stripe_settings();
 		$global_settings = Payment_Helper::get_all_payment_settings();
@@ -762,38 +774,183 @@ class Stripe_Settings {
 	 * @since 0.0.1
 	 */
 	public function get_account_name( $account_id = null ) {
+		return $this->extract_account_name( $this->fetch_account( $account_id ) );
+	}
+
+	/**
+	 * Fetch a connected account object from Stripe.
+	 *
+	 * One `GET accounts/{id}` shared by everything that needs it. The response
+	 * carries the account's name *and* its `capabilities`, `charges_enabled` and
+	 * `requirements` — the plugin read the name and discarded the rest, which is
+	 * why an account Stripe would not let charge cards still reported
+	 * "Connected" while donors met an empty card box (support ticket 1517124).
+	 *
+	 * @param string|null $account_id Optional account id; the default account is used when empty.
+	 * @param string      $mode       Optional payment mode ('test' or 'live'); the current mode when empty.
+	 * @return array<string, mixed> Account object, or [] on any failure.
+	 * @since 1.5.1
+	 */
+	private function fetch_account( $account_id = null, $mode = '' ) {
 		if ( empty( $account_id ) ) {
 			$account_id = Stripe_Helper::get_default_account_id();
 		}
 
 		if ( empty( $account_id ) || ! is_string( $account_id ) ) {
-			return '';
+			return [];
 		}
 
-		// Call Stripe API to get account information (using this account's key).
-		$api_response = Stripe_Helper::stripe_api_request( 'accounts/' . $account_id, 'GET', [], [ 'account_id' => $account_id ] );
+		$api_response = Stripe_Helper::stripe_api_request(
+			'accounts/' . $account_id,
+			'GET',
+			[],
+			array_filter(
+				[
+					'account_id' => $account_id,
+					'mode'       => $mode,
+				]
+			)
+		);
 
-		// Check for API error.
-		if ( is_wp_error( $api_response ) ) {
-			return '';
+		if ( is_wp_error( $api_response ) || ! is_array( $api_response ) ) {
+			return [];
 		}
 
 		// API response is the account object directly, not wrapped in 'data'.
-		$get_data = is_array( $api_response ) ? $api_response : [];
+		return $api_response;
+	}
+
+	/**
+	 * Pull a display name out of a Stripe account object.
+	 *
+	 * @param array<string, mixed> $account Stripe account object.
+	 * @return string Account name, or '' when the account carries none.
+	 * @since 1.5.1
+	 */
+	private function extract_account_name( $account ) {
+		if ( ! is_array( $account ) ) {
+			return '';
+		}
 
 		// Return business name or display name.
-		$business_profile = isset( $get_data['business_profile'] ) && is_array( $get_data['business_profile'] ) ? $get_data['business_profile'] : [];
+		$business_profile = isset( $account['business_profile'] ) && is_array( $account['business_profile'] ) ? $account['business_profile'] : [];
 		if ( isset( $business_profile['name'] ) && is_string( $business_profile['name'] ) ) {
 			return sanitize_text_field( $business_profile['name'] );
 		}
 
-		$settings  = isset( $get_data['settings'] ) && is_array( $get_data['settings'] ) ? $get_data['settings'] : [];
+		$settings  = isset( $account['settings'] ) && is_array( $account['settings'] ) ? $account['settings'] : [];
 		$dashboard = isset( $settings['dashboard'] ) && is_array( $settings['dashboard'] ) ? $settings['dashboard'] : [];
 		if ( isset( $dashboard['display_name'] ) && is_string( $dashboard['display_name'] ) ) {
 			return sanitize_text_field( $dashboard['display_name'] );
 		}
 
 		return '';
+	}
+
+	/**
+	 * Record what Stripe says about an account, per mode, at connect time.
+	 *
+	 * Per mode because Stripe's test and live worlds are separate: a test-mode
+	 * read reports `card_payments: active` on an account whose live side is
+	 * restricted, so checking only the mode the admin happens to be in would
+	 * clear exactly the accounts this exists to catch. One call per mode we hold
+	 * a key for — the same shape as webhook provisioning, which already walks
+	 * both modes on connect.
+	 *
+	 * Returns the account name as a by-product so the caller does not pay for a
+	 * second fetch just to read it.
+	 *
+	 * @param string $account_id Connected account id.
+	 * @return string Account name from whichever mode reported one, or ''.
+	 * @since 1.5.1
+	 */
+	private function capture_account_state( $account_id ) {
+		$fields = [];
+		$name   = '';
+
+		foreach ( [ 'live', 'test' ] as $mode ) {
+			if ( '' === Stripe_Helper::get_stripe_secret_key( $mode, $account_id ) ) {
+				continue;
+			}
+
+			$account = $this->fetch_account( $account_id, $mode );
+
+			// A failed fetch stores nothing rather than a wrong "all clear" —
+			// every consumer treats absent state as unknown and stays quiet.
+			if ( empty( $account ) ) {
+				continue;
+			}
+
+			$fields[ "{$mode}_account_state" ] = Stripe_Helper::extract_account_state( $account );
+
+			if ( '' === $name ) {
+				$name = $this->extract_account_name( $account );
+			}
+		}
+
+		if ( ! empty( $fields ) ) {
+			Stripe_Helper::update_account_fields( $account_id, $fields );
+		}
+
+		return $name;
+	}
+
+	/**
+	 * Re-read the accounts we currently believe cannot charge.
+	 *
+	 * `account.updated` is what normally clears a block, but it is the only
+	 * thing that does, and a webhook can be deleted at Stripe, fail delivery, or
+	 * never have been provisioned. The stored state would then stay blocked for
+	 * good and keep the card form hidden on an account Stripe has already fixed
+	 * — a stale flag suppressing a working gateway, which is the one outcome
+	 * this feature is supposed to rule out. So the settings screen re-reads
+	 * before it renders a warning: the admin who just fixed the account lands
+	 * here, and it costs a call only while something is actually wrong.
+	 *
+	 * Deliberately one-directional: a call is spent trying to CLEAR a block,
+	 * never to discover one. An account we think is healthy is left alone, so a
+	 * silent webhook can only ever fail towards showing the gateway.
+	 *
+	 * @return void
+	 * @since 1.5.1
+	 */
+	private function maybe_refresh_blocked_accounts() {
+		if ( get_transient( self::CAPABILITY_REFRESH_TRANSIENT ) ) {
+			return;
+		}
+
+		$mode    = Payment_Helper::get_payment_mode();
+		$blocked = [];
+
+		foreach ( array_keys( Stripe_Helper::get_all_accounts() ) as $account_id ) {
+			if ( Stripe_Helper::is_card_capability_blocked( (string) $account_id, $mode ) ) {
+				$blocked[] = (string) $account_id;
+			}
+		}
+
+		if ( empty( $blocked ) ) {
+			return;
+		}
+
+		// Only held once there is work to do, so a healthy site never carries a
+		// throttle that would delay the first real check.
+		set_transient( self::CAPABILITY_REFRESH_TRANSIENT, true, 5 * MINUTE_IN_SECONDS );
+
+		foreach ( $blocked as $account_id ) {
+			$account = $this->fetch_account( $account_id, $mode );
+
+			// A failed read leaves the stored state alone: it is the last thing
+			// Stripe actually told us, and replacing it with a guess in either
+			// direction would be worse than keeping it.
+			if ( empty( $account ) ) {
+				continue;
+			}
+
+			Stripe_Helper::update_account_fields(
+				$account_id,
+				[ "{$mode}_account_state" => Stripe_Helper::extract_account_state( $account ) ]
+			);
+		}
 	}
 
 	/**
@@ -834,6 +991,10 @@ class Stripe_Settings {
 			'payment_intent.succeeded',
 			'payment_intent.payment_failed',
 			'payment_intent.canceled',
+			// Capability status is not fixed at connect: Stripe can restrict an
+			// account at any time. Without this the connect-time snapshot goes
+			// stale and the settings warning quietly stops being true.
+			'account.updated',
 		];
 
 		/**
@@ -1245,8 +1406,9 @@ class Stripe_Settings {
 			]
 		);
 
-		// Fetch and store the account name/label from Stripe.
-		$account_name = $this->get_account_name( $account_id );
+		// Fetch and store the account name/label plus what Stripe says about the
+		// account's ability to charge, in one pass per mode.
+		$account_name = $this->capture_account_state( $account_id );
 		if ( ! empty( $account_name ) && is_string( $account_name ) ) {
 			Stripe_Helper::update_account_fields( $account_id, [ 'label' => $account_name ] );
 		}

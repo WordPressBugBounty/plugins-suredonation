@@ -333,6 +333,19 @@ class Stripe_Helper {
 				'test_publishable_key'    => is_string( $account['test_publishable_key'] ?? null ) ? $account['test_publishable_key'] : '',
 				'test_webhook_configured' => ! empty( $account['test_webhook_id'] ),
 				'live_webhook_configured' => ! empty( $account['live_webhook_id'] ),
+				// Reason codes only — never Stripe's own capability strings.
+				// `*_state_known` separates "checked, all good" from "never
+				// checked", which the panel needs to tell an account it has
+				// nothing to say about from one it has cleared.
+				'live_account_blockers'   => self::get_account_blockers( (string) $id, 'live' ),
+				'test_account_blockers'   => self::get_account_blockers( (string) $id, 'test' ),
+				'live_state_known'        => ! empty( $account['live_account_state'] ),
+				'test_state_known'        => ! empty( $account['test_account_state'] ),
+				// The decision itself, not the ingredients: the panel showing a
+				// different verdict from the one that hides the card form is the
+				// bug this pair exists to prevent, so only one place computes it.
+				'live_cannot_charge'      => self::is_card_capability_blocked( (string) $id, 'live' ),
+				'test_cannot_charge'      => self::is_card_capability_blocked( (string) $id, 'test' ),
 			];
 		}
 
@@ -414,6 +427,155 @@ class Stripe_Helper {
 			}
 		}
 		return false;
+	}
+
+	/**
+	 * Reason codes that mean this account cannot take a card donation now.
+	 *
+	 * The single definition of "fatal", shared by the form-hiding gate and the
+	 * settings warning. They were separate lists once, and drifted immediately:
+	 * the gate looked only at the card capability while the warning also treated
+	 * a disabled account as fatal, so an account Stripe had restricted with the
+	 * capability flag still reading `active` — a real state during a risk review,
+	 * where the account-level restriction lands first — was labelled "Cannot
+	 * charge" in settings while the broken card box kept rendering on the live
+	 * form. Anything added here now moves both at once.
+	 *
+	 * `requirements_due` is deliberately absent: Stripe grants a grace period, so
+	 * it is a warning about the future, not a reason to stop taking donations.
+	 *
+	 * @var array<int, string>
+	 * @since 1.5.1
+	 */
+	public const FATAL_BLOCKERS = [ 'card_payments_inactive', 'charges_disabled' ];
+
+	/**
+	 * Normalise a Stripe account object into the state we keep about it.
+	 *
+	 * Only facts are stored; whether they amount to a problem is decided by
+	 * get_account_blockers(). Stripe hands all of this back on the account
+	 * object we already fetch at connect and send on `account.updated`, and the
+	 * plugin used to throw every field of it away — which is how a site could
+	 * report "Connected" while the Payment Element refused to mount and every
+	 * donation attempt was lost in silence (support ticket 1517124).
+	 *
+	 * @param array<string, mixed> $account Stripe account object.
+	 * @return array<string, mixed> Normalised account state.
+	 * @since 1.5.1
+	 */
+	public static function extract_account_state( $account ) {
+		if ( ! is_array( $account ) ) {
+			$account = [];
+		}
+
+		$capabilities  = isset( $account['capabilities'] ) && is_array( $account['capabilities'] ) ? $account['capabilities'] : [];
+		$requirements  = isset( $account['requirements'] ) && is_array( $account['requirements'] ) ? $account['requirements'] : [];
+		$currently_due = isset( $requirements['currently_due'] ) && is_array( $requirements['currently_due'] ) ? $requirements['currently_due'] : [];
+
+		return [
+			// Stripe omits a capability entirely when it was never requested, so
+			// a missing key is as much a "cannot charge" as an inactive one.
+			'card_payments'    => isset( $capabilities['card_payments'] ) && is_string( $capabilities['card_payments'] )
+				? sanitize_text_field( $capabilities['card_payments'] )
+				: 'unrequested',
+			'charges_enabled'  => true === ( $account['charges_enabled'] ?? null ),
+			'disabled_reason'  => isset( $requirements['disabled_reason'] ) && is_string( $requirements['disabled_reason'] )
+				? sanitize_text_field( $requirements['disabled_reason'] )
+				: '',
+			'requirements_due' => count( $currently_due ),
+			'checked_at'       => time(),
+		];
+	}
+
+	/**
+	 * The stored account state for a mode, or an empty array when unknown.
+	 *
+	 * Capability status is per mode: Stripe's test and live worlds are separate,
+	 * and a test-mode account reports `card_payments: active` almost from the
+	 * moment it exists. Reading one mode and applying the answer to the other
+	 * would report a false all-clear on exactly the accounts this feature is for.
+	 *
+	 * @param string|null $account_id Optional. Account id; the default account when empty.
+	 * @param string      $mode       Optional. Payment mode; the current mode when empty.
+	 * @return array<string, mixed> Stored state, or [] when nothing has been captured.
+	 * @since 1.5.1
+	 */
+	public static function get_account_state( $account_id = null, $mode = '' ) {
+		if ( empty( $mode ) ) {
+			$mode = Payment_Helper::get_payment_mode();
+		}
+
+		$account = self::resolve_account_record( $account_id );
+		$state   = $account[ "{$mode}_account_state" ] ?? null;
+
+		return is_array( $state ) ? $state : [];
+	}
+
+	/**
+	 * Reason codes for why an account cannot take card donations in a mode.
+	 *
+	 * Codes rather than Stripe's own strings: "You do not have the capabilities
+	 * required for payment method `card`" means nothing to a site owner, and
+	 * echoing it puts the merchant's raw account state on screen.
+	 *
+	 * @param string|null $account_id Optional. Account id; the default account when empty.
+	 * @param string      $mode       Optional. Payment mode; the current mode when empty.
+	 * @return array<int, string> Reason codes; empty when nothing is known to be wrong.
+	 * @since 1.5.1
+	 */
+	public static function get_account_blockers( $account_id = null, $mode = '' ) {
+		$state = self::get_account_state( $account_id, $mode );
+
+		// Nothing captured. Connections made before this was recorded say nothing
+		// about the account either way, and guessing would be worse than staying
+		// quiet. Reconnecting captures it.
+		if ( empty( $state ) ) {
+			return [];
+		}
+
+		$blockers = [];
+
+		if ( isset( $state['card_payments'] ) && 'active' !== $state['card_payments'] ) {
+			$blockers[] = 'card_payments_inactive';
+		}
+
+		if ( isset( $state['charges_enabled'] ) && true !== $state['charges_enabled'] ) {
+			$blockers[] = 'charges_disabled';
+		}
+
+		// Outstanding requirements are not yet a failure — Stripe grants a grace
+		// period before it restricts the account — so this is a warning, not a
+		// blocker, and deliberately never hides the gateway.
+		if ( ! empty( $state['requirements_due'] ) || ! empty( $state['disabled_reason'] ) ) {
+			$blockers[] = 'requirements_due';
+		}
+
+		return $blockers;
+	}
+
+	/**
+	 * Whether we positively know this account cannot charge cards in a mode.
+	 *
+	 * Reads FATAL_BLOCKERS off get_account_blockers() rather than inspecting the
+	 * state itself, so this gate and the settings warning can never disagree
+	 * about what "cannot charge" means.
+	 *
+	 * Deliberately asymmetric: only a captured state that reports a fatal reason
+	 * counts. An account we have never checked, or one whose state predates this
+	 * check, is treated as fine — get_account_blockers() returns nothing for an
+	 * empty state, and each reason is guarded on the key being present. A stale
+	 * flag that silently hides a working gateway is a worse failure than the one
+	 * this is fixing.
+	 *
+	 * @param string|null $account_id Optional. Account id; the default account when empty.
+	 * @param string      $mode       Optional. Payment mode; the current mode when empty.
+	 * @return bool True only when the stored state reports a fatal reason.
+	 * @since 1.5.1
+	 */
+	public static function is_card_capability_blocked( $account_id = null, $mode = '' ) {
+		$blockers = self::get_account_blockers( $account_id, $mode );
+
+		return ! empty( array_intersect( self::FATAL_BLOCKERS, $blockers ) );
 	}
 
 	/**
@@ -845,17 +1007,29 @@ class Stripe_Helper {
 
 		// Prepare data for middleware.
 		$middleware_data = [
-			'secret_key'                => $secret_key,
-			'amount'                    => $intent_data['amount'],
-			'currency'                  => strtolower( $currency ),
-			'description'               => $intent_data['description'] ?? __( 'SureDonation Payment', 'suredonation' ),
-			'confirm'                   => false,
-			'license_key'               => '',
-			'automatic_payment_methods' => [
-				'enabled'         => true,
-				'allow_redirects' => 'never',
-			],
-			'metadata'                  => $metadata,
+			'secret_key'           => $secret_key,
+			'amount'               => $intent_data['amount'],
+			'currency'             => strtolower( $currency ),
+			'description'          => $intent_data['description'] ?? __( 'SureDonation Payment', 'suredonation' ),
+			'confirm'              => false,
+			'license_key'          => '',
+			// One-time payments use manual capture; methods that don't support it (Bacs, Link, Cash App, BNPL) make
+			// Stripe reject the deferred Elements session in live mode, and an automatic-payment-methods intent can't
+			// be confirmed by the card-scoped client Element. Pin to card so the client Element, this payload, and the
+			// middleware intent all agree (Apple/Google Pay are still surfaced through 'card').
+			'payment_method_types' => [ 'card' ],
+			// The client Element is created with capture_method: 'manual' for
+			// one-time (see stripe.js init()) — send it explicitly rather than
+			// relying on the middleware happening to default to the same
+			// value; a future middleware change to that default would break
+			// stripe.confirmPayment() with no signal anywhere in this repo.
+			'capture_method'       => 'manual',
+			// One-time never saves the payment method — the client Element holds
+			// this unset the same way (see stripe.js init()) and only escalates it
+			// right before confirming a subscription. Pin it explicitly here too,
+			// same reasoning as payment_method_types/capture_method above.
+			'setup_future_usage'   => null,
+			'metadata'             => $metadata,
 		];
 
 		// Add customer_id if provided (middleware maps this to Stripe's 'customer' field).

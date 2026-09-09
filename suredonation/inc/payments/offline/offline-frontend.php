@@ -122,7 +122,7 @@ class Offline_Frontend {
 
 		// Validate field values + amount against block config (skip Stripe minimum for offline).
 		$currency          = Payment_Helper::get_currency();
-		$validation_result = Payment_Helper::validate_submission( Payment_Helper::get_submitted_fields(), $amount, $currency, $form_id, $block_id, 'offline' );
+		$validation_result = Payment_Helper::validate_submission( Payment_Helper::get_submitted_fields(), $amount, $currency, $form_id, $block_id, 'offline', 'one-time' );
 		if ( ! $validation_result['valid'] ) {
 			wp_send_json_error(
 				[
@@ -150,6 +150,13 @@ class Offline_Frontend {
 				'donor_email'    => $donor_email,
 				'donor_phone'    => $donor_phone,
 				'is_anonymous'   => $is_anonymous ? 1 : 0,
+				// Always one-time, whatever the block is configured for: an offline
+				// pledge has no instrument to charge on a schedule. The payment-type
+				// guard the Stripe and PayPal extractors run is deliberately NOT
+				// applied here -- it would reject every offline donation on a
+				// recurring form, which is the failure it exists to prevent, not
+				// cause. Whether such a form should offer offline at all is a
+				// separate product question.
 				'donation_type'  => 'one-time',
 				'form_id'        => $form_id,
 				'ip_address'     => Helper::get_client_ip(),

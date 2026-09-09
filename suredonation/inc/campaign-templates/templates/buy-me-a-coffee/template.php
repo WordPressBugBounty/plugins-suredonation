@@ -33,6 +33,7 @@ return [
 
 		$blocks[] = '<!-- wp:suredonation/input ' . wp_json_encode(
 			[
+				'block_id'    => \SureDonation\Inc\Helper::generate_block_id(),
 				'label'       => __( 'Your Name', 'suredonation' ),
 				'required'    => true,
 				'placeholder' => __( 'Enter your name', 'suredonation' ),
@@ -43,6 +44,7 @@ return [
 
 		$blocks[] = '<!-- wp:suredonation/email ' . wp_json_encode(
 			[
+				'block_id'    => \SureDonation\Inc\Helper::generate_block_id(),
 				'label'       => __( 'Email Address', 'suredonation' ),
 				'required'    => true,
 				'placeholder' => __( 'Enter your email', 'suredonation' ),
@@ -53,6 +55,7 @@ return [
 
 		$blocks[] = '<!-- wp:suredonation/donation-amount ' . wp_json_encode(
 			[
+				'block_id'   => \SureDonation\Inc\Helper::generate_block_id(),
 				'label'      => __( 'How many coffees?', 'suredonation' ),
 				'required'   => true,
 				'choiceType' => 'radio',
@@ -77,7 +80,12 @@ return [
 
 		$blocks[] = '<!-- wp:suredonation/payment ' . wp_json_encode(
 			[
+				'block_id'            => \SureDonation\Inc\Helper::generate_block_id(),
 				'gateway'             => 'stripe',
+				// See Campaign_Templates::build_form_blocks() -- parse_blocks()
+				// applies no block.json defaults, so without this the template
+				// form offers Stripe only.
+				'paymentMethods'      => [ 'stripe', 'paypal' ],
 				'paymentType'         => 'one-time',
 				'amountType'          => 'variable',
 				'minimumAmount'       => 0,
@@ -89,6 +97,7 @@ return [
 
 		$blocks[] = '<!-- wp:suredonation/donate-button ' . wp_json_encode(
 			[
+				'block_id'   => \SureDonation\Inc\Helper::generate_block_id(),
 				'buttonText' => __( 'Support', 'suredonation' ),
 				'slug'       => 'donate-button',
 			]

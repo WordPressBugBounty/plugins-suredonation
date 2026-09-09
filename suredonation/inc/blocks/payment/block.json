@@ -97,6 +97,54 @@
 			"type": "string",
 			"default": ""
 		},
+		"oneTimeLabel": {
+			"type": "string",
+			"default": "One-Time Payment"
+		},
+		"subscriptionLabel": {
+			"type": "string",
+			"default": "Subscription"
+		},
+		"defaultPaymentChoice": {
+			"type": "string",
+			"default": "one-time"
+		},
+		"recurringToggleLabel": {
+			"type": "string",
+			"default": "Make this a recurring donation"
+		},
+		"oneTimeAmountType": {
+			"type": "string",
+			"default": "fixed"
+		},
+		"oneTimeFixedAmount": {
+			"type": "number",
+			"default": 10
+		},
+		"oneTimeMinimumAmount": {
+			"type": "number",
+			"default": 0
+		},
+		"oneTimeVariableAmountField": {
+			"type": "string",
+			"default": ""
+		},
+		"subscriptionAmountType": {
+			"type": "string",
+			"default": "fixed"
+		},
+		"subscriptionFixedAmount": {
+			"type": "number",
+			"default": 10
+		},
+		"subscriptionMinimumAmount": {
+			"type": "number",
+			"default": 0
+		},
+		"subscriptionVariableAmountField": {
+			"type": "string",
+			"default": ""
+		},
 		"className": {
 			"type": "string",
 			"default": ""

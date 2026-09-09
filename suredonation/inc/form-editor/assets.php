@@ -151,7 +151,7 @@ class Assets {
 	 * own editor, so it is not a case worth defending against here.
 	 *
 	 * @return void
-	 * @since x.x.x
+	 * @since 1.5.1
 	 */
 	public function enqueue_editor_styles() {
 		// `enqueue_block_assets` also fires on the front end, where there is no
@@ -180,7 +180,7 @@ class Assets {
 	 * Whether the current admin screen is the donation form editor.
 	 *
 	 * @return bool
-	 * @since x.x.x
+	 * @since 1.5.1
 	 */
 	private function is_form_editor_screen() {
 		// get_current_screen() lives in an admin include, so it is missing on the
@@ -199,7 +199,7 @@ class Assets {
 	 * Build metadata (dependencies and version) for the editor bundle.
 	 *
 	 * @return array{dependencies: array<int, string>, version: string}
-	 * @since x.x.x
+	 * @since 1.5.1
 	 */
 	private function get_editor_asset() {
 		$editor_asset_file = SUREDONATION_DIR . 'assets/build/editor/editor.asset.php';

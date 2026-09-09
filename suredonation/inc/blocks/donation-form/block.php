@@ -115,7 +115,9 @@ class Block extends Base {
 		/**
 		 * Fires when a donation form is rendered on the frontend.
 		 *
-		 * Allows payment gateway extensions to enqueue their scripts (e.g., PayPal SDK).
+		 * Allows payment gateway extensions to enqueue their scripts and localize
+		 * their frontend configuration. Gateway SDKs whose URL depends on the
+		 * payment mode are loaded by the form script at runtime instead.
 		 *
 		 * @param int    $form_id      The donation form post ID.
 		 * @param string $form_content The form post content (blocks).

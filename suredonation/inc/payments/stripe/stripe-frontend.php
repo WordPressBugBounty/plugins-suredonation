@@ -88,6 +88,19 @@ class Stripe_Frontend {
 			wp_send_json_error( [ 'message' => __( 'Your submission was flagged as spam. Please try again.', 'suredonation' ) ] );
 		}
 
+		// A page cache can serve a form rendered in the other payment mode. Its
+		// gateway keys would not match anything created here, so stop before any
+		// of that work happens and tell the donor what to do.
+		$mode_check = Payment_Helper::verify_submitted_payment_mode();
+		if ( is_wp_error( $mode_check ) ) {
+			wp_send_json_error(
+				[
+					'message' => esc_html( $mode_check->get_error_message() ),
+					'code'    => $mode_check->get_error_code(),
+				]
+			);
+		}
+
 		// Enforce the required contact-consent here — before creating a Stripe customer,
 		// PaymentIntent, pending donation, or sending any email — so donor PII is never
 		// persisted when the required consent box is unchecked. complete_donation()
@@ -198,22 +211,16 @@ class Stripe_Frontend {
 			wp_send_json_error( [ 'message' => esc_html( $donation_id->get_error_message() ) ] );
 		}
 
-		// Send donation processing email.
-		Email_Handler::send_donation_processing(
-			$donation_id,
-			$campaign_id,
-			[
-				'id'            => $donation_id,
-				'donor_name'    => $donor_name,
-				'donor_email'   => $donor_email,
-				'amount'        => $amount,
-				'fees_covered'  => $fees_covered,
-				'currency'      => $currency,
-				'donation_type' => 'one-time',
-				'gateway'       => 'stripe',
-			],
-			$form_id
-		);
+		// No email here. The intent exists but nothing has been paid: the donor
+		// still has to clear confirmPayment(), and a declined card or an
+		// abandoned 3-D Secure challenge ends the attempt here — after they were
+		// told the donation was processing. The confirmation is sent from
+		// complete_donation() once the capture succeeds, and from the webhook if
+		// that round trip is lost, so a donor who does pay is never left without
+		// one. Same reasoning as the PayPal order-create path.
+		//
+		// Unchanged in the offline and manual flows, where pending really does
+		// mean "received, awaiting payment" and the email is accurate.
 
 		// Return client secret to frontend.
 		wp_send_json_success(
@@ -287,6 +294,28 @@ class Stripe_Frontend {
 			wp_send_json_error( [ 'message' => __( 'Payment capture failed', 'suredonation' ) ] );
 		}
 
+		// This endpoint only ever completes one-time donations (subscriptions are
+		// confirmed and verified via suredonation-pro's own AJAX handler). The
+		// client-side gateway is the sole enforcement point for setup_future_usage:
+		// it holds the value unset for one-time and escalates it exactly once,
+		// immediately before confirming a subscription (see stripe.js
+		// elevateSetupFutureUsage()). If that ever breaks, Stripe silently saves a
+		// one-time donor's card for reuse with no audit trail — this backstop makes
+		// sure it surfaces instead of going unnoticed.
+		if ( 'one-time' === ( $donation['donation_type'] ?? 'one-time' ) && ! empty( $capture_result['setup_future_usage'] ) ) {
+			Donations::update_status( $donation_id, 'suspicious' );
+			Donations::add_log(
+				$donation_id,
+				'security_warning',
+				__( 'One-time donation PaymentIntent unexpectedly saved the payment method for future use', 'suredonation' ),
+				[
+					'payment_intent_id'  => $payment_intent_id,
+					'setup_future_usage' => $capture_result['setup_future_usage'],
+				]
+			);
+			wp_send_json_error( [ 'message' => __( 'Payment verification failed', 'suredonation' ) ] );
+		}
+
 		// Update donation status to completed.
 		$update_result = Donations::update(
 			$donation_id,
@@ -317,6 +346,23 @@ class Stripe_Frontend {
 					'payment_intent_id' => $payment_intent_id,
 				]
 			);
+
+			// Donor aggregates used to be bumped only by the webhook, so a
+			// donation completed here — the normal path — left the donor's
+			// stored total, count and largest gift stale, and the donors list
+			// and CSV export under-reported. record_donation_once() makes this
+			// safe to do from both paths.
+			$donor_id_value = $donation['donor_id'] ?? 0;
+			$donor_id       = is_numeric( $donor_id_value ) ? absint( $donor_id_value ) : 0;
+
+			if ( $donor_id > 0 ) {
+				$amount_value = $donation['amount'] ?? 0;
+				Donors::record_donation_once(
+					$donor_id,
+					is_numeric( $amount_value ) ? (float) $amount_value : 0.0,
+					$donation_id
+				);
+			}
 		}
 
 		// Send donation confirmation emails.
@@ -492,8 +538,20 @@ class Stripe_Frontend {
 			wp_send_json_error( [ 'message' => __( 'Invalid form configuration.', 'suredonation' ) ] );
 		}
 
+		// A form configured for recurring must never be charged once. When pro's
+		// bundle has not evaluated -- a failed deploy, a 404'd asset, or pro
+		// bailing on the free version floor after SUREDONATION_PRO_VER is already
+		// defined -- the frontend falls through to this one-time path while the
+		// markup still presents the form as recurring. validate_payment_type() is
+		// symmetric and pro already calls it for the subscription direction; this
+		// closes the other side, server-side, whatever the client did.
+		$type_validation = Payment_Helper::validate_payment_type( 'one-time', $form_id, $block_id );
+		if ( ! $type_validation['valid'] ) {
+			wp_send_json_error( [ 'message' => esc_html( $type_validation['message'] ) ] );
+		}
+
 		$donation_amount   = $amount - $fees_covered;
-		$validation_result = Payment_Helper::validate_submission( Payment_Helper::get_submitted_fields(), $donation_amount, $currency, $form_id, $block_id, 'stripe' );
+		$validation_result = Payment_Helper::validate_submission( Payment_Helper::get_submitted_fields(), $donation_amount, $currency, $form_id, $block_id, 'stripe', 'one-time' );
 		if ( ! $validation_result['valid'] ) {
 			wp_send_json_error(
 				[

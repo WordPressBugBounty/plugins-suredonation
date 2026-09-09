@@ -75,14 +75,25 @@ class Email_Handler {
 
 		if ( '' !== $lock_key ) {
 			set_transient( $lock_key, true, 60 );
+
+			// Companion to the 60-second race lock, kept long enough to answer a
+			// different question: has this donation's email for this event been
+			// attempted at all? The webhook reconciler needs that to decide
+			// whether a donation the frontend already completed still owes the
+			// donor a receipt, and the race lock expires far too soon to say.
+			set_transient( self::sent_marker_key( $event, $donation_id ), true, WEEK_IN_SECONDS );
 		}
 
 		// One lookup covers both the form and the donation timestamp; callers
 		// build their own data array and rarely carry created_at.
 		$needs_form_id   = empty( $form_id );
 		$needs_timestamp = empty( $donation_data['created_at'] );
+		// The submitted form fields live in the donation_data JSON column, which
+		// callers building their own array never carry. Resolved here, once, so
+		// the {form_fields} tag does not re-read the row for every tag pass.
+		$needs_fields = ! isset( $donation_data['fields'] );
 
-		if ( ( $needs_form_id || $needs_timestamp ) && ! empty( $donation_id ) ) {
+		if ( ( $needs_form_id || $needs_timestamp || $needs_fields ) && ! empty( $donation_id ) ) {
 			$donation = Donations::get( $donation_id );
 
 			if ( is_array( $donation ) ) {
@@ -91,6 +102,9 @@ class Email_Handler {
 				}
 				if ( $needs_timestamp && isset( $donation['created_at'] ) && is_string( $donation['created_at'] ) ) {
 					$donation_data['created_at'] = $donation['created_at'];
+				}
+				if ( $needs_fields ) {
+					$donation_data['fields'] = self::extract_stored_fields( $donation );
 				}
 			}
 		}
@@ -154,6 +168,45 @@ class Email_Handler {
 	 * @param int                  $form_id       Form post ID.
 	 * @return void
 	 * @since 0.0.1
+	 */
+	/**
+	 * Transient key recording that an email was attempted for a donation+event.
+	 *
+	 * @param  string $event       Email event.
+	 * @param  int    $donation_id Donation ID.
+	 * @return string
+	 * @since  x.x.x
+	 */
+	public static function sent_marker_key( $event, $donation_id ) {
+		return 'suredonation_email_sent_' . (string) $event . '_' . absint( $donation_id );
+	}
+
+	/**
+	 * Whether an email for this donation and event has already been attempted.
+	 *
+	 * Answers "does this donation still owe the donor a receipt?", which the
+	 * PayPal webhook reconciler asks about a donation the frontend already
+	 * marked completed. Deliberately not `receipt_sent`: that column is written
+	 * only by Pro's PDF attachment path, so on free-only sites it is never set.
+	 *
+	 * @param  int    $donation_id Donation ID.
+	 * @param  string $event       Email event; defaults to the donation receipt.
+	 * @return bool
+	 * @since  x.x.x
+	 */
+	public static function has_sent( $donation_id, $event = self::EVENT_DONATION_COMPLETED ) {
+		return (bool) get_transient( self::sent_marker_key( $event, $donation_id ) );
+	}
+
+	/**
+	 * Send donation confirmation emails.
+	 *
+	 * @param int                  $donation_id   Donation ID.
+	 * @param int                  $campaign_id   Campaign ID.
+	 * @param array<string, mixed> $donation_data Donation data array.
+	 * @param int                  $form_id       Form post ID.
+	 * @return void
+	 * @since 1.0.0
 	 */
 	public static function send_donation_confirmation( $donation_id, $campaign_id, $donation_data, $form_id = 0 ) {
 		self::send_donation_emails( $donation_id, $campaign_id, $donation_data, $form_id, self::EVENT_DONATION_COMPLETED );
@@ -465,6 +518,30 @@ class Email_Handler {
 	}
 
 	/**
+	 * Read the stored submitted form fields off a donation row.
+	 *
+	 * The donation_data column is shared JSON that comes back either decoded or
+	 * still encoded depending on the caller, so both shapes are handled.
+	 *
+	 * @param array<string, mixed> $donation Donation row.
+	 * @return array<mixed> Stored fields, or [] when the donation has none.
+	 * @since 1.5.1
+	 */
+	private static function extract_stored_fields( $donation ) {
+		$donation_data = $donation['donation_data'] ?? [];
+
+		if ( is_string( $donation_data ) && '' !== $donation_data ) {
+			$donation_data = json_decode( $donation_data, true );
+		}
+
+		if ( ! is_array( $donation_data ) || ! isset( $donation_data['fields'] ) || ! is_array( $donation_data['fields'] ) ) {
+			return [];
+		}
+
+		return $donation_data['fields'];
+	}
+
+	/**
 	 * Identify a notification by the two fields that survive editing.
 	 *
 	 * `trigger` is a sanitized key and `email_to` is a smart tag, so neither is
@@ -732,13 +809,26 @@ class Email_Handler {
 		 * (wp_mail() contract) inside the uploads directory. Non-string,
 		 * non-existent and out-of-uploads entries are dropped before sending.
 		 *
-		 * @param array<int, string>   $attachments   Attachment file paths. Default empty.
-		 * @param array<string, mixed> $notification  Notification settings.
-		 * @param array<string, mixed> $donation_data Donation data.
-		 * @param \WP_Post             $campaign      Campaign post object.
-		 * @param int                  $donation_id   Donation ID (0 when not available).
-		 * @param string               $event         The event that triggered this email (e.g. 'donation_completed').
+		 * A STRING KEY names the attachment for the recipient: wp_mail() passes
+		 * it to PHPMailer as the display name, so the file can be stored under
+		 * one name and delivered under another. Keys are run through
+		 * sanitize_file_name(), given the real file's extension when they lack
+		 * it, and dropped if nothing usable survives -- in which case the file's
+		 * own name is used.
+		 *
+		 * The display name is best effort. Core has never documented the
+		 * key-as-name behaviour, and a plugin that REPLACES pluggable wp_mail()
+		 * (some API-based mailers do) may iterate values only and drop the key,
+		 * delivering the file under its stored name instead.
+		 *
+		 * @param array<int|string, string> $attachments   Attachment file paths, optionally keyed by display name. Default empty.
+		 * @param array<string, mixed>      $notification  Notification settings.
+		 * @param array<string, mixed>      $donation_data Donation data.
+		 * @param \WP_Post|null             $campaign      Campaign post object, or null for a standalone form.
+		 * @param int                       $donation_id   Donation ID (0 when not available).
+		 * @param string                    $event         The event that triggered this email (e.g. 'donation_completed').
 		 * @since 1.5.0
+		 * @since 1.5.1 A string key names the attachment for the recipient.
 		 */
 		$attachments = apply_filters( 'suredonation_email_attachments', [], $notification, $donation_data, $campaign, $donation_id, $event );
 
@@ -746,27 +836,60 @@ class Email_Handler {
 		$base_real   = isset( $upload_dir['basedir'] ) && is_string( $upload_dir['basedir'] ) ? realpath( $upload_dir['basedir'] ) : false;
 		$uploads_dir = is_string( $base_real ) ? trailingslashit( wp_normalize_path( $base_real ) ) : '';
 
-		$attachments = is_array( $attachments ) ? array_values(
-			array_filter(
-				$attachments,
-				static function ( $path ) use ( $uploads_dir ) {
-					if ( ! is_string( $path ) || '' === $path || ! file_exists( $path ) ) {
-						return false;
-					}
-
-					// Containment check: only files inside the uploads directory
-					// may be attached — a filtered-in traversal path or symlink
-					// must not exfiltrate arbitrary server files by email.
-					$real = realpath( $path );
-
-					if ( ! is_string( $real ) || '' === $uploads_dir ) {
-						return false;
-					}
-
-					return 0 === strpos( wp_normalize_path( $real ), $uploads_dir );
+		$attachments = is_array( $attachments ) ? array_filter(
+			$attachments,
+			static function ( $path ) use ( $uploads_dir ) {
+				if ( ! is_string( $path ) || '' === $path || ! file_exists( $path ) ) {
+					return false;
 				}
-			)
+
+				// Containment check: only files inside the uploads directory
+				// may be attached — a filtered-in traversal path or symlink
+				// must not exfiltrate arbitrary server files by email.
+				$real = realpath( $path );
+
+				if ( ! is_string( $real ) || '' === $uploads_dir ) {
+					return false;
+				}
+
+				return 0 === strpos( wp_normalize_path( $real ), $uploads_dir );
+			}
 		) : [];
+
+		// Re-key rather than array_values(): a string key is the name the
+		// recipient sees, which is how a receipt stored under an unguessable
+		// filename arrives as something readable. Keys that do not survive
+		// sanitize_file_name() are dropped so the attachment falls back to the
+		// file's own name — never to attacker-shaped text in a mail header.
+		$named_attachments = [];
+
+		foreach ( $attachments as $key => $path ) {
+			$name = is_string( $key ) ? sanitize_file_name( $key ) : '';
+
+			// sanitize_file_name() neither requires nor preserves an extension, so
+			// a key like "Receipt for Ada" would be delivered with none at all --
+			// PHPMailer takes the content type from the PATH, leaving the reader a
+			// file their OS cannot open by double-clicking. Reconcile the two.
+			if ( '' !== $name ) {
+				$real_ext = strtolower( (string) pathinfo( $path, PATHINFO_EXTENSION ) );
+
+				if ( '' !== $real_ext && strtolower( (string) pathinfo( $name, PATHINFO_EXTENSION ) ) !== $real_ext ) {
+					$name .= '.' . $real_ext;
+				}
+			}
+
+			// A name already claimed by an earlier attachment would silently
+			// replace it, losing a file that used to be sent. Keep both: the
+			// loser falls back to its own filename rather than disappearing.
+			if ( '' !== $name && ! isset( $named_attachments[ $name ] ) ) {
+				$named_attachments[ $name ] = $path;
+				continue;
+			}
+
+			$named_attachments[] = $path;
+		}
+
+		$attachments = $named_attachments;
 
 		// Send email.
 		$sent = wp_mail( $to_email, $subject, $email_body, $headers, $attachments );
@@ -866,6 +989,9 @@ class Email_Handler {
 				? esc_html( Payment_Helper::format_amount( (float) $donation_data['refund_amount'], $currency ) )
 				: '',
 			'{offline_instructions}'  => wp_kses_post( $offline_instructions ),
+			'{form_fields}'           => Helper::render_submitted_fields(
+				isset( $donation_data['fields'] ) && is_array( $donation_data['fields'] ) ? $donation_data['fields'] : []
+			),
 		];
 
 		// Apply filters to allow adding custom smart tags.

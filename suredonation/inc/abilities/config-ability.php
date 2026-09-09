@@ -10,6 +10,7 @@
 
 namespace SureDonation\Inc\Abilities;
 
+use SureDonation\Inc\Database\Tables\Donations;
 use SureDonation\Inc\Helper;
 
 // Exit if accessed directly.
@@ -702,7 +703,10 @@ class Config_Ability {
 						],
 						'status'      => [
 							'type'        => 'string',
-							'enum'        => [ 'all', 'pending', 'processing', 'completed', 'failed', 'refunded', 'partially_refunded', 'cancelled', 'suspicious' ],
+							// Sourced from the table's whitelist so this cannot drift
+							// from what the codebase actually writes, as the
+							// write schemas below had.
+							'enum'        => array_merge( [ 'all' ], Donations::get_valid_statuses() ),
 							'default'     => 'all',
 							'description' => __( 'Filter by payment status.', 'suredonation' ),
 						],
@@ -960,7 +964,7 @@ class Config_Ability {
 						],
 						'status' => [
 							'type'        => 'string',
-							'enum'        => [ 'pending', 'processing', 'completed', 'failed', 'refunded', 'partially_refunded', 'cancelled' ],
+							'enum'        => Donations::get_valid_statuses(),
 							'description' => __( 'The new payment status.', 'suredonation' ),
 						],
 					],
@@ -1078,7 +1082,7 @@ class Config_Ability {
 						],
 						'payment_status' => [
 							'type'        => 'string',
-							'enum'        => [ 'pending', 'processing', 'completed', 'failed', 'refunded', 'partially_refunded', 'cancelled' ],
+							'enum'        => Donations::get_valid_statuses(),
 							'default'     => 'pending',
 							'description' => __( 'Status to record. Defaults to "pending" so recording a donation does not send donor receipts or fire completion automations; pass "completed" explicitly for a gift that has already cleared.', 'suredonation' ),
 						],

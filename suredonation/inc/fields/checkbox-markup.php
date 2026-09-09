@@ -39,9 +39,20 @@ class Checkbox_Markup extends Base {
 	 * @return string
 	 */
 	public function markup() {
-		$classes       = $this->get_field_classes();
+		// `sd-checkbox-field` is this block's own modifier. `sd-checkbox-block`
+		// and the `sd-checkbox-*` element classes are a shared contract — the
+		// anonymous-donation, cover-fees and privacy-consent fields write the
+		// same markup by hand — so anything specific to the authorable field
+		// (styling, and the frontend hooks that read its label and validate it)
+		// keys off this class instead of the shared ones.
+		$classes       = $this->get_field_classes( [ 'sd-checkbox-field' ] );
 		$aria_desc     = $this->get_aria_describedby();
 		$required_mark = $this->required ? '<span class="sd-required" aria-hidden="true">*</span>' : '';
+
+		// The slug is the key the value is submitted, validated and stored
+		// under. Without it the field renders but never reaches the server —
+		// the failure mode #273 hit on the anonymous-donation checkbox.
+		$data_slug = $this->block_slug ? $this->block_slug : $this->unique_slug;
 
 		ob_start();
 		?>
@@ -53,6 +64,7 @@ class Checkbox_Markup extends Base {
 						type="checkbox"
 						name="<?php echo esc_attr( $this->field_name ); ?>"
 						id="<?php echo esc_attr( $this->unique_slug ); ?>"
+						data-slug="<?php echo esc_attr( $data_slug ); ?>"
 						value="1"
 						<?php if ( ! empty( $aria_desc ) ) { ?>
 							aria-describedby="<?php echo esc_attr( $aria_desc ); ?>"

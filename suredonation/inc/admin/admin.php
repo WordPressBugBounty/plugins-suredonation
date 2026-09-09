@@ -76,7 +76,7 @@ class Admin {
 					'id'          => 'sd-configure-gateway',
 					'variant'     => 'error',
 					// translators: the <a></a> tags wrap the inline link text and must be kept intact.
-					'message'     => __( 'No payment gateway is connected, so your forms cannot accept donations yet. <a>Set up a payment gateway</a> to get started.', 'suredonation' ),
+					'message'     => __( 'Your forms cannot accept donations yet. <a>Connect Stripe or PayPal</a> and you can start accepting them today.', 'suredonation' ),
 					'link'        => [
 						// Deep-link to the gateway connect screen, matching the dashboard Quick Access entry.
 						'url' => Payment_Helper::get_settings_url( 'stripe' ),
@@ -112,7 +112,7 @@ class Admin {
 					'id'          => 'sd-test-mode-react',
 					'variant'     => 'error',
 					// translators: the <a></a> tags wrap the inline link text and must be kept intact.
-					'message'     => __( 'SureDonation is in test mode, so no real donations are being processed. <a>Switch to live mode</a> to start accepting them.', 'suredonation' ),
+					'message'     => __( 'Supporters cannot donate while your site is in test mode. Anything they try now is a test and no money reaches you. <a>Switch to live mode</a> when you are ready to accept real donations.', 'suredonation' ),
 					'link'        => [
 						'url' => $settings_url,
 					],
@@ -616,26 +616,34 @@ class Admin {
 			$has_givewp_data = false;
 		}
 
+		$has_charitable_data = false;
+		try {
+			$has_charitable_data = \SureDonation\Inc\Import\Charitable\Source::get_instance()->has_charitable_data();
+		} catch ( \Throwable $e ) {
+			$has_charitable_data = false;
+		}
+
 		wp_localize_script(
 			'suredonation-onboarding',
 			'suredonation_onboarding',
 			[
-				'apiUrl'        => rest_url( 'suredonation/v1' ),
-				'nonce'         => wp_create_nonce( 'wp_rest' ),
-				'pluginUrl'     => SUREDONATION_URL,
-				'adminUrl'      => admin_url(),
-				'dashboardUrl'  => admin_url( 'admin.php?page=suredonation' ),
-				'paymentsUrl'   => Payment_Helper::get_settings_url( 'stripe' ),
-				'campaignsUrl'  => admin_url( 'admin.php?page=suredonation#/campaigns' ),
-				'docsUrl'       => 'https://suredonation.com/docs/',
-				'isProActive'   => $is_pro,
-				'hasGiveWPData' => $has_givewp_data,
-				'currentUser'   => [
+				'apiUrl'            => rest_url( 'suredonation/v1' ),
+				'nonce'             => wp_create_nonce( 'wp_rest' ),
+				'pluginUrl'         => SUREDONATION_URL,
+				'adminUrl'          => admin_url(),
+				'dashboardUrl'      => admin_url( 'admin.php?page=suredonation' ),
+				'paymentsUrl'       => Payment_Helper::get_settings_url( 'stripe' ),
+				'campaignsUrl'      => admin_url( 'admin.php?page=suredonation#/campaigns' ),
+				'docsUrl'           => 'https://suredonation.com/docs/',
+				'isProActive'       => $is_pro,
+				'hasGiveWPData'     => $has_givewp_data,
+				'hasCharitableData' => $has_charitable_data,
+				'currentUser'       => [
 					'firstName' => $current_user ? $current_user->first_name : '',
 					'lastName'  => $current_user ? $current_user->last_name : '',
 					'email'     => $current_user ? $current_user->user_email : '',
 				],
-				'privacyUrl'    => 'https://suredonation.com/privacy-policy/',
+				'privacyUrl'        => 'https://suredonation.com/privacy-policy/',
 			]
 		);
 

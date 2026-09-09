@@ -36,6 +36,22 @@ class Field_Validation {
 	public const VALIDATION_MESSAGES_OPTION_KEY = 'validation_messages';
 
 	/**
+	 * Canonical stored values for a checkbox field.
+	 *
+	 * Deliberately untranslated: the value is persisted to donation_data, read
+	 * back by the entry screen, the abilities runtime and the CSV export, and can
+	 * be re-imported on another site. Display layers translate it on read via
+	 * Helper::format_checkbox_field_value(); the export keeps the canonical token
+	 * so the column stays comparable across locales.
+	 *
+	 * @since 1.5.1
+	 */
+	public const CHECKBOX_VALUES = [
+		'yes' => 'Yes',
+		'no'  => 'No',
+	];
+
+	/**
 	 * Field blocks whose values participate in field-level validation.
 	 *
 	 * @since 1.1.0
@@ -44,6 +60,7 @@ class Field_Validation {
 		'suredonation/input',
 		'suredonation/email',
 		'suredonation/number',
+		'suredonation/checkbox',
 		'suredonation/dropdown',
 		'suredonation/phone',
 		'suredonation/url',
@@ -171,6 +188,9 @@ class Field_Validation {
 				case 'suredonation/email':
 					$processed_config = self::process_email_block( $block['attrs'] );
 					break;
+				case 'suredonation/checkbox':
+					$processed_config = self::process_checkbox_block( $block['attrs'] );
+					break;
 				case 'suredonation/dropdown':
 					$processed_config = self::process_dropdown_block( $block['attrs'] );
 					break;
@@ -190,6 +210,11 @@ class Field_Validation {
 			 * persisted on save and picked up by validate_form_data(). Return a
 			 * non-empty array (including at least a 'required' flag plus any rule
 			 * values the validator needs) to store it under the block id.
+			 *
+			 * Set 'is_checkbox' => true for a consent-style boolean field so the
+			 * submission handler stores its value as the canonical Yes/No token
+			 * (see CHECKBOX_VALUES) and keeps the unticked state on the record
+			 * instead of dropping it as an empty value.
 			 *
 			 * @since 1.1.0
 			 * @param array<string, mixed>|null $processed_config Config from core (null when unhandled).
@@ -217,10 +242,14 @@ class Field_Validation {
 	 * Process payment block configuration.
 	 *
 	 * Extracts payment-related settings that are needed for server-side validation:
+	 * - payment_type: 'one-time', 'subscription' or 'both'
 	 * - amount_type: 'fixed' or 'variable'
 	 * - fixed_amount: The configured fixed amount
 	 * - minimum_amount: The minimum allowed amount for variable amounts
 	 * - variable_amount_field: The slug of the field providing the variable amount
+	 * - one_time / subscription: per-choice amount configs, 'both' mode only
+	 * - subscription_interval / subscription_billing_cycles: billing cadence, when a
+	 *   subscription path exists
 	 *
 	 * @param array<mixed> $attrs  Block attributes.
 	 * @param array<mixed> $blocks All blocks in the form.
@@ -230,46 +259,101 @@ class Field_Validation {
 	private static function process_payment_block( $attrs, $blocks ) {
 		$payment_config = [];
 
-		// Extract payment type (one-time or subscription).
+		// Extract payment type (one-time, subscription, or both).
 		// Default to 'one-time' if not set (Gutenberg may not save default values).
 		$payment_config['payment_type'] = isset( $attrs['paymentType'] ) && is_string( $attrs['paymentType'] )
 			? sanitize_text_field( $attrs['paymentType'] )
 			: 'one-time';
 
-		// Extract amount type (fixed or variable).
-		// IMPORTANT: Always store this - Gutenberg may not save attributes that match defaults.
-		// Default to 'fixed' which is the block.json default.
-		$payment_config['amount_type'] = isset( $attrs['amountType'] ) && is_string( $attrs['amountType'] )
-			? sanitize_text_field( $attrs['amountType'] )
-			: 'fixed';
+		// Shared amount configuration. Kept at the top level for every payment type,
+		// including 'both', so blocks saved before dual-mode support — and any code
+		// still reading the flat keys — behave exactly as before.
+		$payment_config = array_merge( $payment_config, self::build_amount_config( $attrs, $blocks ) );
 
-		// Extract configured fixed amount.
-		// Default to 10.00 to match block.json default.
-		$payment_config['fixed_amount'] = isset( $attrs['fixedAmount'] )
-			? floatval( $attrs['fixedAmount'] )
-			: 10.00;
+		// In 'both' mode each choice carries its own amount configuration. Store them
+		// as separate sub-configs so validation can check the submitted amount against
+		// the mode the donor actually selected rather than a single shared amount.
+		if ( 'both' === $payment_config['payment_type'] ) {
+			$payment_config['one_time']     = self::build_amount_config( $attrs, $blocks, 'oneTime' );
+			$payment_config['subscription'] = self::build_amount_config( $attrs, $blocks, 'subscription' );
+		}
 
-		// Extract minimum amount for variable amounts.
-		// Defaults to 0 (no minimum) — only enforced if the block setting specifies one.
-		$payment_config['minimum_amount'] = isset( $attrs['minimumAmount'] )
-			? floatval( $attrs['minimumAmount'] )
-			: 0.0;
-
-		// Extract variable amount field reference.
-		if ( isset( $attrs['variableAmountField'] ) ) {
-			$variable_amount_slug                    = sanitize_text_field( $attrs['variableAmountField'] );
-			$payment_config['variable_amount_field'] = $variable_amount_slug;
-
-			// Find and add the block name from which the variable amount field comes from.
-			if ( ! empty( $variable_amount_slug ) && is_array( $blocks ) ) {
-				$block_name = self::find_block_name_by_slug( $blocks, $variable_amount_slug );
-				if ( $block_name ) {
-					$payment_config['variable_amount_field_block_name'] = $block_name;
-				}
-			}
+		// Persist the billing cadence for any form with a subscription path. The admin
+		// picks these in the editor, so the stored values are the source of truth on
+		// submit — a tampered interval/cycles in the request cannot redirect the
+		// gateway to a different cadence.
+		//
+		// Stored UNCONDITIONALLY with PHP-side defaults (not gated on
+		// isset( subscriptionPlan )), exactly like build_amount_config() below:
+		// block.json's subscriptionPlan default is a fully-populated object, so
+		// Gutenberg omits the attribute whenever the admin accepts the defaults
+		// (Monthly / Ongoing / default name). Gating on it would leave the cadence
+		// unstored for that common case, get_subscription_cadence() would return
+		// empty, and the submit path would fall back to the request-supplied cadence.
+		if ( in_array( $payment_config['payment_type'], [ 'subscription', 'both' ], true ) ) {
+			$cadence                                       = self::derive_subscription_cadence_from_attrs( $attrs );
+			$payment_config['subscription_interval']       = $cadence['subscription_interval'];
+			$payment_config['subscription_billing_cycles'] = $cadence['subscription_billing_cycles'];
 		}
 
 		return $payment_config;
+	}
+
+	/**
+	 * Build one amount configuration (type, fixed, minimum, variable field) from a
+	 * set of block attributes.
+	 *
+	 * Single-mode blocks use the unprefixed attributes (`amountType`, `fixedAmount`,
+	 * …); 'both' mode stores an independent configuration per choice under the
+	 * `oneTime`/`subscription` attribute prefixes. Defaults match block.json, because
+	 * Gutenberg omits attributes whose value equals the default.
+	 *
+	 * @param array<mixed> $attrs  Block attributes.
+	 * @param array<mixed> $blocks All blocks in the form.
+	 * @param string       $prefix Attribute prefix ('' for the shared config, 'oneTime' or 'subscription').
+	 * @return array<string, mixed> Amount configuration.
+	 * @since 1.5.1
+	 */
+	private static function build_amount_config( $attrs, $blocks, $prefix = '' ) {
+		// Maps a suffix onto the prefixed attribute name: an empty prefix gives
+		// "amountType", the oneTime prefix gives "oneTimeAmountType".
+		$attr_key = static function ( $name ) use ( $prefix ) {
+			return '' === $prefix ? lcfirst( $name ) : $prefix . $name;
+		};
+
+		$amount_type_key = $attr_key( 'AmountType' );
+		$fixed_key       = $attr_key( 'FixedAmount' );
+		$minimum_key     = $attr_key( 'MinimumAmount' );
+		$variable_key    = $attr_key( 'VariableAmountField' );
+
+		$config = [
+			'amount_type'    => isset( $attrs[ $amount_type_key ] ) && is_string( $attrs[ $amount_type_key ] )
+				? sanitize_text_field( $attrs[ $amount_type_key ] )
+				: 'fixed',
+			'fixed_amount'   => isset( $attrs[ $fixed_key ] ) ? floatval( Helper::get_string_value( $attrs[ $fixed_key ] ) ) : 10.00,
+			// Defaults to 0 (no minimum) — only enforced if the block setting specifies one.
+			'minimum_amount' => isset( $attrs[ $minimum_key ] ) ? floatval( Helper::get_string_value( $attrs[ $minimum_key ] ) ) : 0.0,
+		];
+
+		// Stored unconditionally (empty string when unset) so absence is
+		// unambiguous: a 'variable' choice whose field was never picked reads as
+		// '' here, which validate_dynamic_amount_field() must reject rather than
+		// wave through. Gutenberg omits the attribute while it equals its ''
+		// default, so keying on isset() alone would hide that misconfiguration.
+		$variable_amount_slug            = isset( $attrs[ $variable_key ] )
+			? sanitize_text_field( Helper::get_string_value( $attrs[ $variable_key ] ) )
+			: '';
+		$config['variable_amount_field'] = $variable_amount_slug;
+
+		// Find and add the block name from which the variable amount field comes from.
+		if ( '' !== $variable_amount_slug && is_array( $blocks ) ) {
+			$block_name = self::find_block_name_by_slug( $blocks, $variable_amount_slug );
+			if ( $block_name ) {
+				$config['variable_amount_field_block_name'] = $block_name;
+			}
+		}
+
+		return $config;
 	}
 
 	/**
@@ -373,6 +457,78 @@ class Field_Validation {
 		}
 
 		return null;
+	}
+
+	/**
+	 * Derive the billing cadence from a payment block's attributes.
+	 *
+	 * Single source of truth shared by build_amount_config() (store time) and
+	 * resolve_subscription_cadence_from_content() (legacy re-resolve). block.json's
+	 * subscriptionPlan default is a fully-populated object, so Gutenberg omits the
+	 * attribute whenever the admin accepts the defaults — hence the PHP-side
+	 * defaults of month / ongoing here.
+	 *
+	 * @since 1.5.1
+	 * @param array<string, mixed> $attrs Parsed payment-block attributes.
+	 * @return array{subscription_interval: string, subscription_billing_cycles: int|string}
+	 */
+	private static function derive_subscription_cadence_from_attrs( $attrs ) {
+		$plan = isset( $attrs['subscriptionPlan'] ) && is_array( $attrs['subscriptionPlan'] )
+			? $attrs['subscriptionPlan']
+			: [];
+
+		$interval = isset( $plan['interval'] ) && is_string( $plan['interval'] )
+			? sanitize_text_field( $plan['interval'] )
+			: 'month';
+
+		if ( isset( $plan['billingCycles'] ) ) {
+			// billingCycles is either an integer count or the string 'ongoing'.
+			$cycles         = $plan['billingCycles'];
+			$billing_cycles = is_numeric( $cycles )
+				? (int) $cycles
+				: sanitize_text_field( Helper::get_string_value( $cycles ) );
+		} else {
+			$billing_cycles = 'ongoing';
+		}
+
+		return [
+			'subscription_interval'       => $interval,
+			'subscription_billing_cycles' => $billing_cycles,
+		];
+	}
+
+	/**
+	 * Re-resolve a form's billing cadence from its stored post content.
+	 *
+	 * Forms saved before the cadence was persisted into the block config carry no
+	 * subscription_interval/billing_cycles keys in stored meta, and the config is
+	 * only rebuilt on save_post — so those keys never appear until the admin
+	 * happens to re-save. Rather than let the submit path assume month / ongoing
+	 * (which silently rewrites the admin's real plan — e.g. a 5-cycle yearly plan
+	 * becomes ongoing monthly), re-derive from the parsed payment block. This is
+	 * still server-side and untamperable: it reads post_content, never the request.
+	 *
+	 * @since 1.5.1
+	 * @param int $form_id Donation form post ID.
+	 * @return array{subscription_interval: string, subscription_billing_cycles: int|string}|null
+	 *               Cadence, or null when the form has no readable payment block.
+	 */
+	public static function resolve_subscription_cadence_from_content( $form_id ) {
+		if ( ! is_int( $form_id ) || $form_id <= 0 || ! function_exists( 'parse_blocks' ) ) {
+			return null;
+		}
+
+		$post = get_post( $form_id );
+		if ( ! ( $post instanceof \WP_Post ) || empty( $post->post_content ) ) {
+			return null;
+		}
+
+		$attrs = self::find_payment_block_attrs( parse_blocks( $post->post_content ) );
+		if ( ! is_array( $attrs ) ) {
+			return null;
+		}
+
+		return self::derive_subscription_cadence_from_attrs( $attrs );
 	}
 
 	/**
@@ -743,6 +899,76 @@ class Field_Validation {
 	}
 
 	/**
+	 * Process checkbox block configuration.
+	 *
+	 * A checkbox carries no format or range rules — only the required flag and
+	 * the optional per-field error message. `is_checkbox` is stored so the
+	 * submission handler can recognise the field by its saved configuration
+	 * (rather than trusting the request) when it renders the value as Yes/No.
+	 *
+	 * @param array<mixed> $attrs Block attributes.
+	 * @return array<string, mixed> Processed checkbox configuration.
+	 * @since 1.5.1
+	 */
+	private static function process_checkbox_block( $attrs ) {
+		$checkbox_config = [
+			'required'    => ! empty( $attrs['required'] ),
+			'is_checkbox' => true,
+		];
+
+		$error_msg = isset( $attrs['errorMsg'] ) ? sanitize_text_field( Helper::get_string_value( $attrs['errorMsg'] ) ) : '';
+		if ( '' !== $error_msg ) {
+			$checkbox_config['error_msg'] = $error_msg;
+		}
+
+		return $checkbox_config;
+	}
+
+	/**
+	 * Resolve the slugs of the form's checkbox fields.
+	 *
+	 * Read from the saved form's stored block configuration, so a submission
+	 * cannot claim a field is (or is not) a checkbox. Used to render the
+	 * submitted value as a readable Yes/No rather than a bare "1"/empty, and to
+	 * keep an unchecked box in the stored record instead of dropping it as an
+	 * empty value.
+	 *
+	 * Only `suredonation/checkbox` fields are returned. The fixed-purpose
+	 * consent checkboxes (anonymous donation, cover fees, privacy consent) are
+	 * not form-editor field blocks and have no entry in the block config, so
+	 * their storage is unaffected.
+	 *
+	 * @param int $form_id Donation form post ID.
+	 * @return array<int, string> Checkbox field slugs.
+	 * @since 1.5.1
+	 */
+	public static function get_checkbox_field_slugs( $form_id ) {
+		$form_id = absint( $form_id );
+		if ( $form_id <= 0 ) {
+			return [];
+		}
+
+		$block_config = self::get_or_migrate_block_config_for_legacy_form( $form_id );
+		if ( empty( $block_config ) || ! is_array( $block_config ) ) {
+			return [];
+		}
+
+		$slugs = [];
+		foreach ( $block_config as $config ) {
+			if ( ! is_array( $config ) || empty( $config['is_checkbox'] ) ) {
+				continue;
+			}
+
+			$slug = isset( $config['slug'] ) && is_string( $config['slug'] ) ? $config['slug'] : '';
+			if ( '' !== $slug ) {
+				$slugs[] = $slug;
+			}
+		}
+
+		return $slugs;
+	}
+
+	/**
 	 * Get the block types that participate in field validation.
 	 *
 	 * Extensions register new validatable field blocks (e.g. phone, address,
@@ -870,6 +1096,7 @@ class Field_Validation {
 			'suredonation_input_block_required_text'    => __( 'This field is required.', 'suredonation' ),
 			'suredonation_email_block_required_text'    => __( 'This field is required.', 'suredonation' ),
 			'suredonation_number_block_required_text'   => __( 'This field is required.', 'suredonation' ),
+			'suredonation_checkbox_block_required_text' => __( 'This field is required.', 'suredonation' ),
 			'suredonation_dropdown_block_required_text' => __( 'This field is required.', 'suredonation' ),
 			'suredonation_phone_block_required_text'    => __( 'This field is required.', 'suredonation' ),
 			'suredonation_url_block_required_text'      => __( 'This field is required.', 'suredonation' ),

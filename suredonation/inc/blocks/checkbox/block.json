@@ -3,9 +3,9 @@
 	"apiVersion": 3,
 	"name": "suredonation/checkbox",
 	"title": "Checkbox",
-	"description": "Displays a SureDonation Checkbox Field",
+	"description": "Adds a single checkbox for consent or opt-in, such as a newsletter sign-up or a Gift Aid declaration.",
 	"category": "suredonation",
-	"keywords": [ "checkbox", "check", "agree", "terms", "consent" ],
+	"keywords": [ "checkbox", "check", "agree", "terms", "consent", "opt-in", "optin", "subscribe" ],
 	"textdomain": "suredonation",
 	"supports": {
 		"reusable": false,

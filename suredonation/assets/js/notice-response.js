@@ -21,6 +21,10 @@
 			snooze: 'maybe_later',
 			dismiss: 'dismissed',
 		},
+		'sd-paypal-reconnect': {
+			primary: 'paypal_reconnect_notice_cta',
+			dismiss: 'paypal_reconnect_notice_dismiss',
+		},
 		'sd-webhook-not-configured': {
 			primary: 'configure_webhook',
 			dismiss: 'dismissed',

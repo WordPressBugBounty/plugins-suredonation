@@ -266,6 +266,7 @@ class Donation_Form {
 			'suredonation/input',
 			'suredonation/email',
 			'suredonation/number',
+			'suredonation/checkbox',
 			'suredonation/dropdown',
 			'suredonation/address',
 			'suredonation/phone',

@@ -27,6 +27,7 @@ namespace SureDonation\Inc\Admin;
 use SureDonation\Inc\Database\Tables\Donations;
 use SureDonation\Inc\Helper;
 use SureDonation\Inc\Payments\Payment_Helper;
+use SureDonation\Inc\Payments\PayPal\PayPal_Helper;
 use SureDonation\Inc\Payments\Stripe\Stripe_Helper;
 
 // Exit if accessed directly.
@@ -98,6 +99,7 @@ class Notices {
 		add_action( 'admin_notices', [ $this, 'display_review_notice_gateway' ] );
 		add_action( 'admin_notices', [ $this, 'display_setup_gateway_notice' ] );
 		add_action( 'admin_notices', [ $this, 'display_webhook_notice' ] );
+		add_action( 'admin_notices', [ $this, 'display_paypal_reconnect_notice' ] );
 
 		// Load the banner-notice styles from the admin <head> (not the late
 		// after-markup hook) so the banner never renders unstyled first.
@@ -400,6 +402,10 @@ class Notices {
 				'maybe_later'       => 'setup_gateway_notice_snooze',
 				'dismissed'         => 'setup_gateway_notice_dismiss',
 			],
+			'sd-paypal-reconnect'       => [
+				'paypal_reconnect_notice_cta'     => 'paypal_reconnect_notice_cta',
+				'paypal_reconnect_notice_dismiss' => 'paypal_reconnect_notice_dismiss',
+			],
 			'sd-webhook-not-configured' => [
 				'configure_webhook' => 'webhook_notice_cta',
 				'dismissed'         => 'webhook_notice_dismiss',
@@ -489,11 +495,125 @@ class Notices {
 	private function build_setup_notice_markup() {
 		return $this->build_banner_notice_markup(
 			esc_html__( 'Your donation site is almost ready!', 'suredonation' ),
-			esc_html__( 'Connect a payment gateway to start accepting donations. Set up Stripe or PayPal in just a few clicks to go live.', 'suredonation' ),
+			esc_html__( 'Connect Stripe or PayPal and you can start accepting donations today. It takes a few minutes.', 'suredonation' ),
 			Payment_Helper::get_settings_url( 'stripe' ),
-			esc_html__( 'Configure Payment Gateway', 'suredonation' ),
+			esc_html__( 'Connect Stripe or PayPal', 'suredonation' ),
 			SUREDONATION_URL . 'images/payment-gateway-notice.png'
 		);
+	}
+
+	/**
+	 * PayPal needs reconnecting in live mode notice.
+	 *
+	 * The partner client id used to be stored without a mode, so on a site that
+	 * connected both test and live the last connect overwrote the other's value.
+	 * A site left holding the sandbox id renders the sandbox SDK against a live
+	 * merchant, PayPal refuses to reconcile that pairing, and no live donation
+	 * can be approved at all — silently, since the donor never reaches approval
+	 * and nothing is logged.
+	 *
+	 * The stored value is an opaque string with nothing distinguishing sandbox
+	 * from production, so the environment cannot be recovered after the fact.
+	 * Reconnecting in live mode writes the mode-specific value and settles it,
+	 * which is all this notice asks for.
+	 *
+	 * Hooked - admin_notices
+	 *
+	 * @return void
+	 * @since 1.5.1
+	 */
+	public function display_paypal_reconnect_notice() {
+		if ( ! Helper::current_user_can() ) {
+			return;
+		}
+
+		if ( ! $this->should_show_paypal_reconnect_notice() ) {
+			return;
+		}
+
+		$this->enqueue_notice_response_script();
+		?>
+		<div id="sd-paypal-reconnect" class="notice notice-error is-dismissible">
+			<p>
+				<?php
+				printf(
+					/* translators: %1$s: link to the PayPal payment settings */
+					esc_html__( 'PayPal needs reconnecting before it can take live donations on this site. Test and live are separate PayPal connections, and an earlier version stored one of them over the other. Please %1$s while in live mode. It takes a moment and no settings are lost.', 'suredonation' ),
+					sprintf(
+						'<a class="sd-notice-cta" href="%1$s">%2$s</a>',
+						esc_url( Payment_Helper::get_settings_url( 'paypal' ) ),
+						esc_html__( 'reconnect PayPal', 'suredonation' )
+					)
+				);
+				?>
+			</p>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Whether the PayPal reconnect notice is eligible to show.
+	 *
+	 * Scoped as tightly as the stored data allows:
+	 *
+	 * - **Both modes connected.** The only state where the stored value is
+	 *   ambiguous. A live-only site's value must be the production id, because
+	 *   nothing else could have written it; a test-only site takes no live
+	 *   donations either way.
+	 * - **The legacy key is still in use for live.** Keyed on the live value
+	 *   rather than on both being empty: reconnecting test first would otherwise
+	 *   clear the notice while live — the mode that handles real money — was
+	 *   still loading a possibly-sandbox id.
+	 * - **No completed live PayPal donation.** One is proof the stored value is
+	 *   the production id, so there is nothing to fix. (A site whose only live
+	 *   PayPal donation was later refunded no longer counts here and would be
+	 *   asked to reconnect unnecessarily — one wasted reconnect, against
+	 *   silently losing every live donation.)
+	 *
+	 * A site that connected test and then live, so its last connect wrote the
+	 * correct value, and which has not taken a live PayPal donation yet, is
+	 * asked to reconnect when it does not need to. That case cannot be told
+	 * apart from a broken one — which is exactly why the mode is not inferred.
+	 *
+	 * @return bool
+	 * @since 1.5.1
+	 */
+	private function should_show_paypal_reconnect_notice() {
+		if ( ! PayPal_Helper::is_paypal_connected( 'live' ) || ! PayPal_Helper::is_paypal_connected( 'test' ) ) {
+			return false;
+		}
+
+		$settings = PayPal_Helper::get_all_paypal_settings();
+
+		$legacy_client_id = isset( $settings['partner_client_id'] ) && is_string( $settings['partner_client_id'] )
+			? $settings['partner_client_id']
+			: '';
+
+		if ( '' === $legacy_client_id ) {
+			return false;
+		}
+
+		$live_client_id = isset( $settings['partner_client_id_live'] ) && is_string( $settings['partner_client_id_live'] )
+			? $settings['partner_client_id_live']
+			: '';
+
+		if ( '' !== $live_client_id ) {
+			return false;
+		}
+
+		// Cached like has_live_donation(): once a live PayPal donation exists the
+		// answer can never go back, so the count runs at most once per site.
+		if ( get_option( 'suredonation_has_live_paypal_donation' ) ) {
+			return false;
+		}
+
+		if ( Donations::count_live_completed( 'paypal' ) >= 1 ) {
+			update_option( 'suredonation_has_live_paypal_donation', 1, false );
+
+			return false;
+		}
+
+		return true;
 	}
 
 	/**
@@ -504,9 +624,15 @@ class Notices {
 	 * @since 1.3.0
 	 */
 	private function build_test_mode_notice_markup() {
+		// The PayPal sandbox requirement is deliberately not here. It is gateway
+		// advice rather than something about the site being in test mode, and it
+		// belongs beside the mode control in payment settings, where a merchant
+		// is choosing the mode rather than being told about it.
+		$text = esc_html__( 'Supporters cannot donate while your site is in test mode. Anything they try now is a test and no money reaches you. Switch to live mode when you are ready to accept real donations.', 'suredonation' );
+
 		return $this->build_banner_notice_markup(
 			esc_html__( 'SureDonation is in test mode', 'suredonation' ),
-			esc_html__( 'No real payments are being accepted right now. Switch to live mode to start collecting real donations.', 'suredonation' ),
+			$text,
 			Payment_Helper::get_settings_url(),
 			esc_html__( 'Switch to Live Mode', 'suredonation' )
 		);

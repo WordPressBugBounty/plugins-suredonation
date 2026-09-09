@@ -12,6 +12,7 @@ use SureDonation\Inc\Helper;
 use SureDonation\Inc\Payments\Offline\Offline_Helper;
 use SureDonation\Inc\Payments\PayPal\PayPal_Helper;
 use SureDonation\Inc\Payments\Stripe\Stripe_Helper;
+use SureDonation\Inc\Post_Types\Donation_Form;
 use WP_Error;
 
 // Exit if accessed directly.
@@ -174,6 +175,174 @@ class Payment_Helper {
 	}
 
 	/**
+	 * Check the payment mode a donor's page was rendered in against the current one.
+	 *
+	 * The gateway configuration (the Stripe publishable key, the PayPal
+	 * merchant) is resolved when the form is rendered, and a full-page cache
+	 * stores that rendering, so a form can outlive a test/live switch. The
+	 * client then holds one mode's key while the server would mint the other
+	 * mode's intent, and the gateway rejects the confirmation with a message
+	 * that helps nobody. Catching the mismatch here turns a silent failure into
+	 * an actionable one, before any Stripe, PayPal or database work is done.
+	 *
+	 * A request that carries no mode passes: scripts that predate this check do
+	 * not send one, and the pro subscription paths adopt it separately.
+	 *
+	 * @return true|WP_Error True when the modes agree or none was sent; WP_Error on a mismatch.
+	 * @since 1.5.1
+	 */
+	public static function verify_submitted_payment_mode() {
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- The nonce is verified by the calling endpoint before this runs.
+		$client_mode = isset( $_POST['payment_mode'] ) ? sanitize_key( wp_unslash( $_POST['payment_mode'] ) ) : '';
+
+		if ( '' === $client_mode ) {
+			return true;
+		}
+
+		$current_mode = self::get_payment_mode();
+
+		if ( $client_mode === $current_mode ) {
+			return true;
+		}
+
+		$message = __( 'This page was loaded with outdated payment settings. Please reload the page and try again.', 'suredonation' );
+
+		// Tell the site owner what actually happened: the donor's page is a
+		// cached copy from before the mode switch, and only a purge fixes it.
+		if ( current_user_can( 'manage_options' ) ) {
+			$message .= ' ' . sprintf(
+				/* translators: 1: payment mode the page was rendered in, 2: current payment mode. */
+				__( 'Site owner: this page was cached in %1$s mode but payments now run in %2$s mode. Clear your page cache so visitors receive the updated form.', 'suredonation' ),
+				$client_mode,
+				$current_mode
+			);
+		}
+
+		return new WP_Error(
+			'payment_mode_mismatch',
+			$message,
+			[
+				'client_mode'  => $client_mode,
+				'current_mode' => $current_mode,
+			]
+		);
+	}
+
+	/**
+	 * Gateway configuration the donation form needs at runtime.
+	 *
+	 * Resolved on request rather than at render time so a full-page cache
+	 * cannot pin a form to the Stripe key, PayPal merchant or currency of
+	 * whichever payment mode was current when the page was stored. Nothing
+	 * here is secret: every value used to be written into the public markup.
+	 *
+	 * @param int $form_id Donation form post ID; selects the Stripe account the form charges to.
+	 * @return array<string, mixed> Configuration keyed for the frontend script.
+	 * @since 1.5.1
+	 */
+	public static function get_frontend_gateway_config( $form_id ) {
+		$form_id = absint( $form_id );
+		$mode    = self::get_payment_mode();
+
+		// Only a published donation form selects a Stripe account or shapes the
+		// PayPal SDK arguments. The id is caller-supplied on a public endpoint,
+		// so anything else is treated as "no form": the filters below must never
+		// be handed an arbitrary post to inspect, and a form's account wiring
+		// is not readable by visitors before the form goes live. Users who can
+		// edit the form still get its configuration, which is what the block
+		// editor preview of a draft relies on.
+		if ( $form_id > 0 ) {
+			$is_form      = Donation_Form::POST_TYPE === get_post_type( $form_id );
+			$is_available = 'publish' === get_post_status( $form_id ) || current_user_can( 'edit_post', $form_id );
+
+			if ( ! $is_form || ! $is_available ) {
+				$form_id = 0;
+			}
+		}
+
+		$config = [
+			'paymentMode' => $mode,
+			'currency'    => self::get_currency(),
+			'stripe'      => null,
+		];
+
+		if ( Stripe_Helper::is_stripe_connected() ) {
+			$publishable_key = Stripe_Helper::get_stripe_publishable_key( $mode, Stripe_Helper::resolve_account_for_form( $form_id ) );
+			if ( '' !== $publishable_key ) {
+				$config['stripe'] = [ 'publishableKey' => $publishable_key ];
+			}
+		}
+
+		/**
+		 * Filter the gateway configuration served to the donation form at runtime.
+		 *
+		 * Gateways that register through filters (PayPal) add their own section
+		 * here. Nothing in this array may be secret: it is served to anyone who
+		 * can load the form.
+		 *
+		 * @param array<string, mixed> $config  Configuration keyed for the frontend script.
+		 * @param int                  $form_id Donation form post ID.
+		 * @param string               $mode    Current payment mode, 'test' or 'live'.
+		 * @since 1.5.1
+		 */
+		return apply_filters( 'suredonation_frontend_gateway_config', $config, $form_id, $mode );
+	}
+
+	/**
+	 * Whether this site can create recurring donations.
+	 *
+	 * Subscription creation lives in the Pro add-on, so a form configured for
+	 * recurring (or for the donor's choice of both) can only offer it when Pro is
+	 * present. Single source of truth for that gate, so the editor, the rendered
+	 * markup and the submission paths cannot disagree.
+	 *
+	 * @return bool
+	 * @since 1.5.1
+	 */
+	public static function is_recurring_available() {
+		// The Stripe Elements group is now always built in mode: 'payment'
+		// (never 'subscription' — see stripe.js init()), and confirming a
+		// subscription requires pro to call elevateSetupFutureUsage() itself
+		// before confirmPayment(). An older pro build still calls
+		// confirmSetup() unconditionally, which is a hard Stripe integration
+		// error against a mode: 'payment' Elements group. Gating on the
+		// minimum compatible version — the same way presence is already
+		// gated — keeps that combination from ever reaching a donor as
+		// "recurring", falling back to the same safe one-time-only path an
+		// absent Pro already takes.
+		$pro_compatible = defined( 'SUREDONATION_PRO_VER' )
+			&& self::pro_version_supports_recurring( SUREDONATION_PRO_VER );
+
+		/**
+		 * Filter whether recurring donations are available.
+		 *
+		 * Only gates what is offered — the server still validates the submitted type
+		 * against the stored block configuration, and subscription creation still
+		 * requires the Pro add-on to be handling the request.
+		 *
+		 * @param bool $available Whether recurring donations can be offered.
+		 * @since 1.5.1
+		 */
+		return (bool) apply_filters( 'suredonation_is_recurring_available', $pro_compatible );
+	}
+
+	/**
+	 * Whether a given Pro version is new enough to confirm subscriptions against
+	 * the always-'payment'-mode Elements group (see is_recurring_available()).
+	 *
+	 * Split out from is_recurring_available() so the threshold itself is
+	 * testable without defining SUREDONATION_PRO_VER — a real constant, once
+	 * defined, cannot be undefined again for the rest of the test suite.
+	 *
+	 * @param string $version Pro plugin version string.
+	 * @return bool
+	 * @since 1.5.1
+	 */
+	public static function pro_version_supports_recurring( $version ) {
+		return version_compare( $version, '1.1.1-beta', '>=' );
+	}
+
+	/**
 	 * Get the admin URL for the SureDonation payment settings screen.
 	 *
 	 * Centralizes the (hash-routed) payment-settings URL so every "go to
@@ -181,12 +350,23 @@ class Payment_Helper {
 	 * location, rather than each caller hardcoding its own — and possibly
 	 * stale — path.
 	 *
-	 * @param string $subpage Optional gateway subpage slug (e.g. 'stripe') to deep-link into.
+	 * Query args go in the real query string, before the `#`. The screen is
+	 * hash-routed, so anything appended after the fragment is invisible to
+	 * `window.location.search` and the React app would never see it.
+	 *
+	 * @param string               $subpage    Optional gateway subpage slug (e.g. 'stripe') to deep-link into.
+	 * @param array<string,string> $query_args Optional query args to carry to the screen (e.g. which notice sent the admin here).
 	 * @return string The admin payment-settings URL.
 	 * @since 1.3.0
 	 */
-	public static function get_settings_url( $subpage = '' ) {
-		$path = 'admin.php?page=suredonation#/settings?tab=payments';
+	public static function get_settings_url( $subpage = '', $query_args = [] ) {
+		$query = 'page=suredonation';
+
+		if ( is_array( $query_args ) && ! empty( $query_args ) ) {
+			$query .= '&' . http_build_query( $query_args );
+		}
+
+		$path = 'admin.php?' . $query . '#/settings?tab=payments';
 		if ( is_string( $subpage ) && '' !== $subpage ) {
 			$path .= '&subpage=' . rawurlencode( $subpage );
 		}
@@ -225,7 +405,13 @@ class Payment_Helper {
 	 * @since 1.3.0
 	 */
 	public static function has_usable_gateway() {
-		if ( Stripe_Helper::is_stripe_connected() && '' !== Stripe_Helper::get_stripe_publishable_key() ) {
+		// Connected is not the same as able to take money: an account Stripe has
+		// restricted still holds valid keys. Counting it as usable sends the
+		// admin to the form editor to "pick a gateway" when the gateway itself
+		// is the problem.
+		if ( Stripe_Helper::is_stripe_connected()
+			&& '' !== Stripe_Helper::get_stripe_publishable_key()
+			&& ! Stripe_Helper::is_card_capability_blocked() ) {
 			return true;
 		}
 
@@ -939,9 +1125,12 @@ class Payment_Helper {
 	 * @param int    $form_id  WordPress post ID of the donation form.
 	 * @param string $block_id Block identifier for the payment block.
 	 * @param string $gateway  Payment gateway identifier (default 'stripe').
+	 * @param string $payment_type Payment type the caller is processing ('one-time' or
+	 *                             'subscription'). Only consulted for blocks configured
+	 *                             as 'both', where each choice has its own amount config.
 	 * @return array<mixed> Validation result.
 	 */
-	public static function validate_payment_amount( $amount, $currency, $form_id, $block_id, $gateway = 'stripe' ) {
+	public static function validate_payment_amount( $amount, $currency, $form_id, $block_id, $gateway = 'stripe', $payment_type = '' ) {
 		// Retrieve block configuration from post meta.
 		$block_config = \SureDonation\Inc\Field_Validation::get_or_migrate_block_config_for_legacy_form( $form_id );
 
@@ -974,6 +1163,44 @@ class Payment_Helper {
 				'valid'   => false,
 				'message' => __( 'Payment configuration not found for this form.', 'suredonation' ),
 			];
+		}
+
+		// A 'both' block stores an independent amount config per choice. Overlay the
+		// selected choice's config over the shared one so every check below runs
+		// against the amount the donor was actually offered — without this, a form
+		// with one-time $100 / subscription $10 would validate either choice against
+		// the shared (one-time) config and let a donor pay the cheaper mode's amount.
+		if ( 'both' === ( $payment_config['payment_type'] ?? '' ) ) {
+			// Fail closed on an unrecognised type rather than defaulting to one-time.
+			// Every current caller passes a literal ('one-time' / 'subscription'), but a
+			// version-skewed Pro (older than the dual-mode change) omits the argument,
+			// leaving it '' — which must not silently price a recurring charge against
+			// the (typically cheaper) one-time config.
+			if ( ! in_array( $payment_type, [ 'one-time', 'subscription' ], true ) ) {
+				return [
+					'valid'   => false,
+					'message' => __( 'Payment configuration is incomplete for this form.', 'suredonation' ),
+				];
+			}
+
+			$mode_key = 'subscription' === $payment_type ? 'subscription' : 'one_time';
+
+			// Fail closed: a 'both' block with no config for the chosen mode cannot be
+			// validated, and falling back to the shared keys is exactly the hole above.
+			if ( ! isset( $payment_config[ $mode_key ] ) || ! is_array( $payment_config[ $mode_key ] ) ) {
+				return [
+					'valid'   => false,
+					'message' => __( 'Payment configuration is incomplete for this form.', 'suredonation' ),
+				];
+			}
+
+			// Drop the shared variable-amount field before overlaying the choice's
+			// config, so a choice that did not set its own dynamic field cannot inherit
+			// the top-level one. build_amount_config() only emits these when the prefixed
+			// attribute is present, so their absence for a choice is meaningful.
+			unset( $payment_config['variable_amount_field'], $payment_config['variable_amount_field_block_name'] );
+
+			$payment_config = array_merge( $payment_config, $payment_config[ $mode_key ] );
 		}
 
 		// Validate currency matches global setting.
@@ -1064,10 +1291,51 @@ class Payment_Helper {
 	}
 
 	/**
+	 * The payment type a form actually renders, which is not always the stored one.
+	 *
+	 * A block configured for a recurring path renders as one-time when Pro is
+	 * absent or too old: the handlers that could create a subscription are not
+	 * registered, or cannot confirm one, so offering it would be a dead end. The
+	 * stored config still says 'subscription' or 'both' —
+	 * `process_payment_block()` records the raw attribute and
+	 * `get_or_migrate_block_config_for_legacy_form()` returns existing meta
+	 * verbatim — so anything comparing a request against that config has to apply
+	 * the same downgrade, or it rejects the request its own markup invited.
+	 *
+	 * Shared with `Payment_Markup` so the two cannot drift apart again.
+	 *
+	 * @param mixed $configured_type The payment type stored on the block.
+	 * @return string Either 'one-time' or the configured type.
+	 * @since 1.5.1
+	 */
+	public static function effective_payment_type( $configured_type ) {
+		$configured_type = is_string( $configured_type ) ? $configured_type : 'one-time';
+
+		// 'both' needs Pro as much as 'subscription' does — it is the donor-choice
+		// mode and half of what it offers is a subscription. Collapsing it here is
+		// also what hides the chooser, which only renders while the type is 'both'.
+		$needs_pro = in_array( $configured_type, [ 'subscription', 'both' ], true );
+
+		// is_recurring_available() rather than defined( 'SUREDONATION_PRO_VER' ):
+		// it also rejects a Pro build too old to confirm a subscription against the
+		// current Elements setup, and carries the filter that lets a site turn
+		// recurring off. Testing only for presence would render a form as recurring
+		// that cannot complete one.
+		if ( $needs_pro && ! self::is_recurring_available() ) {
+			return 'one-time';
+		}
+
+		return $configured_type;
+	}
+
+	/**
 	 * Validate that the submitted payment type matches the block configuration.
 	 *
 	 * Prevents attackers from requesting a subscription on a block configured
 	 * for one-time payments (or vice versa).
+	 *
+	 * A block configured as 'both' offers the donor a choice, so it legitimately
+	 * accepts either type — but still only those two, never an arbitrary value.
 	 *
 	 * @param string $expected_type Expected payment type ('one-time' or 'subscription').
 	 * @param int    $form_id       Form ID.
@@ -1093,10 +1361,29 @@ class Payment_Helper {
 			];
 		}
 
-		$payment_config  = $block_config[ $block_id ];
-		$configured_type = $payment_config['payment_type'] ?? 'one-time';
+		$payment_config = $block_config[ $block_id ];
 
-		if ( $configured_type !== $expected_type ) {
+		// Every field block has a config entry and none carry a payment_type, so
+		// without this the guard resolves any other block's id to 'one-time' and
+		// waves it through. validate_payment_amount() happens to fail closed on
+		// the same input today, but this is a shared primitive and must not
+		// depend on a sibling running after it.
+		if ( ! isset( $payment_config['block_name'] ) || 'suredonation/payment' !== $payment_config['block_name'] ) {
+			return [
+				'valid'   => false,
+				'message' => __( 'Payment configuration not found for this form.', 'suredonation' ),
+			];
+		}
+
+		$configured_type = self::effective_payment_type( $payment_config['payment_type'] ?? 'one-time' );
+
+		// 'both' lets the donor choose, so either real type is acceptable. Anything
+		// outside that pair is still rejected.
+		$allowed_types = 'both' === $configured_type
+			? [ 'one-time', 'subscription' ]
+			: [ $configured_type ];
+
+		if ( ! in_array( $expected_type, $allowed_types, true ) ) {
 			return [
 				'valid'   => false,
 				'message' => __( 'Payment type mismatch. This form does not support the requested payment type.', 'suredonation' ),
@@ -1107,6 +1394,74 @@ class Payment_Helper {
 			'valid'   => true,
 			'message' => '',
 		];
+	}
+
+	/**
+	 * Read the billing cadence a payment block was configured with.
+	 *
+	 * The interval and billing cycles decide how often a donor is charged and for
+	 * how long, so the values the admin saved are the source of truth on submit —
+	 * not whatever the request carries. Returns empty strings when the block has no
+	 * stored cadence (a form saved before it was persisted), letting the caller
+	 * fall back to its previous behaviour.
+	 *
+	 * @param int    $form_id  Donation form post ID.
+	 * @param string $block_id Payment block identifier.
+	 * @return array{interval: string, billing_cycles: string} Stored cadence, or empty strings.
+	 * @since 1.5.1
+	 */
+	public static function get_subscription_cadence( $form_id, $block_id ) {
+		$cadence = [
+			'interval'       => '',
+			'billing_cycles' => '',
+		];
+
+		if ( empty( $form_id ) || empty( $block_id ) ) {
+			return $cadence;
+		}
+
+		$block_config = \SureDonation\Inc\Field_Validation::get_or_migrate_block_config_for_legacy_form( $form_id );
+
+		if ( ! is_array( $block_config ) || ! isset( $block_config[ $block_id ] ) || ! is_array( $block_config[ $block_id ] ) ) {
+			return $cadence;
+		}
+
+		$payment_config = $block_config[ $block_id ];
+
+		// Only read cadence off an actual payment block — mirrors the block_name assert
+		// in validate_payment_amount() so a non-payment block id can never resolve a
+		// cadence (defence in depth alongside the caller's own block-id validation).
+		if ( ! isset( $payment_config['block_name'] ) || 'suredonation/payment' !== $payment_config['block_name'] ) {
+			return $cadence;
+		}
+
+		if ( isset( $payment_config['subscription_interval'] ) ) {
+			$cadence['interval'] = Helper::get_string_value( $payment_config['subscription_interval'] );
+		}
+
+		if ( isset( $payment_config['subscription_billing_cycles'] ) ) {
+			$cadence['billing_cycles'] = Helper::get_string_value( $payment_config['subscription_billing_cycles'] );
+		}
+
+		// Legacy forms saved before cadence was persisted carry no cadence keys in
+		// stored meta (the config only rebuilds on save_post). Returning empty here
+		// would let the caller assume month / ongoing and silently rewrite the
+		// admin's real plan. Re-derive from the parsed post content instead — still
+		// server-side and untamperable, never the request.
+		if ( '' === $cadence['interval'] || '' === $cadence['billing_cycles'] ) {
+			$resolved = \SureDonation\Inc\Field_Validation::resolve_subscription_cadence_from_content( $form_id );
+
+			if ( is_array( $resolved ) ) {
+				if ( '' === $cadence['interval'] ) {
+					$cadence['interval'] = Helper::get_string_value( $resolved['subscription_interval'] );
+				}
+				if ( '' === $cadence['billing_cycles'] ) {
+					$cadence['billing_cycles'] = Helper::get_string_value( $resolved['subscription_billing_cycles'] );
+				}
+			}
+		}
+
+		return $cadence;
 	}
 
 	/**
@@ -1125,9 +1480,12 @@ class Payment_Helper {
 	 * @param int                  $form_id  Donation form post ID.
 	 * @param string               $block_id Payment block identifier.
 	 * @param string               $gateway  Payment gateway identifier (default 'stripe').
+	 * @param string               $payment_type Payment type being processed ('one-time' or
+	 *                                           'subscription'); selects the amount config
+	 *                                           on blocks configured as 'both'.
 	 * @return array{valid: bool, message: string, field_errors: array<string, string>} Combined result.
 	 */
-	public static function validate_submission( $fields, $amount, $currency, $form_id, $block_id, $gateway = 'stripe' ) {
+	public static function validate_submission( $fields, $amount, $currency, $form_id, $block_id, $gateway = 'stripe', $payment_type = '' ) {
 		$result = [
 			'valid'        => true,
 			'message'      => '',
@@ -1174,7 +1532,7 @@ class Payment_Helper {
 		}
 
 		// Payment amount validation (prevents amount/type tampering).
-		$amount_result = self::validate_payment_amount( $amount, $currency, $form_id, $block_id, $gateway );
+		$amount_result = self::validate_payment_amount( $amount, $currency, $form_id, $block_id, $gateway, $payment_type );
 		if ( empty( $amount_result['valid'] ) ) {
 			$result['valid'] = false;
 			// Surface the specific amount message only when no field errors took precedence.
@@ -1285,6 +1643,13 @@ class Payment_Helper {
 		// submitted label below.
 		$field_labels = \SureDonation\Inc\Field_Validation::get_field_labels_map( $form_id );
 
+		// Checkbox fields are resolved from the saved form too. A checkbox posts
+		// "1" when ticked and "" when not, neither of which reads as anything on
+		// the entry screen, in an export or in an email — so both states are
+		// rendered as Yes/No, and the unticked one is kept rather than dropped by
+		// the empty-value skip below (a declined consent is a meaningful record).
+		$checkbox_slugs = \SureDonation\Inc\Field_Validation::get_checkbox_field_slugs( $form_id );
+
 		foreach ( $raw as $slug => $field ) {
 			$slug = sanitize_text_field( (string) $slug );
 			if ( '' === $slug || in_array( $slug, $core_slugs, true ) ) {
@@ -1312,8 +1677,19 @@ class Payment_Helper {
 				$value = implode( ', ', array_filter( array_map( 'trim', explode( '|', $value ) ), 'strlen' ) );
 			}
 
-			// Skip empty values so blank/optional fields don't clutter the entry.
-			if ( '' === trim( $value ) ) {
+			$is_checkbox = in_array( $slug, $checkbox_slugs, true );
+
+			if ( $is_checkbox ) {
+				// Canonical, locale-independent tokens. Translating here would bake
+				// the admin's language at submission time into a permanent record
+				// that is later exported to CSV and can be re-imported on another
+				// site — a locale switch or an updated .mo would leave one column
+				// holding "Ja" for old rows and "Yes" for new ones, uncomparable by
+				// any spreadsheet filter or CRM mapping. Display layers translate
+				// via Helper::format_checkbox_field_value().
+				$value = \SureDonation\Inc\Field_Validation::CHECKBOX_VALUES[ '' === trim( $value ) ? 'no' : 'yes' ];
+			} elseif ( '' === trim( $value ) ) {
+				// Skip empty values so blank/optional fields don't clutter the entry.
 				continue;
 			}
 
@@ -1390,7 +1766,7 @@ class Payment_Helper {
 	 * form with no Anonymous Donation block is therefore ignored. The caller
 	 * verifies the nonce/HMAC token.
 	 *
-	 * @since 1.4.0
+	 * @since 1.5.1
 	 * @param int $form_id The donation form post ID.
 	 * @return bool True when the donation should be flagged anonymous.
 	 */
@@ -1563,10 +1939,28 @@ class Payment_Helper {
 		$dynamic_amount_field_block_name = isset( $payment_config['variable_amount_field_block_name'] ) && is_string( $payment_config['variable_amount_field_block_name'] ) ? $payment_config['variable_amount_field_block_name'] : '';
 
 		if ( empty( $dynamic_amount_field_block_name ) ) {
-			// No variable-amount field is declared for this block — an older form
-			// layout where the donor's amount is a free choice. The amount-type,
-			// minimum and gateway-minimum checks in validate_payment_amount()
-			// still apply, so allow it through here.
+			// A config that explicitly declares a 'variable' amount but resolves no
+			// field block is a misconfiguration — Dynamic Amount was chosen but no
+			// "Choose Amount Field" was picked (Gutenberg omits the empty default),
+			// or the picked slug no longer resolves to a block. Fail closed: with
+			// no field to re-resolve against, only the gateway floor would be left,
+			// so an unauthenticated visitor could post any amount (e.g. $0.50/month
+			// on a $100 form). Reject rather than accept an unverifiable amount.
+			$declares_variable = isset( $payment_config['amount_type'] )
+				&& is_string( $payment_config['amount_type'] )
+				&& 'variable' === $payment_config['amount_type'];
+
+			if ( $declares_variable ) {
+				return [
+					'valid'   => false,
+					'message' => __( 'Unable to verify the donation amount for this form. Please reload the page and try again.', 'suredonation' ),
+				];
+			}
+
+			// No amount_type declared at all — a genuinely older layout where the
+			// donor's amount was an intentional free choice. The amount-type,
+			// minimum and gateway-minimum checks in validate_payment_amount() still
+			// apply, so allow it through here.
 			return null;
 		}
 

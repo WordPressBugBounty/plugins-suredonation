@@ -37,7 +37,7 @@ class Donations extends Base {
 	 * @var int
 	 * @since 0.0.1
 	 */
-	protected $table_version = 5;
+	protected $table_version = 6;
 
 	/**
 	 * Valid payment statuses.
@@ -54,6 +54,12 @@ class Donations extends Base {
 		'partially_refunded',
 		'cancelled',
 		'suspicious',
+		// Deliberately not 'failed'. A donor who closed the gateway window never
+		// attempted a payment, and collapsing the two destroys the signal we most
+		// need: our own capture failure rate. If abandonment and genuine failures
+		// share a status, "most donors walk away at the gateway" (a product
+		// problem) is indistinguishable from "our captures are breaking" (a bug).
+		'abandoned',
 	];
 
 	/**
@@ -206,6 +212,10 @@ class Donations extends Base {
 				'type'    => 'string',
 				'default' => '',
 			],
+			'import_provenance'      => [
+				'type'    => 'string',
+				'default' => '',
+			],
 			'created_at'             => [
 				'type' => 'datetime',
 			],
@@ -252,6 +262,7 @@ class Donations extends Base {
 			'referer_url TEXT',
 			'import_source_id BIGINT(20) UNSIGNED NOT NULL DEFAULT 0',
 			'import_source VARCHAR(20) NOT NULL DEFAULT \'\'',
+			'import_provenance VARCHAR(64) NOT NULL DEFAULT \'\'',
 			'created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP',
 			'updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP',
 			'INDEX idx_campaign (campaign_id)',
@@ -264,6 +275,7 @@ class Donations extends Base {
 			'INDEX idx_subscription_status (subscription_status)',
 			'INDEX idx_parent_subscription (parent_subscription_id)',
 			'INDEX idx_import_source (import_source_id, import_source)',
+			'INDEX idx_import_provenance (import_source, import_provenance)',
 			'INDEX idx_stripe_account (stripe_account_id)',
 		];
 	}
@@ -275,7 +287,10 @@ class Donations extends Base {
 	 * source-agnostic pair `import_source_id` + `import_source` used by
 	 * the migration tool for duplicate detection and rollback; version 5
 	 * added `stripe_account_id` so donations record which connected Stripe
-	 * account processed them (multiple Stripe accounts support).
+	 * account processed them (multiple Stripe accounts support); version 6
+	 * added `import_provenance` — an indexed `(donation_post_id, source_campaign_id)`
+	 * key the Charitable importer dedupes on with a single indexed lookup per
+	 * row, instead of scanning + JSON-decoding every prior imported row per batch.
 	 *
 	 * {@inheritDoc}
 	 *
@@ -288,11 +303,13 @@ class Donations extends Base {
 			'parent_subscription_id BIGINT(20) UNSIGNED NOT NULL DEFAULT 0 AFTER subscription_status',
 			'import_source_id BIGINT(20) UNSIGNED NOT NULL DEFAULT 0 AFTER referer_url',
 			'import_source VARCHAR(20) NOT NULL DEFAULT \'\' AFTER import_source_id',
+			'import_provenance VARCHAR(64) NOT NULL DEFAULT \'\' AFTER import_source',
 			'stripe_account_id VARCHAR(50) NOT NULL DEFAULT \'\' AFTER customer_id',
 			'INDEX idx_subscription (subscription_id)',
 			'INDEX idx_subscription_status (subscription_status)',
 			'INDEX idx_parent_subscription (parent_subscription_id)',
 			'INDEX idx_import_source (import_source_id, import_source)',
+			'INDEX idx_import_provenance (import_source, import_provenance)',
 			'INDEX idx_stripe_account (stripe_account_id)',
 		];
 	}
@@ -300,12 +317,10 @@ class Donations extends Base {
 	/**
 	 * One-time data migrations for the donations table.
 	 *
-	 * Version 5 introduced the `stripe_account_id` column. Before multi-account there
-	 * could only be a single connected Stripe account, so every pre-v5 Stripe
-	 * donation belongs to the current (single) default account. Backfill it so
-	 * refunds and subscription lifecycle actions keep routing to the originating
-	 * account after a second account is connected and the default is switched.
-	 * Idempotent (touches only empty rows) and gated to the upgrade into v5.
+	 * Each backfill is gated on the version being upgraded *into* (via
+	 * $this->prev_version) so it runs exactly once, on the upgrade that adds the
+	 * column, and is skipped on fresh installs (which create the column already
+	 * populated / empty as appropriate) and on later upgrades.
 	 *
 	 * @return void
 	 * @since 1.3.0
@@ -317,11 +332,28 @@ class Donations extends Base {
 			return;
 		}
 
-		// Already on v5+ (e.g. a later upgrade) — the backfill is done.
-		if ( $this->prev_version >= 5 ) {
-			return;
+		if ( $this->prev_version < 5 ) {
+			$this->backfill_stripe_account_id();
 		}
 
+		if ( $this->prev_version < 6 ) {
+			$this->backfill_import_provenance();
+		}
+	}
+
+	/**
+	 * Backfill `stripe_account_id` on the upgrade into v5.
+	 *
+	 * Before multi-account there could only be a single connected Stripe account,
+	 * so every pre-v5 Stripe donation belongs to the current (single) default
+	 * account. Backfill it so refunds and subscription lifecycle actions keep
+	 * routing to the originating account after a second account is connected and
+	 * the default is switched. Idempotent (touches only empty rows).
+	 *
+	 * @return void
+	 * @since 1.3.0
+	 */
+	private function backfill_stripe_account_id() {
 		if ( ! class_exists( '\SureDonation\Inc\Payments\Stripe\Stripe_Helper' ) ) {
 			return;
 		}
@@ -352,6 +384,111 @@ class Donations extends Base {
 		if ( false === $result ) {
 			$this->db_upgradable = false;
 		}
+	}
+
+	/**
+	 * Backfill `import_provenance` on the upgrade into v6.
+	 *
+	 * The Charitable importer moved its dedupe key out of a per-batch scan of
+	 * `donation_data` and onto this indexed column. Rows imported before v6 have
+	 * an empty key, so a re-import after upgrade would fail to match them and
+	 * insert duplicates. Reconstruct the key from the stored
+	 * `donation_data.charitable` block — the same `(donation_post_id,
+	 * source_campaign_id | campaign label)` rule the importer keys on — for every
+	 * pre-v6 one-time Charitable row. Chunked so a large migrated table does not
+	 * exhaust memory during the upgrade; idempotent (touches only empty keys).
+	 *
+	 * @return void
+	 * @since 1.5.1
+	 */
+	private function backfill_import_provenance() {
+		global $wpdb;
+		$table = $this->get_tablename();
+
+		do {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- One-time chunked backfill of a newly added column; not cacheable.
+			$rows = $wpdb->get_results(
+				$wpdb->prepare(
+					'SELECT id, donation_data FROM %i WHERE import_source = %s AND donation_type != %s AND import_provenance = %s LIMIT 500',
+					$table,
+					'charitable',
+					'recurring',
+					''
+				),
+				ARRAY_A
+			);
+
+			if ( empty( $rows ) || ! is_array( $rows ) ) {
+				break;
+			}
+
+			$fetched = count( $rows );
+
+			foreach ( $rows as $row ) {
+				$data = json_decode( (string) ( $row['donation_data'] ?? '' ), true );
+				$c    = is_array( $data ) && isset( $data['charitable'] ) && is_array( $data['charitable'] ) ? $data['charitable'] : [];
+				$post = isset( $c['donation_post_id'] ) ? absint( $c['donation_post_id'] ) : 0;
+
+				// A row with no resolvable donation post can never be dedupe-matched
+				// or rolled back; leave its key empty (it is already un-reversible)
+				// rather than fabricate a colliding "0:…" key.
+				if ( $post <= 0 ) {
+					$key = '';
+				} else {
+					$campaign = isset( $c['source_campaign_id'] ) ? absint( $c['source_campaign_id'] ) : 0;
+					// DB-path rows carry `campaign_name`; CSV-path rows carry
+					// `campaign_title`. Either serves as the blank-id fallback label.
+					$label = '';
+					if ( isset( $c['campaign_title'] ) && is_scalar( $c['campaign_title'] ) ) {
+						$label = (string) $c['campaign_title'];
+					} elseif ( isset( $c['campaign_name'] ) && is_scalar( $c['campaign_name'] ) ) {
+						$label = (string) $c['campaign_name'];
+					}
+					$key = self::build_provenance_key( $post, $campaign, $label );
+				}
+
+				if ( '' === $key ) {
+					// Nothing to store, but stamp a sentinel so the WHERE clause
+					// stops selecting this row and the loop terminates.
+					$key = '-';
+				}
+
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- One-time backfill update; not cacheable.
+				$wpdb->update( $table, [ 'import_provenance' => $key ], [ 'id' => absint( $row['id'] ) ] );
+			}
+		} while ( 500 === $fetched );
+	}
+
+	/**
+	 * Build the indexed dedupe key for a Charitable donation row.
+	 *
+	 * `"<donation_post_id>:<token>"`, where the token is the numeric campaign id
+	 * when present, otherwise a short hash of the campaign label (so the
+	 * per-campaign rows of a multi-campaign donation whose export left the
+	 * Campaign ID cell blank stay distinct instead of collapsing to "<post>:0"),
+	 * otherwise "0". Static so both the importer (Provenance_Dedupe) and the v6
+	 * backfill derive identical keys.
+	 *
+	 * @param  int    $donation_post_id   Charitable donation post ID.
+	 * @param  int    $source_campaign_id Charitable campaign ID (0 when absent).
+	 * @param  string $campaign_label     Campaign title/name fallback (optional).
+	 * @return string
+	 * @since  1.5.1
+	 */
+	public static function build_provenance_key( $donation_post_id, $source_campaign_id, $campaign_label = '' ) {
+		$post  = absint( $donation_post_id );
+		$cid   = absint( $source_campaign_id );
+		$label = trim( (string) $campaign_label );
+
+		if ( $cid > 0 ) {
+			$token = (string) $cid;
+		} elseif ( '' !== $label ) {
+			$token = 't:' . substr( md5( strtolower( $label ) ), 0, 12 );
+		} else {
+			$token = '0';
+		}
+
+		return $post . ':' . $token;
 	}
 
 	/**
@@ -729,6 +866,12 @@ class Donations extends Base {
 		// Note: Renewal records (donation_type = 'renewal') are intentionally included in the listing.
 		// They are shown alongside parent subscriptions so admins can see all transaction activity.
 		// Renewals are also accessible from the parent donation's subscription detail billing history.
+		// With no status filter, abandoned rows are left out: they are kept as
+		// funnel data (a campaign with 40 starts against 3 completions has
+		// learned something real) but a donor who walked away from the gateway is
+		// not a transaction an admin needs in their default view. Asking for the
+		// status explicitly still returns them, and count_admin_list() mirrors
+		// this or the pagination totals disagree with the rows.
 		$has_status   = 'all' !== $status;
 		$has_campaign = $campaign_id > 0;
 		$has_search   = ! empty( $search );
@@ -832,7 +975,7 @@ class Donations extends Base {
 			$results     = $is_asc
 				? $wpdb->get_results(
 					$wpdb->prepare(
-						'SELECT * FROM %i WHERE campaign_id = %d AND (donor_name LIKE %s OR donor_email LIKE %s OR transaction_id LIKE %s) ORDER BY %i ASC LIMIT %d, %d',
+						'SELECT * FROM %i WHERE campaign_id = %d AND (donor_name LIKE %s OR donor_email LIKE %s OR transaction_id LIKE %s) AND payment_status != \'abandoned\' ORDER BY %i ASC LIMIT %d, %d',
 						$table,
 						absint( $campaign_id ),
 						$search_term,
@@ -846,7 +989,7 @@ class Donations extends Base {
 				)
 				: $wpdb->get_results(
 					$wpdb->prepare(
-						'SELECT * FROM %i WHERE campaign_id = %d AND (donor_name LIKE %s OR donor_email LIKE %s OR transaction_id LIKE %s) ORDER BY %i DESC LIMIT %d, %d',
+						'SELECT * FROM %i WHERE campaign_id = %d AND (donor_name LIKE %s OR donor_email LIKE %s OR transaction_id LIKE %s) AND payment_status != \'abandoned\' ORDER BY %i DESC LIMIT %d, %d',
 						$table,
 						absint( $campaign_id ),
 						$search_term,
@@ -886,7 +1029,7 @@ class Donations extends Base {
 			$results = $is_asc
 				? $wpdb->get_results(
 					$wpdb->prepare(
-						'SELECT * FROM %i WHERE campaign_id = %d ORDER BY %i ASC LIMIT %d, %d',
+						'SELECT * FROM %i WHERE campaign_id = %d AND payment_status != \'abandoned\' ORDER BY %i ASC LIMIT %d, %d',
 						$table,
 						absint( $campaign_id ),
 						$orderby,
@@ -897,7 +1040,7 @@ class Donations extends Base {
 				)
 				: $wpdb->get_results(
 					$wpdb->prepare(
-						'SELECT * FROM %i WHERE campaign_id = %d ORDER BY %i DESC LIMIT %d, %d',
+						'SELECT * FROM %i WHERE campaign_id = %d AND payment_status != \'abandoned\' ORDER BY %i DESC LIMIT %d, %d',
 						$table,
 						absint( $campaign_id ),
 						$orderby,
@@ -911,7 +1054,7 @@ class Donations extends Base {
 			$results     = $is_asc
 				? $wpdb->get_results(
 					$wpdb->prepare(
-						'SELECT * FROM %i WHERE (donor_name LIKE %s OR donor_email LIKE %s OR transaction_id LIKE %s) ORDER BY %i ASC LIMIT %d, %d',
+						'SELECT * FROM %i WHERE (donor_name LIKE %s OR donor_email LIKE %s OR transaction_id LIKE %s) AND payment_status != \'abandoned\' ORDER BY %i ASC LIMIT %d, %d',
 						$table,
 						$search_term,
 						$search_term,
@@ -924,7 +1067,7 @@ class Donations extends Base {
 				)
 				: $wpdb->get_results(
 					$wpdb->prepare(
-						'SELECT * FROM %i WHERE (donor_name LIKE %s OR donor_email LIKE %s OR transaction_id LIKE %s) ORDER BY %i DESC LIMIT %d, %d',
+						'SELECT * FROM %i WHERE (donor_name LIKE %s OR donor_email LIKE %s OR transaction_id LIKE %s) AND payment_status != \'abandoned\' ORDER BY %i DESC LIMIT %d, %d',
 						$table,
 						$search_term,
 						$search_term,
@@ -939,7 +1082,7 @@ class Donations extends Base {
 			$results = $is_asc
 				? $wpdb->get_results(
 					$wpdb->prepare(
-						'SELECT * FROM %i ORDER BY %i ASC LIMIT %d, %d',
+						'SELECT * FROM %i WHERE payment_status != \'abandoned\' ORDER BY %i ASC LIMIT %d, %d',
 						$table,
 						$orderby,
 						absint( $offset ),
@@ -949,7 +1092,7 @@ class Donations extends Base {
 				)
 				: $wpdb->get_results(
 					$wpdb->prepare(
-						'SELECT * FROM %i ORDER BY %i DESC LIMIT %d, %d',
+						'SELECT * FROM %i WHERE payment_status != \'abandoned\' ORDER BY %i DESC LIMIT %d, %d',
 						$table,
 						$orderby,
 						absint( $offset ),
@@ -1421,12 +1564,30 @@ class Donations extends Base {
 	 * Used to gate the review admin notice: a completed live donation is the
 	 * signal that the site has taken a genuine (non-test) donation.
 	 *
+	 * @param string $gateway Optional gateway to scope the count to, e.g. 'paypal'.
+	 *                        Empty counts every gateway.
 	 * @return int Count of completed live donations.
 	 * @since 1.2.0
+	 * @since 1.5.1 Optionally scoped to one gateway.
 	 */
-	public static function count_live_completed() {
+	public static function count_live_completed( $gateway = '' ) {
 		$instance = self::get_instance();
 		global $wpdb;
+
+		if ( '' !== $gateway ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$count = $wpdb->get_var(
+				$wpdb->prepare(
+					'SELECT COUNT(*) FROM %i WHERE payment_status = %s AND payment_mode = %s AND gateway = %s',
+					$instance->get_tablename(),
+					'completed',
+					'live',
+					$gateway
+				)
+			);
+
+			return is_numeric( $count ) ? (int) $count : 0;
+		}
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$count = $wpdb->get_var(
@@ -1502,43 +1663,6 @@ class Donations extends Base {
 
 		// No filters.
 		return self::count_all();
-	}
-
-	/**
-	 * Get campaign statistics.
-	 *
-	 * @param int $campaign_id Campaign ID.
-	 * @return array<string,mixed> Campaign statistics.
-	 * @since 0.0.1
-	 */
-	public static function get_campaign_stats( $campaign_id ) {
-		$instance = self::get_instance();
-		global $wpdb;
-
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$stats = $wpdb->get_row(
-			$wpdb->prepare(
-				"SELECT
-					COUNT(*) as donation_count,
-					COALESCE(SUM(amount - refunded_amount), 0) as total_raised,
-					COUNT(DISTINCT donor_email) as unique_donors,
-					COALESCE(AVG(amount - refunded_amount), 0) as average_donation,
-					COALESCE(MAX(amount - refunded_amount), 0) as largest_donation
-				FROM %i
-				WHERE campaign_id = %d AND payment_status IN ('completed', 'partially_refunded')",
-				$instance->get_tablename(),
-				absint( $campaign_id )
-			),
-			ARRAY_A
-		);
-
-		return $stats ? $stats : [
-			'donation_count'   => 0,
-			'total_raised'     => 0,
-			'unique_donors'    => 0,
-			'average_donation' => 0,
-			'largest_donation' => 0,
-		];
 	}
 
 	/**
@@ -1919,6 +2043,11 @@ class Donations extends Base {
 		if ( 'all' !== $status ) {
 			$conditions[] = 'payment_status = %s';
 			$args[]       = sanitize_text_field( $status );
+		} else {
+			// Mirrors get_admin_list(): abandoned rows are out of the unfiltered
+			// listing, so the total has to leave them out too or the last page
+			// comes back short.
+			$conditions[] = "payment_status != 'abandoned'";
 		}
 
 		if ( $campaign_id > 0 ) {

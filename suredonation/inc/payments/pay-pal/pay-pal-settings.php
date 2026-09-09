@@ -47,8 +47,10 @@ class PayPal_Settings {
 		add_filter( 'suredonation_available_payment_methods', [ $this, 'add_paypal_availability' ], 10, 2 );
 		add_filter( 'suredonation_registered_payment_methods', [ $this, 'register_paypal_payment_method' ], 10, 2 );
 
-		// Enqueue PayPal SDK on donation forms.
-		add_action( 'suredonation_enqueue_form_frontend_scripts', [ $this, 'maybe_enqueue_paypal_sdk' ], 10, 2 );
+		// Frontend configuration for donation forms. The SDK itself is loaded by
+		// the form script from the runtime configuration, not enqueued here.
+		add_action( 'suredonation_enqueue_form_frontend_scripts', [ $this, 'maybe_localize_paypal_config' ], 10, 2 );
+		add_filter( 'suredonation_frontend_gateway_config', [ $this, 'add_frontend_gateway_config' ], 10, 3 );
 	}
 
 	/**
@@ -218,14 +220,23 @@ class PayPal_Settings {
 	}
 
 	/**
-	 * Enqueue PayPal SDK on pages that have donation forms with PayPal enabled.
+	 * Localize the PayPal frontend configuration on donation forms that use PayPal.
+	 *
+	 * The SDK is deliberately not enqueued here. Its URL carries the merchant of
+	 * the current payment mode and the site currency, this output is stored by
+	 * full-page caches, and a cached SDK tag kept serving the previous mode's
+	 * merchant after a test/live switch. The form script fetches the URL at
+	 * runtime instead (see add_frontend_gateway_config()) and injects the SDK
+	 * itself. The render-time URL is still passed along as `sdkUrl`, but only
+	 * as the fallback the script uses when that runtime read fails — the same
+	 * role the rendered data-stripe-key plays for Stripe.
 	 *
 	 * @param int    $form_id      The donation form post ID.
-	 * @param string $form_content The form post content.
-	 * @since 1.0.0
+	 * @param string $form_content The form post content (blocks).
+	 * @since 1.5.1
 	 * @return void
 	 */
-	public function maybe_enqueue_paypal_sdk( $form_id, $form_content ) {
+	public function maybe_localize_paypal_config( $form_id, $form_content ) {
 		if ( ! PayPal_Helper::is_paypal_connected() ) {
 			return;
 		}
@@ -235,61 +246,59 @@ class PayPal_Settings {
 			return;
 		}
 
-		$mode              = Payment_Helper::get_payment_mode();
-		$partner_client_id = PayPal_Helper::get_partner_client_id();
-		$merchant_id       = PayPal_Helper::get_paypal_merchant_id( $mode );
-		$currency          = Payment_Helper::get_currency();
-
-		if ( empty( $partner_client_id ) || empty( $merchant_id ) ) {
-			return;
-		}
-
-		// Build SDK URL parameters.
-		// THIRD_PARTY: use partner's client-id + merchant-id of the connected seller.
-		$sdk_args = [
-			'client-id'   => $partner_client_id,
-			'merchant-id' => $merchant_id,
-			'currency'    => $currency,
-			'components'  => 'buttons',
-			'intent'      => 'capture',
-		];
-
-		/**
-		 * Filter PayPal SDK arguments.
-		 *
-		 * Pro adds vault=true and intent=subscription for subscription forms.
-		 *
-		 * @param array<string, string> $sdk_args SDK URL parameters.
-		 * @param int                   $form_id  The donation form post ID.
-		 * @since 1.0.0
-		 */
-		$sdk_args = apply_filters( 'suredonation_paypal_sdk_args', $sdk_args, $form_id );
-
-		$sdk_url = add_query_arg( $sdk_args, 'https://www.paypal.com/sdk/js' );
-
-		// Register PayPal SDK — use null version to prevent ?ver= being appended.
-		wp_enqueue_script(
-			'suredonation-paypal-sdk',
-			$sdk_url,
-			[],
-			null, // phpcs:ignore WordPress.WP.EnqueuedResourceParameters.MissingVersion -- PayPal CDN rejects the ?ver= query param.
-			true
-		);
-
-		// Localize PayPal configuration for frontend.
 		wp_localize_script(
 			'suredonation-form-frontend',
 			'suredonationPayPalConfig',
 			[
 				'ajaxUrl' => admin_url( 'admin-ajax.php' ),
 				'nonce'   => wp_create_nonce( 'suredonation_donation_form' ),
+				// Render-time SDK URL. Read by the script only when the runtime
+				// configuration request fails; the runtime value wins otherwise.
+				'sdkUrl'  => PayPal_Helper::get_sdk_url( $form_id ),
+				'sdkUrls' => PayPal_Helper::get_sdk_urls( $form_id ),
 				'errors'  => [
-					'generic'   => __( 'An error occurred while processing your PayPal payment. Please try again.', 'suredonation' ),
-					'cancelled' => __( 'Payment was cancelled.', 'suredonation' ),
-					'notLoaded' => __( 'PayPal SDK failed to load. Please refresh the page.', 'suredonation' ),
+					'generic'     => __( 'An error occurred while processing your PayPal payment. Please try again.', 'suredonation' ),
+					'cancelled'   => __( 'Payment was cancelled.', 'suredonation' ),
+					'notLoaded'   => __( 'PayPal SDK failed to load. Please refresh the page.', 'suredonation' ),
+					// Shown when the server reports that PayPal is not connected
+					// for the current payment mode, typically a page cached
+					// before the mode was switched.
+					'unavailable' => __( 'PayPal is not available right now. Please choose another payment method.', 'suredonation' ),
+					// The donor switched between one-time and recurring while
+					// PayPal's approval window was open, so what came back does
+					// not match what the form is now set to.
+					'typeChanged' => __( 'The donation type changed while PayPal was open. Please reload the page and try again.', 'suredonation' ),
 				],
 			]
 		);
+	}
+
+	/**
+	 * Add the PayPal section to the runtime gateway configuration.
+	 *
+	 * @param array<string, mixed> $config  Configuration keyed for the frontend script.
+	 * @param int                  $form_id Donation form post ID.
+	 * @param string               $mode    Current payment mode.
+	 * @return array<string, mixed>
+	 * @since 1.5.1
+	 */
+	public function add_frontend_gateway_config( $config, $form_id, $mode ) {
+		$sdk_urls = PayPal_Helper::get_sdk_urls( $form_id, $mode );
+
+		// `sdkUrl` stays the single URL the form would have rendered with, so a
+		// script from before the two-build split keeps working. `sdkUrls` is what
+		// a current script reads: a form the donor can switch between one-time and
+		// recurring needs both intents loaded at once.
+		$sdk_url = '' !== $sdk_urls['subscription'] ? $sdk_urls['subscription'] : $sdk_urls['capture'];
+
+		$config['paypal'] = '' !== $sdk_url
+			? [
+				'sdkUrl'  => $sdk_url,
+				'sdkUrls' => $sdk_urls,
+			]
+			: null;
+
+		return $config;
 	}
 
 	/**
@@ -526,9 +535,14 @@ class PayPal_Settings {
 			$settings['paypal_test_hmac_secret'] = $hmac_secret;
 		}
 
-		// Store partner_client_id for PayPal JS SDK (needed for THIRD_PARTY integration).
-		if ( ! empty( $result['partner_client_id'] ) ) {
-			$settings['partner_client_id'] = sanitize_text_field( $result['partner_client_id'] );
+		// Store partner_client_id for PayPal JS SDK (needed for THIRD_PARTY
+		// integration), keyed by mode — sandbox and production are separate
+		// PayPal applications, so a shared key let one mode clobber the other.
+		// Typed as well as non-empty: this is a decoded remote response, and
+		// sanitize_text_field() expects a string.
+		if ( ! empty( $result['partner_client_id'] ) && is_string( $result['partner_client_id'] ) ) {
+			$client_id_key              = 'live' === $mode ? 'partner_client_id_live' : 'partner_client_id_test';
+			$settings[ $client_id_key ] = sanitize_text_field( $result['partner_client_id'] );
 		}
 
 		PayPal_Helper::update_all_paypal_settings( $settings );
@@ -718,18 +732,25 @@ class PayPal_Settings {
 
 		$settings = PayPal_Helper::get_all_paypal_settings();
 
+		// The account snapshot and the webhook failure both describe a connection
+		// that no longer exists, so they go with it rather than being reported
+		// against whatever is connected next.
 		if ( 'live' === $mode ) {
-			$settings['paypal_live_connected']   = false;
-			$settings['paypal_live_merchant_id'] = '';
-			$settings['webhook_live_secret']     = '';
-			$settings['webhook_live_url']        = '';
-			$settings['webhook_live_id']         = '';
+			$settings['paypal_live_connected']     = false;
+			$settings['paypal_live_merchant_id']   = '';
+			$settings['webhook_live_secret']       = '';
+			$settings['webhook_live_url']          = '';
+			$settings['webhook_live_id']           = '';
+			$settings['webhook_live_error']        = '';
+			$settings['paypal_live_account_state'] = [];
 		} else {
-			$settings['paypal_sandbox_connected'] = false;
-			$settings['paypal_test_merchant_id']  = '';
-			$settings['webhook_test_secret']      = '';
-			$settings['webhook_test_url']         = '';
-			$settings['webhook_test_id']          = '';
+			$settings['paypal_sandbox_connected']  = false;
+			$settings['paypal_test_merchant_id']   = '';
+			$settings['webhook_test_secret']       = '';
+			$settings['webhook_test_url']          = '';
+			$settings['webhook_test_id']           = '';
+			$settings['webhook_test_error']        = '';
+			$settings['paypal_test_account_state'] = [];
 		}
 
 		PayPal_Helper::update_all_paypal_settings( $settings );
@@ -892,16 +913,84 @@ class PayPal_Settings {
 			$settings['account_name'] = sanitize_text_field( $status_result['legal_name'] );
 		}
 
-		// Store partner_client_id permanently (needed for PayPal JS SDK).
+		// Store partner_client_id permanently (needed for PayPal JS SDK), keyed
+		// by mode — see PayPal_Helper::get_partner_client_id(). The transient was
+		// always per-environment; only the persisted value was not.
 		$partner_client_id = get_transient( 'suredonation_paypal_partner_client_id_' . $environment );
 		if ( ! empty( $partner_client_id ) && is_string( $partner_client_id ) ) {
-			$settings['partner_client_id'] = sanitize_text_field( $partner_client_id );
+			$client_id_key              = 'live' === $mode ? 'partner_client_id_live' : 'partner_client_id_test';
+			$settings[ $client_id_key ] = sanitize_text_field( $partner_client_id );
 			delete_transient( 'suredonation_paypal_partner_client_id_' . $environment );
 		}
 
+		// What PayPal says about the account's ability to take money. Captured on
+		// every connect, so reconnecting refreshes it — account state changes
+		// after onboarding, and a snapshot from months ago is not evidence.
+		$state_key              = 'live' === $mode ? 'paypal_live_account_state' : 'paypal_test_account_state';
+		$settings[ $state_key ] = $this->extract_account_state( $status_result );
+
 		PayPal_Helper::update_all_paypal_settings( $settings );
 
-		// Create webhook.
+		// Create webhook. The return value is not used here, but the failure
+		// reason is recorded by create_webhook() itself and surfaced on the
+		// settings screen — connecting must not report success while silently
+		// leaving the site with no webhook.
 		PayPal_Webhook::create_webhook( $mode );
+	}
+
+	/**
+	 * Reduce a merchant/status response to the account facts worth keeping.
+	 *
+	 * The middleware passes PayPal's merchant-integrations record through
+	 * unchanged. Onboarding read two fields from it and dropped the rest, so
+	 * nothing could later explain why an account that reported Connected could
+	 * not actually be paid — the failure only appeared at capture time, as
+	 * PAYEE_ACCOUNT_NOT_VERIFIED, in a branch that logged nothing.
+	 *
+	 * Only facts are stored; whether they amount to a problem is decided by
+	 * PayPal_Helper::get_account_blockers().
+	 *
+	 * @param array<string, mixed> $status_result Merchant status from the middleware.
+	 * @return array<string, mixed> Normalised account state.
+	 * @since 1.5.1
+	 */
+	private function extract_account_state( $status_result ) {
+		$state = [
+			'payments_receivable'     => true === ( $status_result['payments_receivable'] ?? null ),
+			'primary_email_confirmed' => true === ( $status_result['primary_email_confirmed'] ?? null ),
+			'capabilities'            => [],
+			'products'                => [],
+			'checked_at'              => time(),
+		];
+
+		// PayPal reports these as lists of objects; flattened to name => status
+		// so a lookup does not have to walk the list.
+		$capabilities = $status_result['capabilities'] ?? [];
+		if ( is_array( $capabilities ) ) {
+			foreach ( $capabilities as $capability ) {
+				if ( ! is_array( $capability ) || empty( $capability['name'] ) || ! is_string( $capability['name'] ) ) {
+					continue;
+				}
+
+				$status = isset( $capability['status'] ) && is_string( $capability['status'] ) ? $capability['status'] : '';
+
+				$state['capabilities'][ sanitize_text_field( $capability['name'] ) ] = sanitize_text_field( $status );
+			}
+		}
+
+		$products = $status_result['products'] ?? [];
+		if ( is_array( $products ) ) {
+			foreach ( $products as $product ) {
+				if ( ! is_array( $product ) || empty( $product['name'] ) || ! is_string( $product['name'] ) ) {
+					continue;
+				}
+
+				$vetting = isset( $product['vetting_status'] ) && is_string( $product['vetting_status'] ) ? $product['vetting_status'] : '';
+
+				$state['products'][ sanitize_text_field( $product['name'] ) ] = sanitize_text_field( $vetting );
+			}
+		}
+
+		return $state;
 	}
 }

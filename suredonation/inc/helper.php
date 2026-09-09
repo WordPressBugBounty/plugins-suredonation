@@ -10,6 +10,7 @@ namespace SureDonation\Inc;
 use SureDonation\Inc\API\Settings_API;
 use SureDonation\Inc\Database\Tables\Donations;
 use SureDonation\Inc\Emails\Email_Handler;
+use SureDonation\Inc\Field_Validation;
 use SureDonation\Inc\Payments\Payment_Helper;
 
 // Exit if accessed directly.
@@ -218,7 +219,7 @@ class Helper {
 	 * @param array<int|string, mixed> $blocks Parsed blocks (parse_blocks output).
 	 * @param string                   $target Block name to look for.
 	 * @return bool
-	 * @since 1.4.0
+	 * @since 1.5.1
 	 */
 	public static function block_tree_contains( $blocks, $target ) {
 		foreach ( $blocks as $block ) {
@@ -575,52 +576,64 @@ class Helper {
 	public static function get_allowed_form_html() {
 		// Note: data-* wildcard doesn't work in wp_kses, so we list each data attribute explicitly.
 		$common_data_attrs = [
-			'data-block-id'                    => true,
-			'data-form-id'                     => true,
-			'data-gateway'                     => true,
-			'data-stripe-key'                  => true,
-			'data-currency'                    => true,
-			'data-payment-mode'                => true,
-			'data-amount-type'                 => true,
-			'data-fixed-amount'                => true,
-			'data-payment-type'                => true,
-			'data-customer-name-field'         => true,
-			'data-customer-email-field'        => true,
-			'data-nonce'                       => true,
-			'data-variable-amount-field'       => true,
-			'data-minimum-amount'              => true,
-			'data-subscription-plan-name'      => true,
-			'data-subscription-interval'       => true,
-			'data-subscription-billing-cycles' => true,
-			'data-currency-symbol'             => true,
-			'data-message-format'              => true,
-			'data-payment-methods'             => true,
-			'data-payment-available'           => true,
-			'data-method'                      => true,
-			'data-slug'                        => true,
-			'data-required'                    => true,
-			'data-fee-percentage'              => true,
-			'data-fee-fixed'                   => true,
-			'data-fee-mode'                    => true,
-			'data-gateway-fees'                => true,
-			'data-invalid-email-msg'           => true,
-			'data-invalid-url-msg'             => true,
-			'data-sd-mask'                     => true,
-			'data-custom-sd-mask'              => true,
+			'data-block-id'                           => true,
+			'data-form-id'                            => true,
+			'data-gateway'                            => true,
+			'data-stripe-key'                         => true,
+			'data-currency'                           => true,
+			'data-payment-mode'                       => true,
+			'data-amount-type'                        => true,
+			'data-fixed-amount'                       => true,
+			'data-payment-type'                       => true,
+			'data-customer-name-field'                => true,
+			'data-customer-email-field'               => true,
+			'data-nonce'                              => true,
+			'data-variable-amount-field'              => true,
+			'data-minimum-amount'                     => true,
+			'data-subscription-plan-name'             => true,
+			'data-subscription-interval'              => true,
+			'data-subscription-billing-cycles'        => true,
+			// Dual-mode ("both") payment block: per-choice amount configuration read by
+			// the chooser when the donor switches between one-time and recurring.
+			'data-original-payment-type'              => true,
+			'data-default-payment-choice'             => true,
+			'data-one-time-amount-type'               => true,
+			'data-one-time-fixed-amount'              => true,
+			'data-one-time-minimum-amount'            => true,
+			'data-one-time-variable-amount-field'     => true,
+			'data-subscription-amount-type'           => true,
+			'data-subscription-fixed-amount'          => true,
+			'data-subscription-minimum-amount'        => true,
+			'data-subscription-variable-amount-field' => true,
+			'data-currency-symbol'                    => true,
+			'data-message-format'                     => true,
+			'data-payment-methods'                    => true,
+			'data-payment-available'                  => true,
+			'data-method'                             => true,
+			'data-slug'                               => true,
+			'data-required'                           => true,
+			'data-fee-percentage'                     => true,
+			'data-fee-fixed'                          => true,
+			'data-fee-mode'                           => true,
+			'data-gateway-fees'                       => true,
+			'data-invalid-email-msg'                  => true,
+			'data-invalid-url-msg'                    => true,
+			'data-sd-mask'                            => true,
+			'data-custom-sd-mask'                     => true,
 			// Dropdown (tom-select) field.
-			'data-multiple'                    => true,
-			'data-searchable'                  => true,
-			'data-preselected'                 => true,
-			'data-min-selection'               => true,
-			'data-max-selection'               => true,
-			'data-placeholder'                 => true,
+			'data-multiple'                           => true,
+			'data-searchable'                         => true,
+			'data-preselected'                        => true,
+			'data-min-selection'                      => true,
+			'data-max-selection'                      => true,
+			'data-placeholder'                        => true,
 			// Phone (intl-tel-input) field.
-			'data-default-country'             => true,
-			'data-auto-country'                => true,
-			'data-enable-country-filter'       => true,
-			'data-country-filter-type'         => true,
-			'data-include-countries'           => true,
-			'data-exclude-countries'           => true,
+			'data-default-country'                    => true,
+			'data-auto-country'                       => true,
+			'data-enable-country-filter'              => true,
+			'data-country-filter-type'                => true,
+			'data-include-countries'                  => true,
+			'data-exclude-countries'                  => true,
 		];
 
 		$allowed = [
@@ -635,6 +648,11 @@ class Helper {
 					'aria-atomic'     => true,
 					'aria-hidden'     => true,
 					'aria-labelledby' => true,
+					'aria-label'      => true,
+					// The dual-mode payment chooser hides the inactive amount panel with
+					// `hidden`; without it here kses strips the attribute and both panels
+					// render at once.
+					'hidden'          => true,
 				],
 				$common_data_attrs
 			),
@@ -682,6 +700,8 @@ class Helper {
 					'aria-describedby' => true,
 					'aria-required'    => true,
 					'aria-hidden'      => true,
+					// Payment-type chooser radios point at the amount panel they reveal.
+					'aria-controls'    => true,
 				],
 				$common_data_attrs
 			),
@@ -926,21 +946,34 @@ class Helper {
 			: esc_html__( 'Thank you for your donation!', 'suredonation' );
 
 		return [
-			'ajaxUrl'              => admin_url( 'admin-ajax.php' ),
-			'confirmationType'     => $confirmation_type,
-			'successTitle'         => esc_html__( 'Thank You!', 'suredonation' ),
-			'successMessage'       => wp_kses_post( self::get_string_value( $success_message ) ),
+			'ajaxUrl'                => admin_url( 'admin-ajax.php' ),
+			'confirmationType'       => $confirmation_type,
+			'successTitle'           => esc_html__( 'Thank You!', 'suredonation' ),
+			'successMessage'         => wp_kses_post( self::get_string_value( $success_message ) ),
 			// Shown when payment succeeded at the gateway but our server-side
 			// finalize did not complete; the webhook will finalize it, so the
 			// donor must not be prompted to pay again.
-			'processingMessage'    => esc_html__( 'Payment received. We are finalizing your donation and will email you a confirmation shortly. Please do not pay again.', 'suredonation' ),
-			'redirectUrl'          => ! empty( $redirect_url ) ? esc_url( self::get_string_value( $redirect_url ) ) : '',
-			'submissionAction'     => $data['submission_action'],
+			'processingMessage'      => esc_html__( 'Payment received. We are finalizing your donation and will email you a confirmation shortly. Please do not pay again.', 'suredonation' ),
+			// Shown when the card form itself could not be rendered — almost
+			// always because the connected Stripe account is not allowed to
+			// charge cards. Deliberately says nothing about the account: the
+			// cause is the site's to fix, and the gateway's own wording would
+			// put its account state on a public page.
+			'cardUnavailableMessage' => esc_html__( 'Card payments are unavailable right now. Please choose another payment method or contact the site owner.', 'suredonation' ),
+			'redirectUrl'            => ! empty( $redirect_url ) ? esc_url( self::get_string_value( $redirect_url ) ) : '',
+			'submissionAction'       => $data['submission_action'],
 			// translators: %s: formatted fee amount with currency symbol.
-			'feeIncludesText'      => __( '(includes %s processing fee)', 'suredonation' ),
-			'amountPlaceholder'    => __( 'Complete the form to view the amount.', 'suredonation' ),
+			'feeIncludesText'        => __( '(includes %s processing fee)', 'suredonation' ),
+			'amountPlaceholder'      => __( 'Complete the form to view the amount.', 'suredonation' ),
+			// Shown when a failed recurring confirmation forces the Stripe
+			// Payment Element to rebuild after switching to one-time — see
+			// StripeGateway.updatePaymentType(). Assigned via textContent
+			// (GatewayBase.showError()), which doesn't decode HTML entities,
+			// so this must not be esc_html__() or an apostrophe in
+			// translation would render as the literal "&#039;".
+			'reenterCardMessage'     => __( 'Please re-enter your card details to continue.', 'suredonation' ),
 			// Currency symbol placement for client-side amount/fee formatting.
-			'currencySignPosition' => Payment_Helper::get_currency_sign_position(),
+			'currencySignPosition'   => Payment_Helper::get_currency_sign_position(),
 		];
 	}
 
@@ -1094,6 +1127,16 @@ class Helper {
 							'tag'   => '{refund_amount}',
 							'title' => __( 'Refund Amount', 'suredonation' ),
 						],
+						[
+							'tag'      => '{form_fields}',
+							'title'    => __( 'Form Fields', 'suredonation' ),
+							// Resolves to a block-level receipt card. The editor
+							// offers this same list for Subject, From Name and
+							// Reply-To, all of which are run through
+							// process_smart_tags() — inserting it there would put
+							// raw markup in a mail header. Body editor only.
+							'bodyOnly' => true,
+						],
 					],
 				],
 				[
@@ -1168,7 +1211,7 @@ class Helper {
 		 * resolve for a free-only site.
 		 *
 		 * @param array<int, array<string, mixed>> $groups Grouped tag definitions.
-		 * @since 1.4.0
+		 * @since 1.5.1
 		 */
 		$grouped = apply_filters( 'suredonation_email_smart_tag_groups', $smart_tags['email_grouped'] );
 
@@ -1361,6 +1404,110 @@ class Helper {
 		return sprintf(
 			'<div class="sd-receipt-card"><h3 class="sd-receipt-card__title">%1$s</h3><div class="sd-receipt-rows">%2$s</div></div>',
 			esc_html__( 'Donation Receipt', 'suredonation' ),
+			$rows_html
+		);
+	}
+
+	/**
+	 * Translate a stored checkbox value for display.
+	 *
+	 * Checkbox fields persist the canonical, untranslated tokens in
+	 * Field_Validation::CHECKBOX_VALUES so the stored column stays comparable
+	 * across locales and survives an export/re-import. Anything shown to a human
+	 * runs through here; the CSV export deliberately does not, so the exported
+	 * column keeps the canonical token.
+	 *
+	 * Values that are not a checkbox token are returned untouched, so this is
+	 * safe to apply to a mixed field set.
+	 *
+	 * @param string $value Stored field value.
+	 * @return string Display value.
+	 * @since 1.5.1
+	 */
+	public static function format_checkbox_field_value( $value ) {
+		$value = self::get_string_value( $value );
+
+		switch ( $value ) {
+			case Field_Validation::CHECKBOX_VALUES['yes']:
+				return _x( 'Yes', 'checkbox field value', 'suredonation' );
+			case Field_Validation::CHECKBOX_VALUES['no']:
+				return _x( 'No', 'checkbox field value', 'suredonation' );
+			default:
+				return $value;
+		}
+	}
+
+	/**
+	 * Render the donation's submitted form fields as receipt rows.
+	 *
+	 * The values persisted under donation_data['fields'] (see
+	 * Donations::set_submitted_fields) already surface on the entry screen and
+	 * in exports; this renders the same set for the email templates, behind the
+	 * {form_fields} smart tag. Returns '' when the donation has none, so a
+	 * template carrying the tag is unchanged for forms with no extra fields.
+	 *
+	 * SECURITY: the return value is substituted into email HTML by the
+	 * {form_fields} smart tag, and that tag is exempt from the escaping pass in
+	 * Email_Handler::process_smart_tags() because core tags are compared by value
+	 * and left alone. The esc_html() calls below are therefore the only thing
+	 * between donor-submitted text and an admin's mailbox — both the label and
+	 * the value must stay escaped here. See the regression test in
+	 * tests/unit/inc/test-helper.php.
+	 *
+	 * @param array<mixed> $fields Stored fields as label/value/group entries.
+	 * @return string Rendered markup, or '' when there is nothing to show.
+	 * @since 1.5.1
+	 */
+	public static function render_submitted_fields( $fields ) {
+		if ( empty( $fields ) || ! is_array( $fields ) ) {
+			return '';
+		}
+
+		$rows_html = '';
+		foreach ( $fields as $field ) {
+			if ( ! is_array( $field ) ) {
+				continue;
+			}
+
+			$label = self::get_string_value( $field['label'] ?? '' );
+			$value = self::format_checkbox_field_value( $field['value'] ?? '' );
+			$group = self::get_string_value( $field['group'] ?? '' );
+
+			if ( '' === $label && '' === $value ) {
+				continue;
+			}
+
+			// Sub-fields (e.g. the Address block's parts) are stored with their
+			// parent block's label as the group; prefix it so "Street Address"
+			// reads as "Address: Street Address" rather than losing its context.
+			if ( '' !== $group ) {
+				// str_replace (not sprintf) because the format is translator
+				// editable and this runs inside the gateway webhook handlers — a
+				// stray literal % would make sprintf throw a ValueError on PHP 8,
+				// 500 the webhook and trigger gateway retries. Same rule as
+				// Field_Validation's message formatting.
+				$label = str_replace(
+					[ '%1$s', '%2$s' ],
+					[ $group, $label ],
+					/* translators: 1: parent field label, 2: sub-field label. */
+					_x( '%1$s: %2$s', 'parent field label: sub-field label', 'suredonation' )
+				);
+			}
+
+			$rows_html .= sprintf(
+				'<div class="sd-receipt-row"><span class="sd-receipt-row__label">%1$s</span><span class="sd-receipt-row__value">%2$s</span></div>',
+				esc_html( $label ),
+				esc_html( $value )
+			);
+		}
+
+		if ( '' === $rows_html ) {
+			return '';
+		}
+
+		return sprintf(
+			'<div class="sd-receipt-card"><h3 class="sd-receipt-card__title">%1$s</h3><div class="sd-receipt-rows">%2$s</div></div>',
+			esc_html__( 'Form Details', 'suredonation' ),
 			$rows_html
 		);
 	}

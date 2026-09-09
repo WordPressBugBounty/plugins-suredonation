@@ -568,8 +568,13 @@ class PayPal_Webhook_Listener {
 
 		$donation_id = isset( $donation['id'] ) && is_numeric( $donation['id'] ) ? absint( $donation['id'] ) : 0;
 
-		// Idempotency — only update if still pending (avoid overwriting completed status).
-		if ( 'pending' === ( $donation['payment_status'] ?? '' ) ) {
+		// Idempotency — don't overwrite a status the gateway or an admin already
+		// settled. 'abandoned' is included deliberately: it is written by
+		// abandon_paypal_order() from the client's onCancel, which is a guess
+		// fired with keepalive and never awaited. A CAPTURE.COMPLETED webhook is
+		// a gateway fact, so it must win — otherwise the money is captured at
+		// PayPal while the row reads 'abandoned' and the donor gets nothing.
+		if ( in_array( $donation['payment_status'] ?? '', [ 'pending', 'abandoned' ], true ) ) {
 			// Verify captured amount matches expected (amount + fees).
 			$amount_data     = is_array( $event_resource['amount'] ?? null ) ? $event_resource['amount'] : [];
 			$captured_amount = isset( $amount_data['value'] ) ? (float) $amount_data['value'] : 0;
@@ -619,6 +624,39 @@ class PayPal_Webhook_Listener {
 					'donation_type' => $donation['donation_type'] ?? 'one-time',
 				],
 				$form_id
+			);
+
+			return true;
+		}
+
+		// The frontend completes the donation and sends the receipt itself
+		// (pay-pal-frontend.php). A fatal or timeout between those two steps
+		// leaves a charged donation with no receipt, and the status is no longer
+		// 'pending' so the branch above skips it — the webhook backup used to be
+		// the only retry and lost it. Key the retry on whether a confirmation was
+		// actually recorded, not on the status.
+		if ( 'completed' === ( $donation['payment_status'] ?? '' ) && ! Email_Handler::has_sent( $donation_id ) ) {
+			Donations::add_log(
+				$donation_id,
+				'completed',
+				__( 'Confirmation email re-sent by PayPal webhook — none was recorded for this donation', 'suredonation' ),
+				[ 'capture_id' => $capture_id ]
+			);
+
+			Email_Handler::send_donation_confirmation(
+				$donation_id,
+				isset( $donation['campaign_id'] ) && is_numeric( $donation['campaign_id'] ) ? absint( $donation['campaign_id'] ) : 0,
+				[
+					'id'            => $donation_id,
+					'donor_name'    => $donation['donor_name'] ?? '',
+					'donor_email'   => $donation['donor_email'] ?? '',
+					'amount'        => $donation['amount'] ?? 0,
+					'fees_covered'  => $donation['fees_covered'] ?? 0,
+					'currency'      => $donation['currency'] ?? 'USD',
+					'gateway'       => 'paypal',
+					'donation_type' => $donation['donation_type'] ?? 'one-time',
+				],
+				isset( $donation['form_id'] ) && is_numeric( $donation['form_id'] ) ? absint( $donation['form_id'] ) : 0
 			);
 		}
 

@@ -43,10 +43,35 @@ class Analytics {
 	 * @since 1.3.0
 	 */
 	public const TRACKED_EVENTS = [
-		'configure_gateway' => 'configure_gateway_notice_react_cta',
-		'webhook'           => 'webhook_notice_react_cta',
-		'test_mode'         => 'test_mode_notice_react_cta',
-		'quick_access'      => 'quick_access_configure_gateway_react_cta',
+		'configure_gateway'            => 'configure_gateway_notice_react_cta',
+		'webhook'                      => 'webhook_notice_react_cta',
+		'test_mode'                    => 'test_mode_notice_react_cta',
+		'quick_access'                 => 'quick_access_configure_gateway_react_cta',
+		// The PayPal settings panel warns when PayPal has told us the connected
+		// account cannot be paid. The CTA sends the merchant to PayPal to finish
+		// setup; the dismiss says they saw it and moved on, which is worth
+		// separating from never having seen it.
+		'paypal_account'               => 'paypal_account_warning_react_cta',
+		'paypal_account_x'             => 'paypal_account_warning_react_dismiss',
+		'paypal_webhook_x'             => 'paypal_webhook_error_react_dismiss',
+		// The Stripe settings panel warns when Stripe has told us the connected
+		// account cannot charge cards. The CTA sends the site owner to their
+		// Stripe dashboard to resolve it; the dismiss says they saw it and moved
+		// on, which is worth separating from never having seen it.
+		'stripe_account'               => 'stripe_account_warning_react_cta',
+		'stripe_account_x'             => 'stripe_account_warning_react_dismiss',
+		// The form-side capability notices link here with ?sd_notice=, so the
+		// settings screen records that one of them is what brought the admin
+		// over. Their own page is a public donation form, which is no place to
+		// be loading a tracker.
+		'stripe_capability'            => 'stripe_capability_notice_cta',
+		// The other three donation-form notices reach the settings screen the
+		// same way. Their own page is a public donation form, which is no place
+		// to be loading a tracker, so the CTA carries a marker and the arrival
+		// is what gets recorded.
+		'frontend_test_mode'           => 'frontend_test_mode_notice_cta',
+		'frontend_gateway_unavailable' => 'frontend_gateway_unavailable_notice_cta',
+		'frontend_gateway_setup'       => 'frontend_gateway_setup_notice_cta',
 	];
 
 	/**
@@ -1111,6 +1136,26 @@ class Analytics {
 		// stripe_connected: detect connection state.
 		if ( Stripe_Helper::is_stripe_connected() ) {
 			$events->track( 'stripe_connected', $mode );
+		}
+
+		// stripe_card_capability_blocked: connected but Stripe will not let the
+		// account charge cards, so the card form is hidden and donations are
+		// being lost or diverted. Detected here rather than where the notices
+		// render: this is site state, not a page event, and the render path is
+		// a public request that should not be paying for analytics.
+		$blocked_accounts = 0;
+		foreach ( array_keys( Stripe_Helper::get_all_accounts() ) as $blocked_candidate ) {
+			if ( Stripe_Helper::is_card_capability_blocked( (string) $blocked_candidate, $mode ) ) {
+				++$blocked_accounts;
+			}
+		}
+
+		if ( $blocked_accounts > 0 ) {
+			$events->track(
+				'stripe_card_capability_blocked',
+				$mode,
+				[ 'blocked_accounts' => $blocked_accounts ]
+			);
 		}
 
 		// paypal_connected: detect connection state.

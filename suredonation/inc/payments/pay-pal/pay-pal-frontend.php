@@ -42,6 +42,9 @@ class PayPal_Frontend {
 
 		add_action( 'wp_ajax_suredonation_verify_paypal_order', [ $this, 'verify_paypal_order' ] );
 		add_action( 'wp_ajax_nopriv_suredonation_verify_paypal_order', [ $this, 'verify_paypal_order' ] );
+
+		add_action( 'wp_ajax_suredonation_abandon_paypal_order', [ $this, 'abandon_paypal_order' ] );
+		add_action( 'wp_ajax_nopriv_suredonation_abandon_paypal_order', [ $this, 'abandon_paypal_order' ] );
 	}
 
 	/**
@@ -61,6 +64,19 @@ class PayPal_Frontend {
 		// Reject bot submissions caught by the honeypot before processing.
 		if ( Helper::is_honeypot_spam() ) {
 			wp_send_json_error( [ 'message' => __( 'Your submission was flagged as spam. Please try again.', 'suredonation' ) ] );
+		}
+
+		// A page cache can serve a form rendered in the other payment mode. Its
+		// gateway keys would not match anything created here, so stop before any
+		// of that work happens and tell the donor what to do.
+		$mode_check = Payment_Helper::verify_submitted_payment_mode();
+		if ( is_wp_error( $mode_check ) ) {
+			wp_send_json_error(
+				[
+					'message' => esc_html( $mode_check->get_error_message() ),
+					'code'    => $mode_check->get_error_code(),
+				]
+			);
 		}
 
 		$data = $this->extract_and_validate_form_data();
@@ -152,9 +168,12 @@ class PayPal_Frontend {
 		}
 
 		if ( empty( $result['id'] ) ) {
-			$raw_message   = $result['message'] ?? null;
-			$error_message = is_string( $raw_message ) ? $raw_message : __( 'Failed to create PayPal order.', 'suredonation' );
-			wp_send_json_error( [ 'message' => esc_html( $error_message ) ] );
+			// Same reasoning as the WP_Error branch above. A 200 carrying no order
+			// id is still answering an unauthenticated donor, so the gateway's own
+			// wording stays out of it here too.
+			wp_send_json_error(
+				[ 'message' => __( 'We could not start your payment. Please try again.', 'suredonation' ) ]
+			);
 		}
 
 		$order_id = is_string( $result['id'] ) ? $result['id'] : '';
@@ -208,22 +227,11 @@ class PayPal_Frontend {
 			]
 		);
 
-		// Send processing email.
-		Email_Handler::send_donation_processing(
-			$donation_id,
-			$campaign_id,
-			[
-				'id'            => $donation_id,
-				'donor_name'    => $donor_name,
-				'donor_email'   => $donor_email,
-				'amount'        => $amount,
-				'fees_covered'  => $fees_covered,
-				'currency'      => $currency,
-				'donation_type' => 'one-time',
-				'gateway'       => 'paypal',
-			],
-			$form_id
-		);
+		// No email here. This runs when the donor clicks the PayPal button, before
+		// they have approved anything, so every abandoned checkout was told its
+		// donation was processing. The confirmation is sent from
+		// verify_paypal_order() once the capture completes, which for a one-time
+		// PayPal donation is the only point at which anything has happened.
 
 		wp_send_json_success(
 			[
@@ -248,21 +256,45 @@ class PayPal_Frontend {
 		// phpcs:enable WordPress.Security.NonceVerification.Missing
 
 		if ( empty( $order_id ) || empty( $donation_id ) ) {
+			$this->log_capture_failure(
+				$donation_id,
+				'missing_parameters',
+				$order_id,
+				[ 'reason' => __( 'Capture request arrived without an order id or donation id.', 'suredonation' ) ]
+			);
 			wp_send_json_error( [ 'message' => __( 'Missing required parameters.', 'suredonation' ) ] );
 		}
 
 		// Verify donation exists and matches the order.
 		$donation = Donations::get( $donation_id );
 		if ( ! $donation ) {
+			// Deliberately unlogged: add_log() writes to the donation row, and
+			// there is no row here. Every other failure branch below records.
 			wp_send_json_error( [ 'message' => __( 'Donation not found.', 'suredonation' ) ] );
 		}
 
 		if ( ( $donation['transaction_id'] ?? '' ) !== $order_id ) {
+			$this->log_capture_failure(
+				$donation_id,
+				'order_mismatch',
+				$order_id,
+				[ 'reason' => __( 'The order id sent for capture is not the one stored on this donation.', 'suredonation' ) ]
+			);
 			wp_send_json_error( [ 'message' => __( 'Payment verification failed.', 'suredonation' ) ] );
 		}
 
 		// Prevent status rollback on replay.
-		if ( 'pending' !== ( $donation['payment_status'] ?? '' ) ) {
+		$current_status = $donation['payment_status'] ?? '';
+		if ( 'pending' !== $current_status ) {
+			$this->log_capture_failure(
+				$donation_id,
+				'not_pending',
+				$order_id,
+				[
+					'reason'         => __( 'Capture was not attempted because the donation is no longer pending.', 'suredonation' ),
+					'payment_status' => $current_status,
+				]
+			);
 			wp_send_json_error( [ 'message' => __( 'Donation is not in pending state.', 'suredonation' ) ] );
 		}
 
@@ -281,15 +313,50 @@ class PayPal_Frontend {
 		);
 
 		if ( is_wp_error( $result ) ) {
-			wp_send_json_error( [ 'message' => esc_html( $result->get_error_message() ) ] );
+			// The failure behind ticket 1521527 (PAYEE_ACCOUNT_NOT_VERIFIED) arrived
+			// here, was formatted into the donor's error message, and was then
+			// discarded — leaving an activity log that read only "Donation Created".
+			// Record the gateway's own reason before answering.
+			$this->log_capture_failure(
+				$donation_id,
+				'capture_request_failed',
+				$order_id,
+				[
+					'code'   => $result->get_error_code(),
+					'reason' => $result->get_error_message(),
+					// PayPal's own codes, kept out of the message but recorded so
+					// support can quote them. The raw payload is deliberately not
+					// stored: it rendered as a truncated JSON blob saying the same
+					// thing as the reason above.
+					'issues' => is_array( $result->get_error_data() ) ? ( $result->get_error_data()['codes'] ?? '' ) : '',
+				]
+			);
+
+			// Same rule as the order-creation path above: PayPal's error names and
+			// per-field issue strings are useful to an admin reading the activity
+			// log, not to an unauthenticated donor mid-checkout — and they put the
+			// merchant's account state on a public page.
+			wp_send_json_error(
+				[ 'message' => __( 'We could not complete your payment. Please try again, or contact us if you have already been charged.', 'suredonation' ) ]
+			);
 		}
 
 		$capture_status = isset( $result['status'] ) && is_string( $result['status'] ) ? $result['status'] : '';
 
 		if ( 'COMPLETED' !== $capture_status ) {
-			$error_message = ! empty( $result['message'] ) && is_string( $result['message'] ) ? $result['message'] : __( 'Payment capture failed.', 'suredonation' );
-			Donations::add_log( $donation_id, 'error', esc_html( $error_message ), [ 'status' => $capture_status ] );
-			wp_send_json_error( [ 'message' => esc_html( $error_message ) ] );
+			$error_message = ! empty( $result['message'] ) && is_string( $result['message'] ) ? $result['message'] : __( 'PayPal did not report a completed capture.', 'suredonation' );
+			$this->log_capture_failure(
+				$donation_id,
+				'capture_not_completed',
+				$order_id,
+				[
+					'status' => '' !== $capture_status ? $capture_status : __( 'none returned', 'suredonation' ),
+					'reason' => $error_message,
+				]
+			);
+			wp_send_json_error(
+				[ 'message' => __( 'We could not complete your payment. Please try again, or contact us if you have already been charged.', 'suredonation' ) ]
+			);
 		}
 
 		// Extract capture ID for refund operations.
@@ -308,6 +375,8 @@ class PayPal_Frontend {
 				[
 					'captured' => $captured_amount,
 					'expected' => $expected_amount,
+					'order_id' => PayPal_Helper::clean_log_value( $order_id ),
+					'mode'     => PayPal_Helper::clean_log_value( $mode ),
 				]
 			);
 			wp_send_json_error( [ 'message' => __( 'Payment amount verification failed.', 'suredonation' ) ] );
@@ -366,6 +435,137 @@ class PayPal_Frontend {
 				'captureId'  => $capture_id,
 				'message'    => Helper::render_confirmation_message( $donation_id ),
 			]
+		);
+	}
+
+	/**
+	 * Mark a pending donation abandoned when the donor leaves PayPal.
+	 *
+	 * The row is created at button-click so the capture step can find it, which
+	 * left every abandoned checkout sitting in `pending` — indistinguishable
+	 * from a payment stuck mid-flight. Recording abandonment separately from
+	 * `failed` is the point: `failed` means a payment was attempted and
+	 * declined, and mixing the two would hide our own capture failure rate
+	 * inside the ordinary rate at which donors change their minds.
+	 *
+	 * Only catches an explicit cancel. A donor who closes the tab outright still
+	 * leaves the row pending — recovering those needs a reconciler, which is
+	 * tracked separately.
+	 *
+	 * @return void
+	 * @since 1.5.1
+	 */
+	public function abandon_paypal_order() {
+		check_ajax_referer( 'suredonation_donation_form', 'nonce' );
+
+		// phpcs:disable WordPress.Security.NonceVerification.Missing -- Nonce verified above.
+		$order_id    = isset( $_POST['order_id'] ) ? sanitize_text_field( wp_unslash( $_POST['order_id'] ) ) : '';
+		$donation_id = isset( $_POST['donation_id'] ) ? absint( $_POST['donation_id'] ) : 0;
+		// phpcs:enable WordPress.Security.NonceVerification.Missing
+
+		if ( empty( $order_id ) || empty( $donation_id ) ) {
+			wp_send_json_error( [ 'message' => __( 'Missing required parameters.', 'suredonation' ) ] );
+		}
+
+		$donation = Donations::get( $donation_id );
+		if ( ! $donation ) {
+			wp_send_json_error( [ 'message' => __( 'Donation not found.', 'suredonation' ) ] );
+		}
+
+		// Same pairing check as the capture path: the caller has to hold the
+		// PayPal order id that belongs to this donation, so one donor cannot
+		// close another's donation.
+		if ( ( $donation['transaction_id'] ?? '' ) !== $order_id ) {
+			wp_send_json_error( [ 'message' => __( 'Payment verification failed.', 'suredonation' ) ] );
+		}
+
+		// Anything that has left pending has been decided by the gateway, and a
+		// late cancel must never walk a completed donation back. Reported as
+		// success because the caller is bookkeeping, not asking for a change.
+		if ( 'pending' !== ( $donation['payment_status'] ?? '' ) ) {
+			wp_send_json_success( [ 'status' => $donation['payment_status'] ?? '' ] );
+		}
+
+		Donations::update_status( $donation_id, 'abandoned' );
+
+		Donations::add_log(
+			$donation_id,
+			'abandoned',
+			__( 'Donor left PayPal without approving the payment', 'suredonation' ),
+			[
+				'order_id' => PayPal_Helper::clean_log_value( $order_id ),
+				'mode'     => Payment_Helper::get_payment_mode(),
+			]
+		);
+
+		wp_send_json_success( [ 'status' => 'abandoned' ] );
+	}
+
+	/**
+	 * Record why a PayPal capture attempt did not go through.
+	 *
+	 * Every early return in verify_paypal_order() used to be silent, so a real
+	 * capture failure looked exactly like an abandoned checkout: the donation's
+	 * activity log read only "Donation Created" and the reason PayPal gave was
+	 * shown to the donor and then dropped. Each caller names the check that
+	 * fired, so a log entry says which stage failed rather than only that
+	 * something did.
+	 *
+	 * @param int                  $donation_id Donation ID. 0 when the request never named one.
+	 * @param string               $stage       Which check or call failed.
+	 * @param string               $order_id    PayPal order id as submitted, may be empty.
+	 * @param array<string, mixed> $data        Extra detail to record against the donation.
+	 * @return void
+	 * @since 1.5.1
+	 */
+	private function log_capture_failure( $donation_id, $stage, $order_id, $data = [] ) {
+		if ( empty( $donation_id ) ) {
+			// add_log() writes to the donation row, so a request that never named
+			// a donation has nowhere to be recorded.
+			return;
+		}
+
+		// Checked before the transient below rather than left to add_log(): this
+		// endpoint is public and unauthenticated, and the id arrives straight off
+		// the request. Keying a transient off an unverified id lets a caller mint
+		// two wp_options rows per request over an unbounded key space simply by
+		// walking ids that name no donation. add_log() refuses the write, but the
+		// transient would already be stored.
+		if ( ! Donations::get( $donation_id ) ) {
+			return;
+		}
+
+		// This endpoint is public and the donor's browser may retry it, so an
+		// unguarded entry per request would grow the row's log column without
+		// bound. One entry per donation per stage per minute, as the webhook
+		// listener does for repeated deliveries of the same event.
+		$lock_key = 'suredonation_paypal_capture_fail_' . md5( $donation_id . '|' . $stage );
+		if ( get_transient( $lock_key ) ) {
+			return;
+		}
+		set_transient( $lock_key, true, MINUTE_IN_SECONDS );
+
+		$entry = array_merge(
+			[
+				'stage'    => $stage,
+				'order_id' => $order_id,
+				'mode'     => Payment_Helper::get_payment_mode(),
+			],
+			$data
+		);
+
+		// Part of this comes straight from a middleware or PayPal response, which
+		// is neither escaped nor length-limited at source, and all of it is
+		// rendered as text in the admin.
+		foreach ( $entry as $key => $value ) {
+			$entry[ $key ] = PayPal_Helper::clean_log_value( $value );
+		}
+
+		Donations::add_log(
+			$donation_id,
+			'capture_failed',
+			__( 'PayPal capture did not complete', 'suredonation' ),
+			$entry
 		);
 	}
 
@@ -460,9 +660,21 @@ class PayPal_Frontend {
 			return new \WP_Error( 'invalid_form', __( 'Invalid form configuration.', 'suredonation' ) );
 		}
 
+		// A form configured for recurring must never be charged once. When pro's
+		// bundle has not evaluated -- a failed deploy, a 404'd asset, or pro
+		// bailing on the free version floor after SUREDONATION_PRO_VER is already
+		// defined -- the frontend falls through to this one-time path while the
+		// markup still presents the form as recurring. validate_payment_type() is
+		// symmetric and pro already calls it for the subscription direction; this
+		// closes the other side, server-side, whatever the client did.
+		$type_validation = Payment_Helper::validate_payment_type( 'one-time', $form_id, $block_id );
+		if ( ! $type_validation['valid'] ) {
+			return new \WP_Error( 'payment_type_mismatch', $type_validation['message'] );
+		}
+
 		// Validate field values + amount against block configuration.
 		$donation_amount   = $amount - $fees_covered;
-		$validation_result = Payment_Helper::validate_submission( Payment_Helper::get_submitted_fields(), $donation_amount, $currency, $form_id, $block_id, 'paypal' );
+		$validation_result = Payment_Helper::validate_submission( Payment_Helper::get_submitted_fields(), $donation_amount, $currency, $form_id, $block_id, 'paypal', 'one-time' );
 		if ( ! $validation_result['valid'] ) {
 			return new \WP_Error( 'invalid_submission', $validation_result['message'], [ 'fieldErrors' => $validation_result['field_errors'] ] );
 		}

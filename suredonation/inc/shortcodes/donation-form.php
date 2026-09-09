@@ -137,7 +137,8 @@ class Donation_Form {
 		// Enqueue Stripe.js if Stripe is configured.
 		$this->maybe_enqueue_stripe();
 
-		// Allow payment gateway extensions to enqueue their scripts (e.g., PayPal SDK).
+		// Allow payment gateway extensions to enqueue their scripts and localize
+		// their frontend configuration (see the action's docblock in block.php).
 		do_action( 'suredonation_enqueue_form_frontend_scripts', $form_id, $form->post_content );
 	}
 

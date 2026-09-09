@@ -300,6 +300,9 @@ class Stripe_Webhook {
 			case 'payment_intent.canceled':
 				return $this->handle_payment_canceled( $event_data, $mode );
 
+			case 'account.updated':
+				return $this->handle_account_updated( $event_data, $mode, $account_id );
+
 			default:
 				/**
 				 * Allow extensions to handle additional webhook events.
@@ -449,7 +452,10 @@ class Stripe_Webhook {
 			$donor_id     = is_numeric( $donor_id_val ) ? (int) $donor_id_val : 0;
 			$amount       = is_numeric( $amount_val ) ? (float) $amount_val : 0.0;
 			if ( $donor_id > 0 ) {
-				Donors::record_donation( $donor_id, $amount );
+				// The client-side confirm records this too. Whichever arrives
+				// first wins; the other is a no-op, so a donor's total is not
+				// doubled when both run.
+				Donors::record_donation_once( $donor_id, $amount, $donation_id );
 			}
 		}
 
@@ -807,6 +813,52 @@ class Stripe_Webhook {
 				'mode'              => $mode,
 			]
 		);
+
+		return true;
+	}
+
+	/**
+	 * Handle an account.updated event.
+	 *
+	 * Keeps the stored capability snapshot honest. Stripe can restrict an
+	 * account long after connect, and the connect-time check alone would leave
+	 * the settings warning silently out of date — the exact failure this whole
+	 * feature exists to end. The event payload *is* the account object, so this
+	 * costs no API call.
+	 *
+	 * The account is taken from the webhook secret that verified the event, not
+	 * from the payload: only one account's signing secret can have produced it,
+	 * and trusting `data.object.id` would let a verified event write state onto
+	 * a different connected account.
+	 *
+	 * @param array<string, mixed> $data       Account object from the event.
+	 * @param string               $mode       Payment mode.
+	 * @param string               $account_id Connected account whose secret verified the event.
+	 * @return bool|\WP_Error True on success, WP_Error when unrecoverable.
+	 * @since 1.5.1
+	 */
+	private function handle_account_updated( $data, $mode, $account_id = '' ) {
+		if ( ! is_string( $account_id ) || '' === $account_id ) {
+			// Nothing to attribute the state to. Permanent: a retry produces the
+			// same event with the same missing context, so ack it and stop.
+			return new \WP_Error( 'invalid_event', 'No connected account resolved for account.updated' );
+		}
+
+		if ( ! is_array( $data ) || empty( $data ) ) {
+			return new \WP_Error( 'invalid_event', 'account.updated carried no account object' );
+		}
+
+		$updated = Stripe_Helper::update_account_fields(
+			$account_id,
+			[ "{$mode}_account_state" => Stripe_Helper::extract_account_state( $data ) ]
+		);
+
+		if ( ! $updated ) {
+			// The account is no longer stored (disconnected between the event
+			// being sent and processed). Nothing to record, and retrying will
+			// not bring it back.
+			return new \WP_Error( 'invalid_event', 'Connected account not found for account.updated' );
+		}
 
 		return true;
 	}

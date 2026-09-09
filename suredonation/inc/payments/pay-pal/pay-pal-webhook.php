@@ -33,7 +33,10 @@ class PayPal_Webhook {
 		$webhook_url = PayPal_Helper::get_webhook_url( $mode );
 
 		if ( empty( $merchant_id ) ) {
-			return new \WP_Error( 'not_connected', __( 'PayPal is not connected.', 'suredonation' ) );
+			$error = new \WP_Error( 'not_connected', __( 'PayPal is not connected.', 'suredonation' ) );
+			PayPal_Helper::set_webhook_error( $mode, $error->get_error_message() );
+
+			return $error;
 		}
 
 		/**
@@ -67,6 +70,12 @@ class PayPal_Webhook {
 		);
 
 		if ( is_wp_error( $result ) ) {
+			// Recorded rather than only returned. Onboarding calls this and
+			// discards the result, so a merchant could connect "successfully"
+			// with no webhook and no one — merchant or support — would know it
+			// had even been attempted.
+			PayPal_Helper::set_webhook_error( $mode, $result->get_error_message() );
+
 			return $result;
 		}
 
@@ -86,6 +95,9 @@ class PayPal_Webhook {
 
 			PayPal_Helper::update_all_paypal_settings( $settings );
 		}
+
+		// A webhook now exists, so any recorded failure is stale.
+		PayPal_Helper::set_webhook_error( $mode, '' );
 
 		return [
 			'webhook_id'  => $webhook_id,

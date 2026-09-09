@@ -12,6 +12,7 @@ use SureDonation\Inc\API\Dashboard_API;
 use SureDonation\Inc\API\Donations_API;
 use SureDonation\Inc\API\Donors_API;
 use SureDonation\Inc\API\Forms_API;
+use SureDonation\Inc\API\Import_Charitable_API;
 use SureDonation\Inc\API\Import_Export_API;
 use SureDonation\Inc\API\Import_Givewp_API;
 use SureDonation\Inc\API\Onboarding_API;
@@ -94,15 +95,16 @@ class Rest_Api {
 	 * @since 0.0.1
 	 */
 	private function get_endpoints() {
-		$campaigns_api     = new Campaigns_API();
-		$donations_api     = new Donations_API();
-		$donors_api        = new Donors_API();
-		$dashboard_api     = new Dashboard_API();
-		$forms_api         = new Forms_API();
-		$settings_api      = new Settings_API();
-		$import_givewp_api = Import_Givewp_API::get_instance();
-		$import_export_api = new Import_Export_API();
-		$onboarding_api    = new Onboarding_API();
+		$campaigns_api         = new Campaigns_API();
+		$donations_api         = new Donations_API();
+		$donors_api            = new Donors_API();
+		$dashboard_api         = new Dashboard_API();
+		$forms_api             = new Forms_API();
+		$settings_api          = new Settings_API();
+		$import_givewp_api     = Import_Givewp_API::get_instance();
+		$import_charitable_api = Import_Charitable_API::get_instance();
+		$import_export_api     = new Import_Export_API();
+		$onboarding_api        = new Onboarding_API();
 
 		// Merge endpoints from all APIs.
 		$endpoints = array_merge(
@@ -113,6 +115,7 @@ class Rest_Api {
 			$forms_api->get_endpoints(),
 			$settings_api->get_endpoints(),
 			$import_givewp_api->get_endpoints(),
+			$import_charitable_api->get_endpoints(),
 			$import_export_api->get_endpoints(),
 			$onboarding_api->get_endpoints()
 		);

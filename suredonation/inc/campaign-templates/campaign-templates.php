@@ -200,6 +200,7 @@ class Campaign_Templates {
 		$blocks = [
 			'<!-- wp:suredonation/input ' . wp_json_encode(
 				[
+					'block_id'    => Helper::generate_block_id(),
 					'label'       => __( 'Full Name', 'suredonation' ),
 					'required'    => true,
 					'placeholder' => __( 'Enter your full name', 'suredonation' ),
@@ -209,6 +210,7 @@ class Campaign_Templates {
 			) . ' /-->',
 			'<!-- wp:suredonation/email ' . wp_json_encode(
 				[
+					'block_id'    => Helper::generate_block_id(),
 					'label'       => __( 'Email Address', 'suredonation' ),
 					'required'    => true,
 					'placeholder' => __( 'Enter your email', 'suredonation' ),
@@ -218,6 +220,7 @@ class Campaign_Templates {
 			) . ' /-->',
 			'<!-- wp:suredonation/donation-amount ' . wp_json_encode(
 				[
+					'block_id'   => Helper::generate_block_id(),
 					'label'      => $amount_label,
 					'required'   => true,
 					'choiceType' => 'radio',
@@ -228,7 +231,14 @@ class Campaign_Templates {
 			) . ' /-->',
 			'<!-- wp:suredonation/payment ' . wp_json_encode(
 				[
+					'block_id'            => Helper::generate_block_id(),
 					'gateway'             => 'stripe',
+					// Serialized explicitly for the same reason block_id is:
+					// parse_blocks() applies no block.json defaults, and that
+					// default stays ['stripe'] so saved forms keep their
+					// behavior. Without this a template form silently offers
+					// Stripe only, while the default form offers both.
+					'paymentMethods'      => [ 'stripe', 'paypal' ],
 					'paymentType'         => 'one-time',
 					'amountType'          => 'variable',
 					'minimumAmount'       => 0,
@@ -239,6 +249,7 @@ class Campaign_Templates {
 			) . ' /-->',
 			'<!-- wp:suredonation/donate-button ' . wp_json_encode(
 				[
+					'block_id'   => Helper::generate_block_id(),
 					'buttonText' => $button_text,
 					'slug'       => 'donate-button',
 				]

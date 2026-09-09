@@ -122,8 +122,18 @@ class Donations_API {
 					],
 					'status' => [
 						'required'          => true,
+						'type'              => 'string',
+						// Sourced from the table's own whitelist rather than
+						// restated: the two lists had already drifted — suspicious
+						// is written on an amount mismatch and was missing here.
+						'enum'              => Donations::get_valid_statuses(),
 						'sanitize_callback' => 'sanitize_text_field',
-						'enum'              => [ 'pending', 'processing', 'completed', 'failed', 'refunded', 'partially_refunded', 'cancelled' ],
+						// Required for the enum to be enforced at all. An arg with
+						// a sanitize_callback and no validate_callback has its enum
+						// silently skipped (see #340), so this endpoint answered
+						// "updated successfully" to a status it had refused to
+						// write.
+						'validate_callback' => 'rest_validate_request_arg',
 					],
 				],
 			],
@@ -151,8 +161,10 @@ class Donations_API {
 				'args'                => [
 					'action' => [
 						'required'          => true,
-						'sanitize_callback' => 'sanitize_text_field',
+						'type'              => 'string',
 						'enum'              => [ 'delete', 'update_status' ],
+						'sanitize_callback' => 'sanitize_text_field',
+						'validate_callback' => 'rest_validate_request_arg',
 					],
 					'ids'    => [
 						'required'          => true,
@@ -161,8 +173,10 @@ class Donations_API {
 						},
 					],
 					'status' => [
+						'type'              => 'string',
+						'enum'              => Donations::get_valid_statuses(),
 						'sanitize_callback' => 'sanitize_text_field',
-						'enum'              => [ 'pending', 'processing', 'completed', 'failed', 'refunded', 'partially_refunded', 'cancelled' ],
+						'validate_callback' => 'rest_validate_request_arg',
 					],
 				],
 			],
@@ -189,8 +203,14 @@ class Donations_API {
 					],
 					'refund_type'    => [
 						'required'          => true,
-						'sanitize_callback' => 'sanitize_text_field',
+						'type'              => 'string',
 						'enum'              => [ 'full', 'partial' ],
+						'sanitize_callback' => 'sanitize_text_field',
+						// The last arg in this file carrying the #340 shape: an
+						// enum that reads as enforced and is not. rest_validate_
+						// request_arg() reads the schema's type, so the type above
+						// is not decoration.
+						'validate_callback' => 'rest_validate_request_arg',
 					],
 					'refund_notes'   => [
 						'sanitize_callback' => 'sanitize_textarea_field',
@@ -587,12 +607,37 @@ class Donations_API {
 		}
 
 		$old_status = $donation['payment_status'] ?? 'pending';
-		Donations::update_status( $donation_id, $status );
+		$updated    = Donations::update_status( $donation_id, $status );
+
+		// Strictly false, which is update_status() refusing the value. A 0 is
+		// $wpdb->update() reporting that no row changed, which cannot mean "no
+		// such row" here because the 404 above already proved it exists, and
+		// cannot mean "same status" either because update() always writes
+		// updated_at. Treating both as success is how a refused write looked
+		// like a successful one to every client.
+		//
+		// Note for anyone comparing this with bulk_action(): that path has no
+		// existence check, so a 0 there does mean "no such row" and is
+		// correctly counted as a failure. The two are not in conflict.
+		if ( false === $updated ) {
+			return new WP_Error(
+				'donation_status_not_updated',
+				__( 'The donation status could not be updated.', 'suredonation' ),
+				[ 'status' => 500 ]
+			);
+		}
 
 		// If status changed to completed, update donor stats.
+		//
+		// Guarded, not plain: an admin completing a still-pending donation here
+		// does not stop the gateway webhook arriving for the same row later
+		// (Stripe retries for days), and the webhook's donor block has no
+		// "still pending" check of its own. Without a marker written here, that
+		// webhook would record the same donation a second time and double the
+		// donor's total, count and largest gift.
 		if ( 'completed' !== $old_status && 'completed' === $status ) {
 			if ( ! empty( $donation['donor_id'] ) ) {
-				Donors::record_donation( $donation['donor_id'], floatval( $donation['amount'] ) );
+				Donors::record_donation_once( $donation['donor_id'], floatval( $donation['amount'] ), $donation_id );
 			}
 		}
 
@@ -1128,11 +1173,10 @@ class Donations_API {
 			],
 			'payment_status' => [
 				'default'           => 'pending',
-				'enum'              => [ 'pending', 'processing', 'completed', 'failed', 'refunded', 'partially_refunded', 'cancelled' ],
+				'type'              => 'string',
+				'enum'              => Donations::get_valid_statuses(),
 				'sanitize_callback' => 'sanitize_text_field',
-				'validate_callback' => static function ( $param ) {
-					return in_array( $param, [ 'pending', 'processing', 'completed', 'failed', 'refunded', 'partially_refunded', 'cancelled' ], true );
-				},
+				'validate_callback' => 'rest_validate_request_arg',
 			],
 			'gateway'        => [
 				'sanitize_callback' => 'sanitize_text_field',
@@ -1232,7 +1276,10 @@ class Donations_API {
 				// esc_html here would double-encode (e.g. "Cats & Dogs" -> "Cats &amp; Dogs").
 				$submitted_fields[] = [
 					'label' => sanitize_text_field( Helper::get_string_value( $field['label'] ?? '' ) ),
-					'value' => sanitize_text_field( Helper::get_string_value( $field['value'] ?? '' ) ),
+					// Checkbox fields store a canonical untranslated token so the
+					// stored column stays locale-stable; it is translated here, on
+					// read, for the entry screen. Non-checkbox values pass through.
+					'value' => sanitize_text_field( Helper::format_checkbox_field_value( $field['value'] ?? '' ) ),
 					'group' => sanitize_text_field( Helper::get_string_value( $field['group'] ?? '' ) ),
 				];
 			}
