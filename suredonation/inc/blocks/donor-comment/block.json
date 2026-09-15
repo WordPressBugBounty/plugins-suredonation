@@ -1,0 +1,73 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "suredonation/donor-comment",
+	"title": "Donor Comment",
+	"description": "Lets a donor leave an optional public message with their donation.",
+	"category": "suredonation",
+	"keywords": [ "comment", "message", "note", "donor", "textarea" ],
+	"textdomain": "suredonation",
+	"supports": {
+		"reusable": false,
+		"html": false,
+		"multiple": false
+	},
+	"example": {
+		"attributes": {
+			"preview": true
+		}
+	},
+	"attributes": {
+		"preview": {
+			"type": "boolean",
+			"default": false
+		},
+		"block_id": {
+			"type": "string"
+		},
+		"required": {
+			"type": "boolean",
+			"default": false
+		},
+		"placeholder": {
+			"type": "string",
+			"default": ""
+		},
+		"fieldWidth": {
+			"type": "number",
+			"default": 100
+		},
+		"label": {
+			"type": "string",
+			"default": "Leave a comment"
+		},
+		"help": {
+			"type": "string",
+			"default": ""
+		},
+		"errorMsg": {
+			"type": "string",
+			"default": ""
+		},
+		"maxLength": {
+			"type": "number",
+			"default": 500
+		},
+		"formId": {
+			"type": "number",
+			"default": 0
+		},
+		"slug": {
+			"type": "string",
+			"default": ""
+		},
+		"className": {
+			"type": "string",
+			"default": ""
+		},
+		"customClasses": {
+			"type": "string",
+			"default": ""
+		}
+	}
+}

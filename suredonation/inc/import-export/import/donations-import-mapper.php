@@ -18,6 +18,7 @@ namespace SureDonation\Inc\Import_Export\Import;
 use SureDonation\Inc\Database\Tables\Donations;
 use SureDonation\Inc\Database\Tables\Donors;
 use SureDonation\Inc\Helper;
+use SureDonation\Inc\Import_Export\Csv_Exporter;
 use SureDonation\Inc\Import\Givewp\Email_Suppressor;
 use SureDonation\Inc\Post_Types\Donation_Form;
 use SureDonation\Inc\Traits\Get_Instance;
@@ -138,26 +139,27 @@ class Donations_Import_Mapper {
 		}
 
 		$donation = [
-			'campaign_id'      => $campaign_id,
-			'donor_id'         => $donor_id,
-			'form_id'          => $this->resolve_form( $data ),
-			'amount'           => $amount,
-			'fees_covered'     => $this->normalize_amount( $data['fees_covered'] ?? 0 ),
-			'refunded_amount'  => $this->normalize_amount( $data['refunded_amount'] ?? 0 ),
-			'currency'         => $this->fallback( sanitize_text_field( Helper::get_string_value( $data['currency'] ?? '' ) ), 'USD' ),
-			'transaction_id'   => sanitize_text_field( Helper::get_string_value( $data['transaction_id'] ?? '' ) ),
-			'gateway'          => $this->fallback( $gateway, 'offline' ),
-			'payment_status'   => $status,
-			'payment_mode'     => $mode,
-			'donor_name'       => sanitize_text_field( Helper::get_string_value( $data['donor_name'] ?? '' ) ),
-			'donor_email'      => $email,
-			'donor_phone'      => sanitize_text_field( Helper::get_string_value( $data['donor_phone'] ?? '' ) ),
-			'is_anonymous'     => $this->to_bool( $data['is_anonymous'] ?? '' ),
-			'donation_type'    => 'one-time',
-			'donor_comment'    => sanitize_textarea_field( Helper::get_string_value( $data['donor_comment'] ?? '' ) ),
-			'ip_address'       => sanitize_text_field( Helper::get_string_value( $data['ip_address'] ?? '' ) ),
-			'import_source'    => 'suredonation',
-			'import_source_id' => $source_id,
+			'campaign_id'          => $campaign_id,
+			'donor_id'             => $donor_id,
+			'form_id'              => $this->resolve_form( $data ),
+			'amount'               => $amount,
+			'fees_covered'         => $this->normalize_amount( $data['fees_covered'] ?? 0 ),
+			'refunded_amount'      => $this->normalize_amount( $data['refunded_amount'] ?? 0 ),
+			'currency'             => $this->fallback( sanitize_text_field( Helper::get_string_value( $data['currency'] ?? '' ) ), 'USD' ),
+			'transaction_id'       => sanitize_text_field( Csv_Exporter::unescape_cell( Helper::get_string_value( $data['transaction_id'] ?? '' ) ) ),
+			'gateway'              => $this->fallback( $gateway, 'offline' ),
+			'payment_status'       => $status,
+			'payment_mode'         => $mode,
+			'donor_name'           => sanitize_text_field( Csv_Exporter::unescape_cell( Helper::get_string_value( $data['donor_name'] ?? '' ) ) ),
+			'donor_email'          => $email,
+			'donor_phone'          => sanitize_text_field( Csv_Exporter::unescape_cell( Helper::get_string_value( $data['donor_phone'] ?? '' ) ) ),
+			'is_anonymous'         => $this->to_bool( $data['is_anonymous'] ?? '' ),
+			'donation_type'        => 'one-time',
+			'donor_comment'        => sanitize_textarea_field( Csv_Exporter::unescape_cell( Helper::get_string_value( $data['donor_comment'] ?? '' ) ) ),
+			'donor_comment_status' => $this->to_comment_status( $data['donor_comment_status'] ?? '' ),
+			'ip_address'           => sanitize_text_field( Helper::get_string_value( $data['ip_address'] ?? '' ) ),
+			'import_source'        => 'suredonation',
+			'import_source_id'     => $source_id,
 		];
 
 		if ( '' !== $date ) {
@@ -451,6 +453,30 @@ class Donations_Import_Mapper {
 	private function to_bool( $value ) {
 		$v = strtolower( trim( Helper::get_string_value( $value ) ) );
 		return in_array( $v, [ '1', 'yes', 'true', 'y' ], true ) ? 1 : 0;
+	}
+
+	/**
+	 * Normalize an imported donor-comment moderation status.
+	 *
+	 * Whitelisted against the column's own valid set so a typo or a translated
+	 * value cannot land an unrecognised status in the column — the public list
+	 * matches `approved` exactly, so anything else would silently hide the
+	 * comment. An absent or unrecognised value falls back to `approved`, matching
+	 * the column default: a CSV produced before this column existed still
+	 * imports, and imported history is not dumped into a review queue.
+	 *
+	 * A deliberately exported `rejected`/`pending` round-trips intact, which is
+	 * the point — without it, re-importing an export would republish every
+	 * comment a moderator had hidden.
+	 *
+	 * @param mixed $value Raw CSV value.
+	 * @return string One of Donations::get_valid_comment_statuses().
+	 * @since 1.6.0
+	 */
+	private function to_comment_status( $value ) {
+		$status = strtolower( trim( Helper::get_string_value( $value ) ) );
+
+		return in_array( $status, Donations::get_valid_comment_statuses(), true ) ? $status : 'approved';
 	}
 
 	/**

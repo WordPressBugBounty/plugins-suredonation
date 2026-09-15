@@ -1,0 +1,57 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "suredonation/campaign-donor-comments",
+	"title": "Donor Comments",
+	"description": "Displays the messages donors left with their donations to the campaign.",
+	"category": "suredonation-campaign",
+	"keywords": [ "campaign", "comments", "donors", "messages", "wall" ],
+	"textdomain": "suredonation",
+	"supports": {
+		"html": false,
+		"reusable": false
+	},
+	"example": {
+		"attributes": {
+			"preview": true
+		}
+	},
+	"attributes": {
+		"campaignId": {
+			"type": "number",
+			"default": 0
+		},
+		"commentsToShow": {
+			"type": "number",
+			"default": 5
+		},
+		"showAnonymous": {
+			"type": "boolean",
+			"default": true
+		},
+		"showAvatar": {
+			"type": "boolean",
+			"default": true
+		},
+		"showAmount": {
+			"type": "boolean",
+			"default": true
+		},
+		"showDate": {
+			"type": "boolean",
+			"default": true
+		},
+		"commentLength": {
+			"type": "number",
+			"default": 150
+		},
+		"readMoreText": {
+			"type": "string",
+			"default": ""
+		},
+		"preview": {
+			"type": "boolean",
+			"default": false
+		}
+	}
+}

@@ -64,6 +64,7 @@ class Field_Validation {
 		'suredonation/dropdown',
 		'suredonation/phone',
 		'suredonation/url',
+		'suredonation/donor-comment',
 	];
 
 	/**
@@ -199,6 +200,9 @@ class Field_Validation {
 					break;
 				case 'suredonation/url':
 					$processed_config = self::process_url_block( $block['attrs'] );
+					break;
+				case 'suredonation/donor-comment':
+					$processed_config = self::process_donor_comment_block( $block['attrs'] );
 					break;
 			}
 
@@ -409,22 +413,113 @@ class Field_Validation {
 			return [];
 		}
 
-		$payment_attrs = self::find_payment_block_attrs( parse_blocks( $post->post_content ) );
-		if ( empty( $payment_attrs ) ) {
-			return [];
-		}
+		$blocks = parse_blocks( $post->post_content );
+		$slugs  = [];
 
-		$slugs = [];
-		foreach ( [ 'customerNameField', 'customerEmailField', 'customerPhoneField', 'variableAmountField' ] as $attr ) {
-			if ( isset( $payment_attrs[ $attr ] ) && is_string( $payment_attrs[ $attr ] ) ) {
-				$slug = sanitize_text_field( $payment_attrs[ $attr ] );
-				if ( '' !== $slug ) {
-					$slugs[] = $slug;
+		$payment_attrs = self::find_payment_block_attrs( $blocks );
+		if ( ! empty( $payment_attrs ) ) {
+			foreach ( [ 'customerNameField', 'customerEmailField', 'customerPhoneField', 'variableAmountField' ] as $attr ) {
+				if ( isset( $payment_attrs[ $attr ] ) && is_string( $payment_attrs[ $attr ] ) ) {
+					$slug = sanitize_text_field( $payment_attrs[ $attr ] );
+					if ( '' !== $slug ) {
+						$slugs[] = $slug;
+					}
 				}
 			}
 		}
 
+		// The donor comment also lives in its own column, so it is excluded from
+		// the additional set for the same reason. Unlike the fields above it is not
+		// mapped on the payment block — the presence of the block is the mapping —
+		// so it is resolved from the already-parsed tree rather than through
+		// get_donor_comment_slug(), which would parse the form a second time.
+		$comment_slug = self::find_slug_by_block_name( $blocks, 'suredonation/donor-comment' );
+		if ( is_string( $comment_slug ) && '' !== $comment_slug ) {
+			$slugs[] = sanitize_text_field( $comment_slug );
+		}
+
 		return array_values( array_unique( $slugs ) );
+	}
+
+	/**
+	 * Resolve the slug of the form's Donor Comment field.
+	 *
+	 * Unlike the donor phone — which is mapped through a picker on the payment
+	 * block — the Donor Comment field is its own block, so the block's presence
+	 * in the saved form *is* the mapping. Returning the slug lets the submission
+	 * handlers read the already-validated value out of the submitted field set
+	 * and store it in the dedicated donor_comment column, rather than trusting a
+	 * separate client-supplied key. A comment posted against a form that has no
+	 * Donor Comment block is therefore ignored, matching how
+	 * Payment_Helper::get_submitted_is_anonymous() derives the anonymity option
+	 * from the saved form.
+	 *
+	 * Only one field can feed the single column: when a form somehow contains
+	 * more than one block (the editor warns against it), the first in document
+	 * order wins.
+	 *
+	 * @since 1.6.0
+	 * @param int $form_id The donation form post ID.
+	 * @return string The Donor Comment field slug, or '' when the form has none.
+	 */
+	public static function get_donor_comment_slug( $form_id ) {
+		$form_id = (int) $form_id;
+		if ( $form_id <= 0 || ! function_exists( 'parse_blocks' ) ) {
+			return '';
+		}
+
+		// form_id is attacker-chosen on a public endpoint, so confirm it really is
+		// a donation form before parsing its content — otherwise the request can
+		// aim a full block parse at any post in the database.
+		$post = get_post( $form_id );
+		if ( ! ( $post instanceof \WP_Post )
+			|| \SureDonation\Inc\Post_Types\Donation_Form::POST_TYPE !== $post->post_type
+			|| empty( $post->post_content ) ) {
+			return '';
+		}
+
+		$slug = self::find_slug_by_block_name( parse_blocks( $post->post_content ), 'suredonation/donor-comment' );
+
+		return null === $slug ? '' : sanitize_text_field( $slug );
+	}
+
+	/**
+	 * Find the `slug` attribute of the first block with the given name.
+	 *
+	 * The inverse of find_block_name_by_slug(). Walks in document order, parents
+	 * before children, so "first match" is stable and matches what the editor
+	 * shows the author.
+	 *
+	 * @since 1.6.0
+	 * @param array<mixed> $blocks     Array of parsed blocks.
+	 * @param string       $block_name Block name to look for.
+	 * @return string|null The slug, or null when the block is absent or has no slug.
+	 */
+	private static function find_slug_by_block_name( $blocks, $block_name ) {
+		if ( ! is_array( $blocks ) ) {
+			return null;
+		}
+
+		foreach ( $blocks as $block ) {
+			if ( ! is_array( $block ) ) {
+				continue;
+			}
+
+			if ( isset( $block['blockName'] ) && $block_name === $block['blockName']
+				&& isset( $block['attrs']['slug'] ) && is_string( $block['attrs']['slug'] )
+				&& '' !== $block['attrs']['slug'] ) {
+				return $block['attrs']['slug'];
+			}
+
+			if ( ! empty( $block['innerBlocks'] ) && is_array( $block['innerBlocks'] ) ) {
+				$found = self::find_slug_by_block_name( $block['innerBlocks'], $block_name );
+				if ( null !== $found ) {
+					return $found;
+				}
+			}
+		}
+
+		return null;
 	}
 
 	/**
@@ -899,6 +994,31 @@ class Field_Validation {
 	}
 
 	/**
+	 * Process donor comment block configuration.
+	 *
+	 * Stores required state, max length and the optional per-field custom
+	 * required message for server-side enforcement. Mirrors the text input's
+	 * rules — the field is a plain textarea with no format constraint.
+	 *
+	 * @param array<mixed> $attrs Block attributes.
+	 * @return array<string, mixed> Processed donor comment block configuration.
+	 * @since 1.6.0
+	 */
+	private static function process_donor_comment_block( $attrs ) {
+		$comment_config = [
+			'required'   => ! empty( $attrs['required'] ),
+			'max_length' => isset( $attrs['maxLength'] ) ? absint( Helper::get_string_value( $attrs['maxLength'] ) ) : 500,
+		];
+
+		$error_msg = isset( $attrs['errorMsg'] ) ? sanitize_text_field( Helper::get_string_value( $attrs['errorMsg'] ) ) : '';
+		if ( '' !== $error_msg ) {
+			$comment_config['error_msg'] = $error_msg;
+		}
+
+		return $comment_config;
+	}
+
+	/**
 	 * Process checkbox block configuration.
 	 *
 	 * A checkbox carries no format or range rules — only the required flag and
@@ -1100,6 +1220,7 @@ class Field_Validation {
 			'suredonation_dropdown_block_required_text' => __( 'This field is required.', 'suredonation' ),
 			'suredonation_phone_block_required_text'    => __( 'This field is required.', 'suredonation' ),
 			'suredonation_url_block_required_text'      => __( 'This field is required.', 'suredonation' ),
+			'suredonation_donor_comment_block_required_text' => __( 'This field is required.', 'suredonation' ),
 			'suredonation_valid_email'                  => __( 'Please enter a valid email address.', 'suredonation' ),
 			'suredonation_valid_number'                 => __( 'Please enter a valid number.', 'suredonation' ),
 			'suredonation_valid_phone'                  => __( 'Please enter a valid phone number.', 'suredonation' ),
@@ -1185,6 +1306,7 @@ class Field_Validation {
 
 		switch ( $block_name ) {
 			case 'suredonation/input':
+			case 'suredonation/donor-comment':
 				$max_length = isset( $config['max_length'] ) && is_numeric( $config['max_length'] ) ? (int) $config['max_length'] : 0;
 				$length     = function_exists( 'mb_strlen' ) ? mb_strlen( $value ) : strlen( $value );
 				if ( $max_length > 0 && $length > $max_length ) {

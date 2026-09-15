@@ -4,7 +4,7 @@ Donate link: https://www.paypal.me/BrainstormForce
 Tags: donation, donation form, fundraising, nonprofit, recurring donations
 Requires at least: 6.4
 Tested up to: 7.1
-Stable tag: 1.5.1
+Stable tag: 1.6.0
 Requires PHP: 8.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -186,6 +186,10 @@ This plugin connects to external services only when the related feature or payme
 
 == Changelog ==
 
+= 1.6.0 - 15th September 2026 =
+* New: Added a Donor Comments field so supporters can leave a note with their donation.
+* New: Added support for the Polish Złoty (PLN) currency.
+
 = 1.5.1 - 9th September 2026 =
 * New: Added a Charitable migration tool that imports campaigns, donors, and donations.
 * New: Added a Checkbox field to the donation form editor.
@@ -203,14 +207,5 @@ This plugin connects to external services only when the related feature or payme
 * Improvement: Added WordPress 7.1 Compatibility.
 * Improvement: Updated the previews shown in the block inserter for SureDonation field and campaign blocks.
 * Improvement: Expanded WordPress Abilities API coverage.
-
-= 1.4.0 - 6th August 2026 =
-* New: Added a live preview of the selected form in the Donation Form block editor.
-* New: Added quick access to the form editor from the Donation Form block and Elementor widget.
-* New: Added payment gateway setup guidance for administrators on the donation form.
-* Improvement: Improved anonymous donation handling and reporting.
-* Improvement: Improved Stripe and PayPal connection and webhook handling.
-* Improvement: Strengthened payment validation and gateway endpoint security.
-* Fix: Resolved an issue with the email notification logic.
 
 The full changelog is available [here](https://suredonation.com/whats-new/?utm_source=wordpress.org&utm_medium=whats_new).

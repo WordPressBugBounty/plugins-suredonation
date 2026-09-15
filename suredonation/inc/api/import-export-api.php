@@ -227,6 +227,11 @@ class Import_Export_API {
 				// row is raw for the same reason.
 				! empty( $donation['is_anonymous'] ) ? 'yes' : 'no',
 				$donation['donor_comment'] ?? '',
+				// Untranslated on purpose, same as the anonymity flag above: this is
+				// the column that decides whether a comment is public, so a translated
+				// or missing value on re-import would republish comments a moderator
+				// had rejected.
+				$donation['donor_comment_status'] ?? '',
 				$donation['ip_address'] ?? '',
 				$donation['created_at'] ?? '',
 				$donation['import_source'] ?? '',

@@ -620,7 +620,7 @@ class Donors extends Base {
 	 * @param  float $amount      Donation amount.
 	 * @param  int   $donation_id Donation row ID this call is for.
 	 * @return bool True when this call recorded it, false when already recorded or invalid.
-	 * @since  x.x.x
+	 * @since  1.6.0
 	 */
 	public static function record_donation_once( $donor_id, $amount, $donation_id ) {
 		$donation_id = absint( $donation_id );

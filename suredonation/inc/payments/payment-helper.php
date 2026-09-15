@@ -521,6 +521,11 @@ class Payment_Helper {
 				'symbol'         => 'kr',
 				'decimal_places' => 2,
 			],
+			'PLN' => [
+				'name'           => __( 'Polish Złoty', 'suredonation' ),
+				'symbol'         => 'zł',
+				'decimal_places' => 2,
+			],
 			'KRW' => [
 				'name'           => __( 'South Korean Won', 'suredonation' ),
 				'symbol'         => '₩',
@@ -1748,6 +1753,94 @@ class Payment_Helper {
 
 		// Cap to the donor_phone column width to avoid truncation/abort on write.
 		return mb_substr( $value, 0, 50 );
+	}
+
+	/**
+	 * Resolve the donor comment for storage from the submitted form fields.
+	 *
+	 * The Donor Comment field is an ordinary field block, so its value arrives
+	 * through the standard `fields[slug]` channel that every gateway already
+	 * forwards — there is no separate `donor_comment` request key to trust. The
+	 * slug is derived server-side from the saved form (see
+	 * Field_Validation::get_donor_comment_slug()), so a comment posted against a
+	 * form that offers no comment field is ignored, exactly as
+	 * get_submitted_is_anonymous() ignores an unoffered anonymity flag.
+	 *
+	 * The value is capped to the field's configured maximum length rather than a
+	 * column width — donor_comment is TEXT, so the cap exists to honour the
+	 * author's setting against a client that ignores the maxlength attribute.
+	 * Field-level validation has already rejected an over-long value by the time
+	 * the handlers call this; the cap is the belt-and-braces write guard.
+	 *
+	 * The caller verifies the nonce/HMAC token.
+	 *
+	 * @since 1.6.0
+	 * @param int $form_id The donation form post ID.
+	 * @return string The donor comment, or '' when the form has no comment field.
+	 */
+	public static function get_mapped_donor_comment( $form_id ) {
+		$form_id = (int) $form_id;
+		if ( $form_id <= 0 ) {
+			return '';
+		}
+
+		$comment_slug = \SureDonation\Inc\Field_Validation::get_donor_comment_slug( $form_id );
+		if ( '' === $comment_slug ) {
+			return '';
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce/HMAC verified by the calling handler.
+		if ( ! isset( $_POST['fields'] ) || ! is_array( $_POST['fields'] ) ) {
+			return '';
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Token verified by caller; value sanitized below.
+		$raw   = wp_unslash( $_POST['fields'] );
+		$field = $raw[ $comment_slug ] ?? '';
+		$value = is_array( $field ) ? ( $field['value'] ?? '' ) : $field;
+
+		// sanitize_textarea_field (not sanitize_text_field) so the donor's own line
+		// breaks survive — this is a message, not a single-line value.
+		$value = sanitize_textarea_field( is_string( $value ) ? $value : '' );
+
+		return mb_substr( $value, 0, self::get_donor_comment_max_length( $form_id ) );
+	}
+
+	/**
+	 * Resolve the configured maximum length of a form's Donor Comment field.
+	 *
+	 * Read from the block configuration persisted on save (never from the
+	 * request), falling back to the block's own default when the form predates
+	 * the stored config or the field carries no explicit setting.
+	 *
+	 * @since 1.6.0
+	 * @param int $form_id The donation form post ID.
+	 * @return int Maximum number of characters allowed.
+	 */
+	private static function get_donor_comment_max_length( $form_id ) {
+		$default = 500;
+		$config  = \SureDonation\Inc\Field_Validation::get_or_migrate_block_config_for_legacy_form( (int) $form_id );
+
+		if ( ! is_array( $config ) ) {
+			return $default;
+		}
+
+		foreach ( $config as $block_config ) {
+			if ( ! is_array( $block_config ) || ! isset( $block_config['max_length'] ) ) {
+				continue;
+			}
+
+			if ( ! isset( $block_config['block_name'] ) || 'suredonation/donor-comment' !== $block_config['block_name'] ) {
+				continue;
+			}
+
+			$max = absint( Helper::get_string_value( $block_config['max_length'] ) );
+			if ( $max > 0 ) {
+				return $max;
+			}
+		}
+
+		return $default;
 	}
 
 	/**

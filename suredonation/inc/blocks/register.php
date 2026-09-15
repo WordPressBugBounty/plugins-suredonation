@@ -704,6 +704,8 @@ class Register {
 				'email'                   => $base . 'email.svg',
 				'number'                  => $base . 'number.svg',
 				'checkbox'                => $base . 'checkbox.svg',
+				// A multi-line message field — the textarea art, not the text input's.
+				'donor_comment'           => $base . 'donor-comment.svg',
 				// Anonymous-donation and cover-fees both render a single checkbox.
 				'anonymous_donation'      => $base . 'checkbox.svg',
 				'cover_fees'              => $base . 'checkbox.svg',
@@ -724,6 +726,7 @@ class Register {
 				'campaign_stats'          => $base . 'campaign-stats.svg',
 				'campaign_donations'      => $base . 'campaign-donations.svg',
 				'campaign_donors'         => $base . 'campaign-donors.svg',
+				'campaign_donor_comments' => $base . 'campaign-donor-comments.svg',
 				'campaign_social_sharing' => $base . 'campaign-social-sharing.svg',
 				'campaign_donate_button'  => $base . 'button.svg',
 				// Fallback for any block without its own image.

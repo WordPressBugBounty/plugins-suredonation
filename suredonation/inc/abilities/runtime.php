@@ -2406,6 +2406,13 @@ class Runtime {
 			'donation_type'          => $donation['donation_type'] ?? 'one-time',
 			'is_anonymous'           => ! empty( $donation['is_anonymous'] ),
 			'donor_comment'          => $donation['donor_comment'] ?? '',
+			// Alongside the comment, because the comment alone does not say
+			// whether it is public: with "Hold donor comments for review" on it
+			// is 'pending' and hidden, and a rejected one is kept but never
+			// shown. The REST detail response and the CSV export both carry
+			// this, so an agent reading a donation should not be the only
+			// consumer that cannot tell.
+			'donor_comment_status'   => $donation['donor_comment_status'] ?? 'approved',
 			'payment_status'         => $donation['payment_status'] ?? 'pending',
 			'payment_mode'           => $donation['payment_mode'] ?? 'test',
 			'gateway'                => $donation['gateway'] ?? '',

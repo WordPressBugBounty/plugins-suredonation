@@ -74,7 +74,10 @@ class Offline_Frontend {
 		// Derive the donor phone from the validated mapped field, not a separate
 		// unvalidated $_POST['donor_phone'] (see Payment_Helper::get_mapped_donor_phone).
 		$donor_phone = Payment_Helper::get_mapped_donor_phone( $form_id );
-		$block_id    = isset( $_POST['block_id'] ) ? sanitize_text_field( wp_unslash( $_POST['block_id'] ) ) : '';
+		// Likewise for the optional public message, read from the form's Donor
+		// Comment field (see Payment_Helper::get_mapped_donor_comment).
+		$donor_comment = Payment_Helper::get_mapped_donor_comment( $form_id );
+		$block_id      = isset( $_POST['block_id'] ) ? sanitize_text_field( wp_unslash( $_POST['block_id'] ) ) : '';
 		// Display-only flag: the donor's real name/email/phone are still stored
 		// below and only public surfaces mask them.
 		$is_anonymous = Payment_Helper::get_submitted_is_anonymous( $form_id );
@@ -138,18 +141,18 @@ class Offline_Frontend {
 		// Create donation record.
 		$donation_id = Donations::add(
 			[
-				'campaign_id'    => $campaign_id,
-				'donor_id'       => $donor_id ? $donor_id : 0,
-				'amount'         => $amount,
-				'fees_covered'   => 0,
-				'currency'       => $currency,
-				'gateway'        => 'offline',
-				'payment_status' => 'pending',
-				'payment_mode'   => Payment_Helper::get_payment_mode(),
-				'donor_name'     => $donor_name,
-				'donor_email'    => $donor_email,
-				'donor_phone'    => $donor_phone,
-				'is_anonymous'   => $is_anonymous ? 1 : 0,
+				'campaign_id'          => $campaign_id,
+				'donor_id'             => $donor_id ? $donor_id : 0,
+				'amount'               => $amount,
+				'fees_covered'         => 0,
+				'currency'             => $currency,
+				'gateway'              => 'offline',
+				'payment_status'       => 'pending',
+				'payment_mode'         => Payment_Helper::get_payment_mode(),
+				'donor_name'           => $donor_name,
+				'donor_email'          => $donor_email,
+				'donor_phone'          => $donor_phone,
+				'is_anonymous'         => $is_anonymous ? 1 : 0,
 				// Always one-time, whatever the block is configured for: an offline
 				// pledge has no instrument to charge on a schedule. The payment-type
 				// guard the Stripe and PayPal extractors run is deliberately NOT
@@ -157,11 +160,13 @@ class Offline_Frontend {
 				// recurring form, which is the failure it exists to prevent, not
 				// cause. Whether such a form should offer offline at all is a
 				// separate product question.
-				'donation_type'  => 'one-time',
-				'form_id'        => $form_id,
-				'ip_address'     => Helper::get_client_ip(),
-				'user_agent'     => isset( $_SERVER['HTTP_USER_AGENT'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ) : '',
-				'referer_url'    => isset( $_SERVER['HTTP_REFERER'] ) ? esc_url_raw( wp_unslash( $_SERVER['HTTP_REFERER'] ) ) : '',
+				'donation_type'        => 'one-time',
+				'donor_comment'        => $donor_comment,
+				'donor_comment_status' => Donations::initial_comment_status( $donor_comment ),
+				'form_id'              => $form_id,
+				'ip_address'           => Helper::get_client_ip(),
+				'user_agent'           => isset( $_SERVER['HTTP_USER_AGENT'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ) : '',
+				'referer_url'          => isset( $_SERVER['HTTP_REFERER'] ) ? esc_url_raw( wp_unslash( $_SERVER['HTTP_REFERER'] ) ) : '',
 			]
 		);
 

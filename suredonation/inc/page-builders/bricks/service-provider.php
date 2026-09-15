@@ -64,6 +64,7 @@ class Service_Provider {
 			__DIR__ . '/elements/campaign-goal.php'      => Elements\Campaign_Goal::class,
 			__DIR__ . '/elements/campaign-stats.php'     => Elements\Campaign_Stats::class,
 			__DIR__ . '/elements/campaign-donations.php' => Elements\Campaign_Donations::class,
+			__DIR__ . '/elements/campaign-donor-comments.php' => Elements\Campaign_Donor_Comments::class,
 			__DIR__ . '/elements/campaign-donors.php'    => Elements\Campaign_Donors::class,
 			__DIR__ . '/elements/campaign-donate-button.php' => Elements\Campaign_Donate_Button::class,
 			__DIR__ . '/elements/campaign-social-sharing.php' => Elements\Campaign_Social_Sharing::class,

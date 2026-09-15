@@ -63,6 +63,36 @@ class Csv_Exporter {
 	}
 
 	/**
+	 * Undo escape_cell() on a value read back from a CSV.
+	 *
+	 * The inverse of the guard above, so an export -> import round trip returns
+	 * the value the donor actually wrote. Without it a comment that began with
+	 * a formula character comes back one apostrophe longer every trip, and that
+	 * text is published on the campaign page.
+	 *
+	 * Only strips a leading apostrophe when the character after it is one this
+	 * class would have escaped — so a value the donor genuinely began with an
+	 * apostrophe ("'til next year") is left alone.
+	 *
+	 * @param string $value Raw cell value from the CSV.
+	 * @return string Value without the injected guard.
+	 * @since 1.6.0
+	 */
+	public static function unescape_cell( $value ) {
+		if ( ! is_string( $value ) || 2 > strlen( $value ) || "'" !== $value[0] ) {
+			return is_string( $value ) ? $value : '';
+		}
+
+		$stripped = ltrim( substr( $value, 1 ) );
+
+		if ( '' !== $stripped && in_array( $stripped[0], self::FORMULA_PREFIXES, true ) ) {
+			return substr( $value, 1 );
+		}
+
+		return $value;
+	}
+
+	/**
 	 * Build a CSV string from an array of rows.
 	 *
 	 * Every cell is passed through escape_cell() so callers cannot forget the

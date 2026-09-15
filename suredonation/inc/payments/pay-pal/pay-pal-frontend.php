@@ -101,7 +101,7 @@ class PayPal_Frontend {
 		/**
 		 * Extract validated form data.
 		 *
-		 * @phpstan-var array{currency: string, amount: float, base_amount: float, fees_covered: float, donor_email: string, donor_name: string, donor_phone: string, is_anonymous: bool, campaign_id: int, form_id: int, campaign_title: string} $data
+		 * @phpstan-var array{currency: string, amount: float, base_amount: float, fees_covered: float, donor_email: string, donor_name: string, donor_phone: string, donor_comment: string, is_anonymous: bool, campaign_id: int, form_id: int, campaign_title: string} $data
 		 */
 		$currency       = $data['currency'];
 		$amount         = $data['amount'];
@@ -110,6 +110,7 @@ class PayPal_Frontend {
 		$donor_email    = $data['donor_email'];
 		$donor_name     = $data['donor_name'];
 		$donor_phone    = $data['donor_phone'];
+		$donor_comment  = $data['donor_comment'];
 		$is_anonymous   = $data['is_anonymous'];
 		$campaign_id    = $data['campaign_id'];
 		$form_id        = $data['form_id'];
@@ -188,24 +189,26 @@ class PayPal_Frontend {
 		$request_meta = Helper::get_request_meta();
 		$donation_id  = Donations::add(
 			[
-				'campaign_id'    => $campaign_id,
-				'donor_id'       => $donor_id ? $donor_id : 0,
-				'amount'         => number_format( $base_amount, 2, '.', '' ),
-				'fees_covered'   => number_format( $fees_covered, 2, '.', '' ),
-				'currency'       => $currency,
-				'gateway'        => 'paypal',
-				'payment_status' => 'pending',
-				'payment_mode'   => $mode,
-				'donor_name'     => $donor_name,
-				'donor_email'    => $donor_email,
-				'donor_phone'    => $donor_phone,
-				'is_anonymous'   => $is_anonymous ? 1 : 0,
-				'donation_type'  => 'one-time',
-				'transaction_id' => $order_id,
-				'form_id'        => $form_id,
-				'ip_address'     => Helper::get_client_ip(),
-				'user_agent'     => $request_meta['user_agent'],
-				'referer_url'    => $request_meta['referer_url'],
+				'campaign_id'          => $campaign_id,
+				'donor_id'             => $donor_id ? $donor_id : 0,
+				'amount'               => number_format( $base_amount, 2, '.', '' ),
+				'fees_covered'         => number_format( $fees_covered, 2, '.', '' ),
+				'currency'             => $currency,
+				'gateway'              => 'paypal',
+				'payment_status'       => 'pending',
+				'payment_mode'         => $mode,
+				'donor_name'           => $donor_name,
+				'donor_email'          => $donor_email,
+				'donor_phone'          => $donor_phone,
+				'is_anonymous'         => $is_anonymous ? 1 : 0,
+				'donation_type'        => 'one-time',
+				'donor_comment'        => $donor_comment,
+				'donor_comment_status' => Donations::initial_comment_status( $donor_comment ),
+				'transaction_id'       => $order_id,
+				'form_id'              => $form_id,
+				'ip_address'           => Helper::get_client_ip(),
+				'user_agent'           => $request_meta['user_agent'],
+				'referer_url'          => $request_meta['referer_url'],
 			]
 		);
 
@@ -628,7 +631,10 @@ class PayPal_Frontend {
 		// Derive the donor phone from the validated mapped field, not a separate
 		// unvalidated $_POST['donor_phone'] (see Payment_Helper::get_mapped_donor_phone).
 		$donor_phone = Payment_Helper::get_mapped_donor_phone( $form_id );
-		$block_id    = isset( $_POST['block_id'] ) ? sanitize_text_field( wp_unslash( $_POST['block_id'] ) ) : '';
+		// Likewise for the optional public message, read from the form's Donor
+		// Comment field (see Payment_Helper::get_mapped_donor_comment).
+		$donor_comment = Payment_Helper::get_mapped_donor_comment( $form_id );
+		$block_id      = isset( $_POST['block_id'] ) ? sanitize_text_field( wp_unslash( $_POST['block_id'] ) ) : '';
 		// Display-only flag: the donor's real name/email/phone are still stored
 		// and only public surfaces mask them.
 		$is_anonymous = Payment_Helper::get_submitted_is_anonymous( $form_id );
@@ -766,6 +772,7 @@ class PayPal_Frontend {
 			'donor_email'    => $donor_email,
 			'donor_name'     => $donor_name,
 			'donor_phone'    => $donor_phone,
+			'donor_comment'  => $donor_comment,
 			'is_anonymous'   => $is_anonymous,
 			'form_id'        => $form_id,
 			'block_id'       => $block_id,

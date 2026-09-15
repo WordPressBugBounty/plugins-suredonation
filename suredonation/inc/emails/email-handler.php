@@ -175,7 +175,7 @@ class Email_Handler {
 	 * @param  string $event       Email event.
 	 * @param  int    $donation_id Donation ID.
 	 * @return string
-	 * @since  x.x.x
+	 * @since  1.6.0
 	 */
 	public static function sent_marker_key( $event, $donation_id ) {
 		return 'suredonation_email_sent_' . (string) $event . '_' . absint( $donation_id );
@@ -192,7 +192,7 @@ class Email_Handler {
 	 * @param  int    $donation_id Donation ID.
 	 * @param  string $event       Email event; defaults to the donation receipt.
 	 * @return bool
-	 * @since  x.x.x
+	 * @since  1.6.0
 	 */
 	public static function has_sent( $donation_id, $event = self::EVENT_DONATION_COMPLETED ) {
 		return (bool) get_transient( self::sent_marker_key( $event, $donation_id ) );

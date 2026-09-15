@@ -513,7 +513,7 @@ class PayPal_Helper {
 	 * @param  int         $form_id The donation form post ID.
 	 * @param  string|null $mode    Payment mode, or null for the current one.
 	 * @return array{capture: string, subscription: string}
-	 * @since  x.x.x
+	 * @since  1.6.0
 	 */
 	public static function get_sdk_urls( $form_id, $mode = null ) {
 		$capture      = self::get_sdk_url( $form_id, $mode, 'capture' );

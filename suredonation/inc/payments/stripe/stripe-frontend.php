@@ -115,20 +115,21 @@ class Stripe_Frontend {
 			);
 		}
 
-		$data         = $this->extract_donation_form_data();
-		$campaign_id  = $data['campaign_id'];
-		$amount       = $data['amount'];
-		$base_amount  = $data['base_amount'];
-		$cover_fees   = $data['cover_fees'];
-		$donor_email  = $data['donor_email'];
-		$donor_name   = $data['donor_name'];
-		$donor_phone  = $data['donor_phone'];
-		$is_anonymous = $data['is_anonymous'];
-		$fees_covered = $data['fees_covered'];
-		$currency     = $data['currency'];
-		$customer_id  = $data['customer_id'];
-		$campaign     = $data['campaign'];
-		$form_id      = $data['form_id'];
+		$data          = $this->extract_donation_form_data();
+		$campaign_id   = $data['campaign_id'];
+		$amount        = $data['amount'];
+		$base_amount   = $data['base_amount'];
+		$cover_fees    = $data['cover_fees'];
+		$donor_email   = $data['donor_email'];
+		$donor_name    = $data['donor_name'];
+		$donor_phone   = $data['donor_phone'];
+		$donor_comment = $data['donor_comment'];
+		$is_anonymous  = $data['is_anonymous'];
+		$fees_covered  = $data['fees_covered'];
+		$currency      = $data['currency'];
+		$customer_id   = $data['customer_id'];
+		$campaign      = $data['campaign'];
+		$form_id       = $data['form_id'];
 
 		// Account this form charges to — resolved in extract_donation_form_data so the
 		// customer (created there) and the payment intent use the same account.
@@ -202,6 +203,7 @@ class Stripe_Frontend {
 				'fees_covered'      => $fees_covered,
 				'form_id'           => $form_id,
 				'donor_phone'       => $donor_phone,
+				'donor_comment'     => $donor_comment,
 				'is_anonymous'      => $is_anonymous,
 				'stripe_account_id' => $stripe_account_id,
 			]
@@ -483,7 +485,7 @@ class Stripe_Frontend {
 	 *
 	 * Calls wp_send_json_error() and exits on validation failure.
 	 *
-	 * @return array{campaign_id: int, is_standalone: bool, amount: float, base_amount: float, cover_fees: bool, donor_email: string, donor_name: string, donor_phone: string, is_anonymous: bool, form_id: int, block_id: string, fees_covered: float, currency: string, customer_id: string, stripe_account_id: string, campaign: \WP_Post|null} Validated form data.
+	 * @return array{campaign_id: int, is_standalone: bool, amount: float, base_amount: float, cover_fees: bool, donor_email: string, donor_name: string, donor_phone: string, donor_comment: string, is_anonymous: bool, form_id: int, block_id: string, fees_covered: float, currency: string, customer_id: string, stripe_account_id: string, campaign: \WP_Post|null} Validated form data.
 	 * @since 1.0.0
 	 */
 	private function extract_donation_form_data() {
@@ -500,7 +502,10 @@ class Stripe_Frontend {
 		// Derive the donor phone from the validated mapped field, not a separate
 		// unvalidated $_POST['donor_phone'] (see Payment_Helper::get_mapped_donor_phone).
 		$donor_phone = Payment_Helper::get_mapped_donor_phone( $form_id );
-		$block_id    = isset( $_POST['block_id'] ) ? sanitize_text_field( wp_unslash( $_POST['block_id'] ) ) : '';
+		// Likewise for the optional public message, read from the form's Donor
+		// Comment field (see Payment_Helper::get_mapped_donor_comment).
+		$donor_comment = Payment_Helper::get_mapped_donor_comment( $form_id );
+		$block_id      = isset( $_POST['block_id'] ) ? sanitize_text_field( wp_unslash( $_POST['block_id'] ) ) : '';
 		// Display-only flag: the donor's real name/email/phone are still stored
 		// and only public surfaces mask them.
 		$is_anonymous = Payment_Helper::get_submitted_is_anonymous( $form_id );
@@ -626,6 +631,7 @@ class Stripe_Frontend {
 			'donor_email',
 			'donor_name',
 			'donor_phone',
+			'donor_comment',
 			'is_anonymous',
 			'form_id',
 			'block_id',
@@ -648,7 +654,7 @@ class Stripe_Frontend {
 	 * that neither complete_donation() nor the webhook can ever match, leaving a
 	 * charged donor with a permanently pending record.
 	 *
-	 * @param array{campaign_id: int, amount: float, donor_email: string, donor_name: string, transaction_id: string, customer_id: string, fees_covered?: float, form_id?: int, donor_phone?: string, is_anonymous?: bool, stripe_account_id?: string} $args Donation arguments.
+	 * @param array{campaign_id: int, amount: float, donor_email: string, donor_name: string, transaction_id: string, customer_id: string, fees_covered?: float, form_id?: int, donor_phone?: string, donor_comment?: string, is_anonymous?: bool, stripe_account_id?: string} $args Donation arguments.
 	 * @return int|\WP_Error Donation ID or error.
 	 * @since 0.0.1
 	 */
@@ -662,6 +668,7 @@ class Stripe_Frontend {
 		$fees_covered      = (float) ( $args['fees_covered'] ?? 0.0 );
 		$form_id           = absint( $args['form_id'] ?? 0 );
 		$donor_phone       = $args['donor_phone'] ?? '';
+		$donor_comment     = $args['donor_comment'] ?? '';
 		$is_anonymous      = ! empty( $args['is_anonymous'] );
 		$stripe_account_id = $args['stripe_account_id'] ?? '';
 
@@ -684,26 +691,28 @@ class Stripe_Frontend {
 		// Create donation in database table.
 		$donation_id = Donations::add(
 			[
-				'campaign_id'       => $campaign_id,
-				'donor_id'          => $donor_id ? $donor_id : 0,
-				'amount'            => $amount,
-				'fees_covered'      => $fees_covered,
-				'currency'          => Payment_Helper::get_currency(),
-				'gateway'           => 'stripe',
-				'payment_status'    => 'pending',
-				'payment_mode'      => Payment_Helper::get_payment_mode(),
-				'donor_name'        => $donor_name,
-				'donor_email'       => $donor_email,
-				'donor_phone'       => $donor_phone,
-				'is_anonymous'      => $is_anonymous ? 1 : 0,
-				'donation_type'     => 'one-time',
-				'transaction_id'    => $transaction_id,
-				'customer_id'       => $customer_id,
-				'stripe_account_id' => $stripe_account_id,
-				'form_id'           => $form_id,
-				'ip_address'        => Helper::get_client_ip(),
-				'user_agent'        => isset( $_SERVER['HTTP_USER_AGENT'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ) : '',
-				'referer_url'       => isset( $_SERVER['HTTP_REFERER'] ) ? esc_url_raw( wp_unslash( $_SERVER['HTTP_REFERER'] ) ) : '',
+				'campaign_id'          => $campaign_id,
+				'donor_id'             => $donor_id ? $donor_id : 0,
+				'amount'               => $amount,
+				'fees_covered'         => $fees_covered,
+				'currency'             => Payment_Helper::get_currency(),
+				'gateway'              => 'stripe',
+				'payment_status'       => 'pending',
+				'payment_mode'         => Payment_Helper::get_payment_mode(),
+				'donor_name'           => $donor_name,
+				'donor_email'          => $donor_email,
+				'donor_phone'          => $donor_phone,
+				'is_anonymous'         => $is_anonymous ? 1 : 0,
+				'donation_type'        => 'one-time',
+				'donor_comment'        => $donor_comment,
+				'donor_comment_status' => Donations::initial_comment_status( $donor_comment ),
+				'transaction_id'       => $transaction_id,
+				'customer_id'          => $customer_id,
+				'stripe_account_id'    => $stripe_account_id,
+				'form_id'              => $form_id,
+				'ip_address'           => Helper::get_client_ip(),
+				'user_agent'           => isset( $_SERVER['HTTP_USER_AGENT'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ) : '',
+				'referer_url'          => isset( $_SERVER['HTTP_REFERER'] ) ? esc_url_raw( wp_unslash( $_SERVER['HTTP_REFERER'] ) ) : '',
 			]
 		);
 

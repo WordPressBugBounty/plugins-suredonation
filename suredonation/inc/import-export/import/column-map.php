@@ -156,6 +156,11 @@ class Column_Map {
 				'aliases'  => [ 'donor comment', 'comment', 'donor_comment' ],
 				'required' => false,
 			],
+			'donor_comment_status'   => [
+				'label'    => __( 'Comment Status', 'suredonation' ),
+				'aliases'  => [ 'comment status', 'donor comment status', 'donor_comment_status' ],
+				'required' => false,
+			],
 			'ip_address'             => [
 				'label'    => __( 'IP Address', 'suredonation' ),
 				'aliases'  => [ 'ip address', 'ip', 'ip_address' ],
@@ -435,6 +440,7 @@ class Column_Map {
 			__( 'Parent Subscription ID', 'suredonation' ),
 			__( 'Anonymous', 'suredonation' ),
 			__( 'Donor Comment', 'suredonation' ),
+			__( 'Comment Status', 'suredonation' ),
 			__( 'IP Address', 'suredonation' ),
 			__( 'Date', 'suredonation' ),
 			__( 'Import Source', 'suredonation' ),

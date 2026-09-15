@@ -813,6 +813,10 @@ class Config_Ability {
 						'donation_type'          => [ 'type' => 'string' ],
 						'is_anonymous'           => [ 'type' => 'boolean' ],
 						'donor_comment'          => [ 'type' => 'string' ],
+						'donor_comment_status'   => [
+							'type' => 'string',
+							'enum' => [ 'approved', 'pending', 'rejected' ],
+						],
 						'payment_status'         => [ 'type' => 'string' ],
 						'payment_mode'           => [ 'type' => 'string' ],
 						'gateway'                => [ 'type' => 'string' ],

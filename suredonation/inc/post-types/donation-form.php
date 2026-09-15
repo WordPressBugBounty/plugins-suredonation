@@ -271,6 +271,7 @@ class Donation_Form {
 			'suredonation/address',
 			'suredonation/phone',
 			'suredonation/url',
+			'suredonation/donor-comment',
 			'suredonation/heading',
 			'suredonation/html',
 			'suredonation/image',

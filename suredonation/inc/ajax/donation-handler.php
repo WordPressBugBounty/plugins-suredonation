@@ -133,9 +133,8 @@ class Donation_Handler {
 		$cover_fees = isset( $_POST['cover_fees'] ) && 'true' === $_POST['cover_fees'];
 		// The anonymous flag is display-only: the donor's real name is stored as
 		// usual below and only public surfaces mask it.
-		$donor_name    = sanitize_text_field( wp_unslash( $_POST['donor_name'] ?? '' ) );
-		$donor_email   = sanitize_email( wp_unslash( $_POST['donor_email'] ?? '' ) );
-		$donor_comment = sanitize_textarea_field( wp_unslash( $_POST['donor_comment'] ?? '' ) );
+		$donor_name  = sanitize_text_field( wp_unslash( $_POST['donor_name'] ?? '' ) );
+		$donor_email = sanitize_email( wp_unslash( $_POST['donor_email'] ?? '' ) );
 
 		// Get form_id and block_id for amount validation.
 		$form_id      = isset( $_POST['form_id'] ) ? absint( $_POST['form_id'] ) : 0;
@@ -143,7 +142,11 @@ class Donation_Handler {
 		// Derive the donor phone from the validated mapped field, not a separate
 		// unvalidated $_POST['donor_phone'] (see Payment_Helper::get_mapped_donor_phone).
 		$donor_phone = Payment_Helper::get_mapped_donor_phone( $form_id );
-		$block_id    = isset( $_POST['block_id'] ) ? sanitize_text_field( wp_unslash( $_POST['block_id'] ) ) : '';
+		// Likewise derive the comment from the form's Donor Comment field rather
+		// than an unvalidated $_POST['donor_comment'] (see
+		// Payment_Helper::get_mapped_donor_comment).
+		$donor_comment = Payment_Helper::get_mapped_donor_comment( $form_id );
+		$block_id      = isset( $_POST['block_id'] ) ? sanitize_text_field( wp_unslash( $_POST['block_id'] ) ) : '';
 
 		// Validate required fields.
 		if ( $amount <= 0 ) {
@@ -205,24 +208,25 @@ class Donation_Handler {
 		// Create donation in database.
 		$donation_id = Donations::add(
 			[
-				'campaign_id'    => $campaign_id,
-				'donor_id'       => $donor_id ? $donor_id : 0,
-				'amount'         => number_format( $base_amount, 2, '.', '' ),
-				'fees_covered'   => number_format( $fees_covered, 2, '.', '' ),
-				'currency'       => Payment_Helper::get_currency(),
-				'gateway'        => 'manual',
-				'payment_status' => 'pending',
-				'payment_mode'   => $payment_mode,
-				'donor_name'     => $donor_name,
-				'donor_email'    => $donor_email,
-				'donor_phone'    => $donor_phone,
-				'is_anonymous'   => $is_anonymous ? 1 : 0,
-				'donation_type'  => 'one-time',
-				'donor_comment'  => $donor_comment,
-				'form_id'        => $form_id,
-				'ip_address'     => Helper::get_client_ip(),
-				'user_agent'     => isset( $_SERVER['HTTP_USER_AGENT'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ) : '',
-				'referer_url'    => isset( $_SERVER['HTTP_REFERER'] ) ? esc_url_raw( wp_unslash( $_SERVER['HTTP_REFERER'] ) ) : '',
+				'campaign_id'          => $campaign_id,
+				'donor_id'             => $donor_id ? $donor_id : 0,
+				'amount'               => number_format( $base_amount, 2, '.', '' ),
+				'fees_covered'         => number_format( $fees_covered, 2, '.', '' ),
+				'currency'             => Payment_Helper::get_currency(),
+				'gateway'              => 'manual',
+				'payment_status'       => 'pending',
+				'payment_mode'         => $payment_mode,
+				'donor_name'           => $donor_name,
+				'donor_email'          => $donor_email,
+				'donor_phone'          => $donor_phone,
+				'is_anonymous'         => $is_anonymous ? 1 : 0,
+				'donation_type'        => 'one-time',
+				'donor_comment'        => $donor_comment,
+				'donor_comment_status' => Donations::initial_comment_status( $donor_comment ),
+				'form_id'              => $form_id,
+				'ip_address'           => Helper::get_client_ip(),
+				'user_agent'           => isset( $_SERVER['HTTP_USER_AGENT'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ) : '',
+				'referer_url'          => isset( $_SERVER['HTTP_REFERER'] ) ? esc_url_raw( wp_unslash( $_SERVER['HTTP_REFERER'] ) ) : '',
 			]
 		);
 

@@ -204,6 +204,45 @@ class Campaign_Stats {
 	}
 
 	/**
+	 * Get the approved donor comments for a campaign.
+	 *
+	 * Only completed (or partially refunded) donations qualify, matching the
+	 * recent-donations list — a comment on a pending or failed payment is not a
+	 * donation the campaign received. `rejected` and `pending` comments are
+	 * excluded here rather than filtered in PHP so a moderated comment never
+	 * reaches the render path or the cache.
+	 *
+	 * @param int $campaign_id Campaign post ID.
+	 * @param int $limit Number of comments to retrieve.
+	 * @return array<int, array<string, mixed>>|null Donor comments.
+	 * @since 1.6.0
+	 */
+	public static function get_donor_comments( $campaign_id, $limit = 10 ) {
+		global $wpdb;
+
+		$donations_table = $wpdb->prefix . 'suredonation_donations';
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, (amount - refunded_amount) as amount, donor_name, donor_email, is_anonymous, donor_comment, created_at
+				FROM %i
+				WHERE campaign_id = %d
+				AND payment_status IN ('completed', 'partially_refunded')
+				AND donor_comment_status = 'approved'
+				AND donor_comment IS NOT NULL
+				AND donor_comment != ''
+				ORDER BY created_at DESC
+				LIMIT %d",
+				$donations_table,
+				$campaign_id,
+				$limit
+			),
+			ARRAY_A
+		);
+	}
+
+	/**
 	 * Get donation timeline (grouped by date).
 	 *
 	 * @param int $campaign_id Campaign post ID.
@@ -290,6 +329,59 @@ class Campaign_Stats {
 	}
 
 	/**
+	 * Get cached donor comments for a campaign.
+	 *
+	 * Caches a fixed window per campaign (see LIST_CACHE_SIZE) and slices to the
+	 * requested limit, so the public donor-comments block doesn't hit the
+	 * database on every page view.
+	 *
+	 * `$exclude_anonymous` is applied to the whole cached window before the
+	 * slice, which is why it belongs here rather than in the caller. Filtering
+	 * after a slice means a run of anonymous comments at the top can consume the
+	 * entire slice and render an empty list while non-anonymous approved comments
+	 * sit just past it. The cached window is materialised in full either way, so
+	 * filtering it costs nothing extra. The transient is deliberately keyed per
+	 * campaign only — it always holds the unfiltered window, so both callers
+	 * share one entry.
+	 *
+	 * The ceiling is LIST_CACHE_SIZE: more than that many consecutive anonymous
+	 * comments at the top of a campaign still yields an empty list. Far better
+	 * than the caller's old `min( limit * 5, 100 )` over-fetch, which hit the
+	 * same wall at 25 for the default limit, but not unbounded — stated here so
+	 * the next reader does not have to re-derive it from the slice.
+	 *
+	 * @param int  $campaign_id Campaign post ID.
+	 * @param int  $limit Number of comments to return.
+	 * @param int  $cache_duration Cache duration in seconds (default: 5 minutes).
+	 * @param bool $exclude_anonymous Drop comments left on anonymous donations.
+	 * @return array<int, array<string, mixed>> Donor comments.
+	 * @since 1.6.0
+	 */
+	public static function get_cached_donor_comments( $campaign_id, $limit = 10, $cache_duration = 300, $exclude_anonymous = false ) {
+		$cache_key = 'suredonation_donor_comments_' . $campaign_id;
+		$comments  = get_transient( $cache_key );
+
+		if ( false === $comments || ! is_array( $comments ) ) {
+			$comments = self::get_donor_comments( $campaign_id, self::LIST_CACHE_SIZE );
+			$comments = is_array( $comments ) ? $comments : [];
+			set_transient( $cache_key, $comments, $cache_duration );
+		}
+
+		if ( $exclude_anonymous ) {
+			$comments = array_values(
+				array_filter(
+					$comments,
+					static function ( $comment ) {
+						return empty( $comment['is_anonymous'] );
+					}
+				)
+			);
+		}
+
+		return array_slice( $comments, 0, max( 0, (int) $limit ) );
+	}
+
+	/**
 	 * Clear campaign stats cache.
 	 *
 	 * @param int $campaign_id Campaign post ID.
@@ -300,6 +392,7 @@ class Campaign_Stats {
 		delete_transient( 'suredonation_stats_' . $campaign_id );
 		delete_transient( 'suredonation_recent_donations_' . $campaign_id );
 		delete_transient( 'suredonation_top_donors_' . $campaign_id );
+		delete_transient( 'suredonation_donor_comments_' . $campaign_id );
 	}
 
 	/**

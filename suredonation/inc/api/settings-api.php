@@ -151,7 +151,14 @@ class Settings_API {
 					'callback'            => [ $this, 'update_donor_settings' ],
 					'permission_callback' => [ $this, 'check_permissions' ],
 					'args'                => [
-						'create_wp_user' => [
+						'create_wp_user'      => [
+							'type'              => 'boolean',
+							'sanitize_callback' => 'rest_sanitize_boolean',
+						],
+						// Registered so the handler's (bool) cast receives a real
+						// boolean: a form-encoded "false" would otherwise cast to true
+						// and switch moderation ON when the admin asked for OFF.
+						'hold_donor_comments' => [
 							'type'              => 'boolean',
 							'sanitize_callback' => 'rest_sanitize_boolean',
 						],
@@ -647,7 +654,11 @@ class Settings_API {
 				'success'  => true,
 				'settings' => [
 					// Off by default: guest donations never auto-create WP user accounts.
-					'create_wp_user' => ! empty( $donor_settings['create_wp_user'] ),
+					'create_wp_user'      => ! empty( $donor_settings['create_wp_user'] ),
+					// Off by default: donor comments publish as soon as the donation
+					// completes, matching GiveWP and Charitable out of the box. Turning
+					// it on holds new comments as `pending` for review instead.
+					'hold_donor_comments' => ! empty( $donor_settings['hold_donor_comments'] ),
 				],
 			],
 			200
@@ -662,15 +673,23 @@ class Settings_API {
 	 * @since 1.0.0
 	 */
 	public function update_donor_settings( $request ) {
-		$create_wp_user = $request->get_param( 'create_wp_user' );
+		$donor_settings = Helper::get_suredonation_option( self::DONOR_OPTION_KEY, [] );
+		if ( ! is_array( $donor_settings ) ) {
+			$donor_settings = [];
+		}
 
-		if ( null !== $create_wp_user ) {
-			$donor_settings = Helper::get_suredonation_option( self::DONOR_OPTION_KEY, [] );
-			if ( ! is_array( $donor_settings ) ) {
-				$donor_settings = [];
+		// Read each setting via get_param() so the endpoint accepts JSON, body,
+		// or query params (matches the sibling /settings/* update handlers).
+		$changed = false;
+		foreach ( [ 'create_wp_user', 'hold_donor_comments' ] as $key ) {
+			$value = $request->get_param( $key );
+			if ( null !== $value ) {
+				$donor_settings[ $key ] = (bool) $value;
+				$changed                = true;
 			}
+		}
 
-			$donor_settings['create_wp_user'] = (bool) $create_wp_user;
+		if ( $changed ) {
 			Helper::update_suredonation_option( self::DONOR_OPTION_KEY, $donor_settings );
 		}
 

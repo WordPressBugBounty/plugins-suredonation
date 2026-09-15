@@ -542,6 +542,7 @@ class Donations_API {
 			'donation_type',
 			'is_anonymous',
 			'donor_comment',
+			'donor_comment_status',
 			'payment_status',
 			'gateway',
 			'transaction_id',
@@ -1133,55 +1134,86 @@ class Donations_API {
 	 */
 	private function get_donation_args( $required = true ) {
 		return [
-			'campaign_id'    => [
+			'campaign_id'          => [
 				'required'          => $required,
 				'sanitize_callback' => 'absint',
 			],
-			'donor_name'     => [
+			'donor_name'           => [
 				'sanitize_callback' => 'sanitize_text_field',
 			],
-			'donor_email'    => [
+			'donor_email'          => [
 				'sanitize_callback' => 'sanitize_email',
 			],
-			'donor_phone'    => [
+			'donor_phone'          => [
 				'sanitize_callback' => 'sanitize_text_field',
 			],
-			'amount'         => [
+			'amount'               => [
 				'required'          => $required,
 				'sanitize_callback' => static function ( $value ) {
 					return floatval( $value );
 				},
 			],
-			'fees_covered'   => [
+			'fees_covered'         => [
 				'sanitize_callback' => static function ( $value ) {
 					return floatval( $value );
 				},
 			],
-			'donation_type'  => [
-				'default'           => 'one-time',
+			// No 'default' on this or 'payment_status' below, deliberately. These args
+			// are shared with the update route, where WordPress fills an absent param
+			// with its declared default before the callback runs — so update_donation()'
+			// s `! is_null()` test passes and the field is written even though the
+			// client never sent it. A partial update (e.g. the Donor Comment panel
+			// sending only donor_comment_status) therefore reset payment_status to
+			// 'pending' and donation_type to 'one-time', un-completing the donation and
+			// downgrading a subscription. create_donation() supplies its own fallbacks
+			// (`?? 'pending'`, `?? 'one-time'`), so nothing depends on the defaults here.
+			'donation_type'        => [
 				'enum'              => [ 'one-time', 'recurring', 'renewal' ],
 				'sanitize_callback' => 'sanitize_text_field',
 				'validate_callback' => static function ( $param ) {
 					return in_array( $param, [ 'one-time', 'recurring', 'renewal' ], true );
 				},
 			],
-			'is_anonymous'   => [
+			'is_anonymous'         => [
 				'sanitize_callback' => 'rest_sanitize_boolean',
 			],
-			'donor_comment'  => [
-				'sanitize_callback' => 'wp_kses_post',
+			'donor_comment'        => [
+				// sanitize_textarea_field, matching the capture path in
+				// Payment_Helper::get_mapped_donor_comment(). wp_kses_post() was
+				// actively destructive here: it parses anything tag-shaped, so a
+				// moderator saving the comment "a < b and 3 > 2" stored "a <b> 2"
+				// — losing " and 3 " — and any surviving markup then rendered as
+				// literal angle brackets, because the campaign page esc_html()s.
+				// Both sanitizers preserve the donor's newlines.
+				'sanitize_callback' => 'sanitize_textarea_field',
 			],
-			'payment_status' => [
-				'default'           => 'pending',
+			'donor_comment_status' => [
+				'enum'              => [ 'approved', 'pending', 'rejected' ],
+				'sanitize_callback' => 'sanitize_text_field',
+				// A sanitize_callback silently disables `enum` enforcement, so the
+				// allowed set is checked here too — otherwise any string would reach
+				// the column and every comment would read as un-approved.
+				'validate_callback' => static function ( $param ) {
+					return in_array( $param, Donations::get_valid_comment_statuses(), true );
+				},
+			],
+			'payment_status'       => [
 				'type'              => 'string',
+				// Deliberately no 'default'. These args are shared with the
+				// update route, and WordPress fills an absent param with its
+				// default before the callback runs — so update_donation()'s
+				// `! is_null()` test passes and the status is overwritten on a
+				// partial update the client never sent it in. dev carries the
+				// default; keeping it here would reinstate that bug. See
+				// Test_Donations_API::test_update_donation_ignores_unsent_fields().
 				'enum'              => Donations::get_valid_statuses(),
 				'sanitize_callback' => 'sanitize_text_field',
 				'validate_callback' => 'rest_validate_request_arg',
 			],
-			'gateway'        => [
+			'gateway'              => [
 				'sanitize_callback' => 'sanitize_text_field',
 			],
-			'transaction_id' => [
+			'transaction_id'       => [
 				'sanitize_callback' => 'sanitize_text_field',
 			],
 		];
@@ -1306,7 +1338,16 @@ class Donations_API {
 			'currency'               => esc_html( Helper::get_string_value( $donation['currency'] ?? 'USD' ) ),
 			'donation_type'          => esc_html( Helper::get_string_value( $donation['donation_type'] ?? 'one-time' ) ),
 			'is_anonymous'           => ! empty( $donation['is_anonymous'] ),
-			'donor_comment'          => wp_kses_post( Helper::get_string_value( $donation['donor_comment'] ?? '' ) ),
+			// Returned raw, unlike its neighbours. The only consumer is the React
+			// moderation panel, which renders it as a text child and so escapes it
+			// itself; and DonorCommentSection writes this value straight back on
+			// Save. Running it through wp_kses_post() here therefore did not
+			// protect anything — it parsed anything tag-shaped and the moderator
+			// persisted the parsed result, so "a < b and 3 > 2" was shown as
+			// "a <b> 2" and saved as "a  2". esc_html() would be just as wrong:
+			// the panel would display the entities rather than the donor's text.
+			'donor_comment'          => Helper::get_string_value( $donation['donor_comment'] ?? '' ),
+			'donor_comment_status'   => esc_html( Helper::get_string_value( $donation['donor_comment_status'] ?? 'approved' ) ),
 			'payment_status'         => esc_html( Helper::get_string_value( $donation['payment_status'] ?? 'pending' ) ),
 			'payment_mode'           => esc_html( Helper::get_string_value( $payment_mode ) ),
 			'gateway'                => esc_html( Helper::get_string_value( $donation['gateway'] ?? '' ) ),

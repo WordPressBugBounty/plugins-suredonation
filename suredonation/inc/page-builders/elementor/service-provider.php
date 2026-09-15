@@ -14,6 +14,7 @@ namespace SureDonation\Inc\Page_Builders\Elementor;
 
 use SureDonation\Inc\Page_Builders\Elementor\Widgets\Campaign_Donate_Button_Widget;
 use SureDonation\Inc\Page_Builders\Elementor\Widgets\Campaign_Donations_Widget;
+use SureDonation\Inc\Page_Builders\Elementor\Widgets\Campaign_Donor_Comments_Widget;
 use SureDonation\Inc\Page_Builders\Elementor\Widgets\Campaign_Donors_Widget;
 use SureDonation\Inc\Page_Builders\Elementor\Widgets\Campaign_Goal_Widget;
 use SureDonation\Inc\Page_Builders\Elementor\Widgets\Campaign_Social_Sharing_Widget;
@@ -122,6 +123,7 @@ class Service_Provider {
 			Campaign_Goal_Widget::class,
 			Campaign_Stats_Widget::class,
 			Campaign_Donations_Widget::class,
+			Campaign_Donor_Comments_Widget::class,
 			Campaign_Donors_Widget::class,
 			Campaign_Donate_Button_Widget::class,
 			Campaign_Social_Sharing_Widget::class,

@@ -37,7 +37,23 @@ class Donations extends Base {
 	 * @var int
 	 * @since 0.0.1
 	 */
-	protected $table_version = 6;
+	protected $table_version = 7;
+
+	/**
+	 * Valid donor-comment moderation statuses.
+	 *
+	 * `approved` comments are public; `pending` is awaiting review (only reachable
+	 * when the "Hold donor comments for review" setting is on); `rejected` is
+	 * hidden but kept, so a moderator's decision is not destructive.
+	 *
+	 * @var array<string>
+	 * @since 1.6.0
+	 */
+	private static $valid_comment_statuses = [
+		'approved',
+		'pending',
+		'rejected',
+	];
 
 	/**
 	 * Valid payment statuses.
@@ -176,6 +192,10 @@ class Donations extends Base {
 				'type'    => 'string',
 				'default' => '',
 			],
+			'donor_comment_status'   => [
+				'type'    => 'string',
+				'default' => 'approved',
+			],
 			'receipt_sent'           => [
 				'type'    => 'boolean',
 				'default' => false,
@@ -253,6 +273,7 @@ class Donations extends Base {
 			'subscription_status VARCHAR(30) NOT NULL',
 			'parent_subscription_id BIGINT(20) UNSIGNED NOT NULL DEFAULT 0',
 			'donor_comment TEXT',
+			'donor_comment_status VARCHAR(20) NOT NULL DEFAULT \'approved\'',
 			'receipt_sent TINYINT(1) NOT NULL DEFAULT 0',
 			'receipt_pdf_url VARCHAR(255) NOT NULL',
 			'donation_data LONGTEXT',
@@ -290,7 +311,24 @@ class Donations extends Base {
 	 * account processed them (multiple Stripe accounts support); version 6
 	 * added `import_provenance` — an indexed `(donation_post_id, source_campaign_id)`
 	 * key the Charitable importer dedupes on with a single indexed lookup per
-	 * row, instead of scanning + JSON-decoding every prior imported row per batch.
+	 * row, instead of scanning + JSON-decoding every prior imported row per batch;
+	 * version 7 added `donor_comment_status`, defaulting to `approved` so
+	 * comments that predate moderation stay visible.
+	 *
+	 * Version 7 rather than 6: `import_provenance` had already taken 6 on dev
+	 * while this branch was open, and the upgrade only runs when the number
+	 * increases (Database\Base::set_db_upgradable()). Leaving both columns on 6
+	 * would mean any site already upgraded to 6 never receives
+	 * `donor_comment_status`, while get_schema() still declares it and
+	 * prepare_data() names every declared column in the INSERT — so every
+	 * donation would fail with "Unknown column 'donor_comment_status'".
+	 *
+	 * No index accompanies `donor_comment_status`: it is `approved` on virtually
+	 * every row, so a `(campaign_id, donor_comment_status)` index measured ~3%
+	 * better than the existing `idx_campaign` on a 200k-row table and still
+	 * filesorted, while adding write cost to the plugin's hottest table. Its one
+	 * reader (Campaign_Stats::get_donor_comments()) is also behind a 5-minute
+	 * transient. Revisit only if that query shows up in real profiling.
 	 *
 	 * {@inheritDoc}
 	 *
@@ -305,6 +343,7 @@ class Donations extends Base {
 			'import_source VARCHAR(20) NOT NULL DEFAULT \'\' AFTER import_source_id',
 			'import_provenance VARCHAR(64) NOT NULL DEFAULT \'\' AFTER import_source',
 			'stripe_account_id VARCHAR(50) NOT NULL DEFAULT \'\' AFTER customer_id',
+			'donor_comment_status VARCHAR(20) NOT NULL DEFAULT \'approved\' AFTER donor_comment',
 			'INDEX idx_subscription (subscription_id)',
 			'INDEX idx_subscription_status (subscription_status)',
 			'INDEX idx_parent_subscription (parent_subscription_id)',
@@ -702,28 +741,29 @@ class Donations extends Base {
 		$is_anonymous = ! empty( $donation['is_anonymous'] );
 
 		$payload = [
-			'id'                  => isset( $donation['id'] ) ? absint( Helper::get_string_value( $donation['id'] ) ) : 0,
-			'campaign_id'         => isset( $donation['campaign_id'] ) ? absint( Helper::get_string_value( $donation['campaign_id'] ) ) : 0,
-			'form_id'             => isset( $donation['form_id'] ) ? absint( Helper::get_string_value( $donation['form_id'] ) ) : 0,
-			'donor_id'            => isset( $donation['donor_id'] ) ? absint( Helper::get_string_value( $donation['donor_id'] ) ) : 0,
-			'donor_name'          => Helper::get_string_value( $donation['donor_name'] ?? '' ),
-			'donor_email'         => Helper::get_string_value( $donation['donor_email'] ?? '' ),
-			'donor_phone'         => Helper::get_string_value( $donation['donor_phone'] ?? '' ),
-			'amount'              => Helper::get_float_value( $donation['amount'] ?? 0 ),
-			'fees_covered'        => Helper::get_float_value( $donation['fees_covered'] ?? 0 ),
-			'refunded_amount'     => Helper::get_float_value( $donation['refunded_amount'] ?? 0 ),
-			'currency'            => Helper::get_string_value( $donation['currency'] ?? '' ),
-			'gateway'             => Helper::get_string_value( $donation['gateway'] ?? '' ),
-			'payment_status'      => Helper::get_string_value( $donation['payment_status'] ?? '' ),
-			'payment_mode'        => Helper::get_string_value( $donation['payment_mode'] ?? '' ),
-			'donation_type'       => Helper::get_string_value( $donation['donation_type'] ?? '' ),
-			'transaction_id'      => Helper::get_string_value( $donation['transaction_id'] ?? '' ),
-			'subscription_id'     => Helper::get_string_value( $donation['subscription_id'] ?? '' ),
-			'subscription_status' => Helper::get_string_value( $donation['subscription_status'] ?? '' ),
-			'donor_comment'       => Helper::get_string_value( $donation['donor_comment'] ?? '' ),
-			'is_anonymous'        => $is_anonymous,
-			'created_at'          => Helper::get_string_value( $donation['created_at'] ?? '' ),
-			'updated_at'          => Helper::get_string_value( $donation['updated_at'] ?? '' ),
+			'id'                   => isset( $donation['id'] ) ? absint( Helper::get_string_value( $donation['id'] ) ) : 0,
+			'campaign_id'          => isset( $donation['campaign_id'] ) ? absint( Helper::get_string_value( $donation['campaign_id'] ) ) : 0,
+			'form_id'              => isset( $donation['form_id'] ) ? absint( Helper::get_string_value( $donation['form_id'] ) ) : 0,
+			'donor_id'             => isset( $donation['donor_id'] ) ? absint( Helper::get_string_value( $donation['donor_id'] ) ) : 0,
+			'donor_name'           => Helper::get_string_value( $donation['donor_name'] ?? '' ),
+			'donor_email'          => Helper::get_string_value( $donation['donor_email'] ?? '' ),
+			'donor_phone'          => Helper::get_string_value( $donation['donor_phone'] ?? '' ),
+			'amount'               => Helper::get_float_value( $donation['amount'] ?? 0 ),
+			'fees_covered'         => Helper::get_float_value( $donation['fees_covered'] ?? 0 ),
+			'refunded_amount'      => Helper::get_float_value( $donation['refunded_amount'] ?? 0 ),
+			'currency'             => Helper::get_string_value( $donation['currency'] ?? '' ),
+			'gateway'              => Helper::get_string_value( $donation['gateway'] ?? '' ),
+			'payment_status'       => Helper::get_string_value( $donation['payment_status'] ?? '' ),
+			'payment_mode'         => Helper::get_string_value( $donation['payment_mode'] ?? '' ),
+			'donation_type'        => Helper::get_string_value( $donation['donation_type'] ?? '' ),
+			'transaction_id'       => Helper::get_string_value( $donation['transaction_id'] ?? '' ),
+			'subscription_id'      => Helper::get_string_value( $donation['subscription_id'] ?? '' ),
+			'subscription_status'  => Helper::get_string_value( $donation['subscription_status'] ?? '' ),
+			'donor_comment'        => Helper::get_string_value( $donation['donor_comment'] ?? '' ),
+			'donor_comment_status' => Helper::get_string_value( $donation['donor_comment_status'] ?? '' ),
+			'is_anonymous'         => $is_anonymous,
+			'created_at'           => Helper::get_string_value( $donation['created_at'] ?? '' ),
+			'updated_at'           => Helper::get_string_value( $donation['updated_at'] ?? '' ),
 		];
 
 		/**
@@ -2262,6 +2302,40 @@ class Donations extends Base {
 	 */
 	public static function get_valid_statuses() {
 		return self::$valid_statuses;
+	}
+
+	/**
+	 * Get valid donor-comment moderation statuses.
+	 *
+	 * @return array<string> Valid donor-comment statuses.
+	 * @since 1.6.0
+	 */
+	public static function get_valid_comment_statuses() {
+		return self::$valid_comment_statuses;
+	}
+
+	/**
+	 * Resolve the moderation status a newly captured donor comment should get.
+	 *
+	 * Held for review only when the site owner has opted in; otherwise comments
+	 * publish straight away, matching how GiveWP and Charitable behave out of the
+	 * box. An empty comment gets `approved` so a donation with nothing to moderate
+	 * never shows up in a review queue.
+	 *
+	 * @param string $comment The captured comment.
+	 * @return string One of self::$valid_comment_statuses.
+	 * @since 1.6.0
+	 */
+	public static function initial_comment_status( $comment ) {
+		if ( '' === trim( Helper::get_string_value( $comment ) ) ) {
+			return 'approved';
+		}
+
+		$donor_settings = Helper::get_array_value(
+			Helper::get_suredonation_option( \SureDonation\Inc\API\Settings_API::DONOR_OPTION_KEY, [] )
+		);
+
+		return ! empty( $donor_settings['hold_donor_comments'] ) ? 'pending' : 'approved';
 	}
 
 	/**
