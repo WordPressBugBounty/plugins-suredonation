@@ -12,6 +12,7 @@ use SureDonation\Inc\Database\Tables\Donors;
 use SureDonation\Inc\Emails\Email_Handler;
 use SureDonation\Inc\Helper;
 use SureDonation\Inc\Payments\Payment_Helper;
+use SureDonation\Inc\Pdf\Receipt_Generator;
 use SureDonation\Inc\Payments\Stripe\Stripe_Helper;
 use WP_Error;
 use WP_REST_Request;
@@ -664,6 +665,27 @@ class Donations_API {
 		$result = Donations::delete( $donation_id );
 
 		if ( ! $result ) {
+			// A donation is kept, deliberately, when its receipt PDF could not
+			// be removed, so that the pointer stays reachable for a retry
+			// instead of the file being orphaned. That reads as an unexplained
+			// failure unless it is named: the admin has to fix the filesystem,
+			// not retry.
+			//
+			// Ask the helper again rather than inferring from the surviving
+			// pointer. It is idempotent and reports whether a file is still
+			// there, so this is the fact rather than a guess: a row whose
+			// DELETE failed after its receipt was already removed would
+			// otherwise be reported as an uploads-permissions problem.
+			$donation = Donations::get( $donation_id );
+
+			if ( is_array( $donation ) && ! Receipt_Generator::delete_receipt( Helper::get_string_value( $donation['receipt_pdf_url'] ?? '' ) ) ) {
+				return new WP_Error(
+					'receipt_delete_failed',
+					__( 'This donation was kept because its PDF receipt could not be removed from the uploads folder. Deleting the record on its own would leave the receipt behind. Check the permissions on the uploads folder, then try again.', 'suredonation' ),
+					[ 'status' => 500 ]
+				);
+			}
+
 			return new WP_Error(
 				'delete_failed',
 				__( 'Failed to delete donation.', 'suredonation' ),
@@ -1299,7 +1321,7 @@ class Donations_API {
 		// sub-fields on the entry screen; '' for standalone fields.
 		$submitted_fields = [];
 		if ( isset( $donation_data['fields'] ) && is_array( $donation_data['fields'] ) ) {
-			foreach ( $donation_data['fields'] as $field ) {
+			foreach ( $donation_data['fields'] as $slug => $field ) {
 				if ( ! is_array( $field ) ) {
 					continue;
 				}
@@ -1307,6 +1329,9 @@ class Donations_API {
 				// already sanitized at write time and React escapes on render, so
 				// esc_html here would double-encode (e.g. "Cats & Dogs" -> "Cats &amp; Dogs").
 				$submitted_fields[] = [
+					// The stored key. Labels are admin-editable and translatable;
+					// an add-on that presents a group its own way matches on this.
+					'slug'  => sanitize_text_field( Helper::get_string_value( $slug ) ),
 					'label' => sanitize_text_field( Helper::get_string_value( $field['label'] ?? '' ) ),
 					// Checkbox fields store a canonical untranslated token so the
 					// stored column stays locale-stable; it is translated here, on

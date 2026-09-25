@@ -30,6 +30,22 @@ if ( ! defined( 'ABSPATH' ) ) {
  * @since 1.2.0
  */
 class Privacy_Data {
+	/**
+	 * The donation_data keys that hold the donor's own personal data and are
+	 * removed on erasure. Everything else in the column is an operational
+	 * record (refunds, notes, subscription metadata) and is written back.
+	 *
+	 * `gift_aid` is written by SureDonation Pro: a UK Gift Aid declaration
+	 * carries the donor's legal name and home address. It is named here, in
+	 * free, because an eraser that ran only while Pro was active would report
+	 * a completed erasure with that address still on the row the moment Pro
+	 * was deactivated, and the anonymised email would then hide the row from
+	 * every later request.
+	 *
+	 * @since 1.6.1
+	 */
+	public const ERASED_DONATION_DATA_KEYS = [ 'fields', 'gift_aid' ];
+
 	use Get_Instance;
 
 	/**
@@ -156,6 +172,25 @@ class Privacy_Data {
 				$rows[ $unique ] = $field['value'] ?? '';
 			}
 
+			// The Gift Aid declaration (SureDonation Pro) is the record actually
+			// filed with HMRC and holds the corrected name and address; the
+			// submitted fields above keep whatever the donor first typed.
+			$gift_aid = isset( $donation['donation_data']['gift_aid'] ) && is_array( $donation['donation_data']['gift_aid'] ) ? $donation['donation_data']['gift_aid'] : [];
+			if ( [] !== $gift_aid ) {
+				$rows[ __( 'Gift Aid Declared', 'suredonation' ) ] = true === ( $gift_aid['declared'] ?? false ) ? __( 'Yes', 'suredonation' ) : __( 'No', 'suredonation' );
+				foreach ( [
+					'first_name' => __( 'Gift Aid First Name', 'suredonation' ),
+					'last_name'  => __( 'Gift Aid Last Name', 'suredonation' ),
+					'house'      => __( 'Gift Aid House Name or Number', 'suredonation' ),
+					'postcode'   => __( 'Gift Aid Postcode', 'suredonation' ),
+					'country'    => __( 'Gift Aid Country', 'suredonation' ),
+				] as $key => $label ) {
+					if ( isset( $gift_aid[ $key ] ) && is_scalar( $gift_aid[ $key ] ) ) {
+						$rows[ $label ] = (string) $gift_aid[ $key ];
+					}
+				}
+			}
+
 			$export[] = [
 				'group_id'    => 'suredonation-donations',
 				'group_label' => __( 'SureDonation Donations', 'suredonation' ),
@@ -220,7 +255,9 @@ class Privacy_Data {
 			// Strip the personal-data keys from donation_data, keep the rest
 			// (e.g. refunds/notes are operational records, not donor PII).
 			$donation_data = isset( $donation['donation_data'] ) && is_array( $donation['donation_data'] ) ? $donation['donation_data'] : [];
-			unset( $donation_data['fields'] );
+			foreach ( self::ERASED_DONATION_DATA_KEYS as $key ) {
+				unset( $donation_data[ $key ] );
+			}
 
 			// The receipt PDF is generated from the donor's name/email/address —
 			// erasure must remove the file from disk, not just the DB columns.
@@ -248,8 +285,11 @@ class Privacy_Data {
 				'log'                    => '',
 			];
 
-			// Clear the receipt pointer only when the file is actually gone —
-			// otherwise keep it so a retried erasure can still find the file.
+			// Clear the receipt pointer once nothing further will be done with
+			// it — otherwise keep it so a retried erasure can still find the
+			// file. A pointer refused by containment also reports true and is
+			// dropped deliberately: no caller can act on it, so retaining it
+			// would fail the erasure forever with no remedy for the admin.
 			if ( $receipt_deleted ) {
 				$anonymized['receipt_pdf_url'] = '';
 			}

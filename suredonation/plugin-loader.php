@@ -15,6 +15,7 @@ use SureDonation\Inc\Admin\Notice_Manager;
 use SureDonation\Inc\Admin\Notices;
 use SureDonation\Inc\Ajax\Donation_Handler;
 use SureDonation\Inc\Emails\Email_Handler;
+use SureDonation\Inc\Emails\Email_Reports;
 use SureDonation\Inc\Assets\Register as Assets_Register;
 use SureDonation\Inc\Blocks\Register as Blocks_Register;
 use SureDonation\Inc\Campaigns\Campaign_Cpt;
@@ -189,6 +190,9 @@ final class Plugin_Loader {
 		// Register WordPress personal-data export/erase integration.
 		Privacy_Data::get_instance();
 
+		// Weekly donation digest: cron callback + schedule self-heal.
+		Email_Reports::get_instance();
+
 		// Initialize Stripe payment gateway.
 		Stripe_Settings::get_instance();
 		Stripe_Webhook::get_instance();
@@ -257,6 +261,8 @@ final class Plugin_Loader {
 				// Otherwise the webhook reconciliation stays in cron after the
 				// plugin is gone, firing at a callback that no longer exists.
 				wp_clear_scheduled_hook( Stripe_Settings::WEBHOOK_SYNC_HOOK );
+				wp_clear_scheduled_hook( Email_Reports::CRON_HOOK );
+				wp_clear_scheduled_hook( PayPal_Settings::RELAY_REGISTER_HOOK );
 			}
 		);
 

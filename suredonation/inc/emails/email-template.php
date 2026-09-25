@@ -34,10 +34,12 @@ class Email_Template {
 	/**
 	 * Get email header.
 	 *
+	 * @param string $title Document title; defaults to the notification title. Since 1.6.1.
 	 * @since 0.0.1
 	 * @return string
 	 */
-	public function get_header() {
+	public function get_header( $title = '' ) {
+		$title = is_string( $title ) && '' !== $title ? $title : __( 'Donation Notification', 'suredonation' );
 		ob_start();
 		?>
 		<!DOCTYPE html>
@@ -45,7 +47,7 @@ class Email_Template {
 		<head>
 			<meta charset="UTF-8">
 			<meta name="viewport" content="width=device-width, initial-scale=1.0">
-			<title><?php echo esc_html__( 'Donation Notification', 'suredonation' ); ?></title>
+			<title><?php echo esc_html( $title ); ?></title>
 		</head>
 		<body style="margin: 0; padding: 0;">
 			<div id="sd_wrapper" dir="ltr" style="margin: 0; background-color: #F8F8FC; padding: 40px 0 0 0; width: 100%;">

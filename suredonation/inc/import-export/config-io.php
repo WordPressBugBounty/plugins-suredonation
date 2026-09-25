@@ -188,6 +188,11 @@ class Config_IO {
 			'onboarding_completed',
 			'onboarding_user_details',
 			'onboarding_lead_sent_at',
+			// Recipient addresses default to this site's admin email, and an
+			// import writes options directly, bypassing the sanitiser and the
+			// scheduler; a restored key would arm this site's weekly revenue
+			// report to another site's addresses.
+			\SureDonation\Inc\Emails\Email_Reports::OPTION_KEY,
 		];
 	}
 

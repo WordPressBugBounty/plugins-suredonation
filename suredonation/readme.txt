@@ -3,8 +3,8 @@ Contributors: brainstormforce
 Donate link: https://www.paypal.me/BrainstormForce
 Tags: donation, donation form, fundraising, nonprofit, recurring donations
 Requires at least: 6.4
-Tested up to: 7.1
-Stable tag: 1.6.0
+Tested up to: 7.1.2
+Stable tag: 1.6.1
 Requires PHP: 8.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -186,6 +186,10 @@ This plugin connects to external services only when the related feature or payme
 
 == Changelog ==
 
+= 1.6.1 - 25th September 2026 =
+* New: Added a weekly Email Reports digest that emails a summary of your donation activity.
+* Improvement: Minor code improvements and bug fixes.
+
 = 1.6.0 - 15th September 2026 =
 * New: Added a Donor Comments field so supporters can leave a note with their donation.
 * New: Added support for the Polish Złoty (PLN) currency.
@@ -199,13 +203,5 @@ This plugin connects to external services only when the related feature or payme
 * Fix: Unapproved PayPal donations are now recorded as abandoned.
 * Fix: Forms created from a template now carry their block IDs and payment methods, so field and payment settings save correctly.
 * Fix: Improved accuracy when importing donations, so revenue totals are correct and duplicate rows are not created.
-
-= 1.5.0 - 18th August 2026 =
-* New: Added campaign templates so you can start a campaign from a ready-made design for causes such as medical, education, animal rescue, disaster relief, and faith, or start from scratch.
-* New: Added a guided tour of the campaign screen for first-time setup.
-* New: Added a Custom CSS tab to the donation form settings, with syntax highlighting, so you can restyle an individual form without editing your theme.
-* Improvement: Added WordPress 7.1 Compatibility.
-* Improvement: Updated the previews shown in the block inserter for SureDonation field and campaign blocks.
-* Improvement: Expanded WordPress Abilities API coverage.
 
 The full changelog is available [here](https://suredonation.com/whats-new/?utm_source=wordpress.org&utm_medium=whats_new).

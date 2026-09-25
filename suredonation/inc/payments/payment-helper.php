@@ -1655,8 +1655,24 @@ class Payment_Helper {
 		// the empty-value skip below (a declined consent is a meaningful record).
 		$checkbox_slugs = \SureDonation\Inc\Field_Validation::get_checkbox_field_slugs( $form_id );
 
+		// Both the slug and the label/value are attacker-controlled for any
+		// slug absent from the saved form (e.g. the settings-driven privacy
+		// consent field, which has no block config by design — so this must
+		// not filter by "known" slugs). Cap the entry count and the length of
+		// each stored string so a submission can't inflate donation_data
+		// without bound.
+		$max_fields         = 50;
+		$max_value_length   = 1000;
+		$max_label_length   = 255;
+		$max_slug_length    = 255;
+		$stored_field_count = 0;
+
 		foreach ( $raw as $slug => $field ) {
-			$slug = sanitize_text_field( (string) $slug );
+			if ( $stored_field_count >= $max_fields ) {
+				break;
+			}
+
+			$slug = mb_substr( sanitize_text_field( (string) $slug ), 0, $max_slug_length );
 			if ( '' === $slug || in_array( $slug, $core_slugs, true ) ) {
 				continue;
 			}
@@ -1703,15 +1719,29 @@ class Payment_Helper {
 			$resolved_label = isset( $field_labels[ $slug ] ) ? $field_labels[ $slug ] : sanitize_text_field( $label );
 
 			$fields[ $slug ] = [
-				'label' => $resolved_label,
-				'value' => $value,
+				'label' => mb_substr( $resolved_label, 0, $max_label_length ),
+				'value' => mb_substr( $value, 0, $max_value_length ),
 				// Parent block label (e.g. "Address") used to nest sub-fields on
 				// the entry screen; '' for standalone fields.
-				'group' => sanitize_text_field( $group ),
+				'group' => mb_substr( sanitize_text_field( $group ), 0, $max_label_length ),
 			];
+
+			++$stored_field_count;
 		}
 
-		return $fields;
+		/**
+		 * Filters the submitted fields as they will be stored on the donation.
+		 *
+		 * Runs after sanitisation and label resolution, before the map is
+		 * written to donation_data['fields']. A block that must not keep a
+		 * value the donor withdrew (SureDonation Pro's Gift Aid address when
+		 * the declaration box is unticked) removes it here.
+		 *
+		 * @since 1.6.1
+		 * @param array<string, array{label: string, value: string, group: string}> $fields  Fields keyed by slug.
+		 * @param int                                                                 $form_id Donation form ID from the request.
+		 */
+		return apply_filters( 'suredonation_submitted_field_data', $fields, $form_id );
 	}
 
 	/**

@@ -449,9 +449,40 @@ class Column_Map {
 	}
 
 	/**
+	 * The trailing export column a donation's custom fields spill into once
+	 * they exceed the exporter's per-export column cap.
+	 *
+	 * Single source of truth shared with Import_Export_Api::export_donations(),
+	 * which writes this same label as a plain JSON object of label => value.
+	 * Kept separate from standard_donation_export_labels() (which the importer
+	 * treats as columns to skip entirely) because this one instead needs its
+	 * own value decoded and expanded — see extract_custom_fields().
+	 *
+	 * Deliberately untranslated: this same string is written on export and
+	 * matched on import (extract_custom_fields()), so an export made under one
+	 * site locale would fail to match on import under another, silently
+	 * storing the JSON blob as one literal field instead of expanding it —
+	 * the exact corruption this column exists to prevent. Interchange data,
+	 * not display copy, same reasoning as the anonymous yes/no export tokens.
+	 *
+	 * @return string Column label.
+	 * @since 1.6.1
+	 */
+	public static function other_fields_export_label() {
+		return 'Other Fields';
+	}
+
+	/**
 	 * Pull submitted custom form-field values out of a donation row: any column
 	 * whose header is not a standard export column is treated as a custom field
 	 * (these are the per-form fields flattened into trailing export columns).
+	 *
+	 * The "Other Fields" column is the one exception: it is itself a JSON object
+	 * of label => value for whatever didn't fit in the export's own column cap,
+	 * so its cell is decoded and expanded into individual fields rather than
+	 * stored verbatim as one field literally named "Other Fields" — otherwise a
+	 * re-import of a capped export would silently corrupt donation_data with a
+	 * single bogus field holding a raw JSON blob.
 	 *
 	 * @param array<int, string> $headers CSV header cells.
 	 * @param array<int, string> $row     Raw row cells (column order).
@@ -466,16 +497,41 @@ class Column_Map {
 			self::standard_donation_export_labels()
 		);
 
+		$other_fields_label = strtolower( trim( self::other_fields_export_label() ) );
+
 		$fields = [];
 		foreach ( $headers as $index => $header ) {
 			$label = trim( (string) $header );
 			if ( '' === $label || in_array( strtolower( $label ), $standard, true ) ) {
 				continue;
 			}
+
 			$value = isset( $row[ $index ] ) ? (string) $row[ $index ] : '';
 			if ( '' === $value ) {
 				continue;
 			}
+
+			if ( strtolower( $label ) === $other_fields_label ) {
+				$overflow = json_decode( $value, true );
+				if ( is_array( $overflow ) ) {
+					foreach ( $overflow as $overflow_label => $overflow_value ) {
+						$overflow_label = trim( (string) $overflow_label );
+						if ( '' === $overflow_label || ! is_scalar( $overflow_value ) ) {
+							continue;
+						}
+						$overflow_key = sanitize_key( $overflow_label );
+						if ( '' === $overflow_key ) {
+							continue;
+						}
+						$fields[ $overflow_key ] = [
+							'label' => sanitize_text_field( $overflow_label ),
+							'value' => sanitize_text_field( (string) $overflow_value ),
+						];
+					}
+				}
+				continue;
+			}
+
 			$key = sanitize_key( $label );
 			if ( '' === $key ) {
 				$key = 'field_' . (int) $index;

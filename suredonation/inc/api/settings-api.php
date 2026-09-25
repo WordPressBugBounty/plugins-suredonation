@@ -7,6 +7,7 @@
 
 namespace SureDonation\Inc\API;
 
+use SureDonation\Inc\Emails\Email_Reports;
 use SureDonation\Inc\Helper;
 use SureDonation\Inc\Payments\Payment_Helper;
 use WP_Error;
@@ -62,14 +63,14 @@ class Settings_API {
 	public function get_endpoints() {
 		return [
 			// Get currency data for block editor (public endpoint).
-			'/settings'                 => [
+			'/settings'                    => [
 				'methods'             => WP_REST_Server::READABLE,
 				'callback'            => [ $this, 'get_currency_settings' ],
 				'permission_callback' => '__return_true',
 			],
 
 			// Get and update general settings.
-			'/settings/general'         => [
+			'/settings/general'            => [
 				[
 					'methods'             => WP_REST_Server::READABLE,
 					'callback'            => [ $this, 'get_settings' ],
@@ -83,7 +84,7 @@ class Settings_API {
 			],
 
 			// Get available currencies.
-			'/settings/currencies'      => [
+			'/settings/currencies'         => [
 				'methods'             => WP_REST_Server::READABLE,
 				'callback'            => [ $this, 'get_currencies' ],
 				'permission_callback' => [ $this, 'check_permissions' ],
@@ -92,7 +93,7 @@ class Settings_API {
 			// Email notifications are managed per-form via post meta.
 			// See inc/form-editor/assets.php for the form-level email system.
 			// AI settings.
-			'/settings/ai'              => [
+			'/settings/ai'                 => [
 				[
 					'methods'             => WP_REST_Server::READABLE,
 					'callback'            => [ $this, 'get_ai_settings' ],
@@ -106,7 +107,7 @@ class Settings_API {
 			],
 
 			// Spam protection settings.
-			'/settings/spam-protection' => [
+			'/settings/spam-protection'    => [
 				[
 					'methods'             => WP_REST_Server::READABLE,
 					'callback'            => [ $this, 'get_spam_protection_settings' ],
@@ -120,7 +121,7 @@ class Settings_API {
 			],
 
 			// Miscellaneous settings (usage tracking, etc.).
-			'/settings/misc'            => [
+			'/settings/misc'               => [
 				[
 					'methods'             => WP_REST_Server::READABLE,
 					'callback'            => [ $this, 'get_misc_settings' ],
@@ -140,7 +141,7 @@ class Settings_API {
 			],
 
 			// Donor management settings.
-			'/settings/donor'           => [
+			'/settings/donor'              => [
 				[
 					'methods'             => WP_REST_Server::READABLE,
 					'callback'            => [ $this, 'get_donor_settings' ],
@@ -167,7 +168,7 @@ class Settings_API {
 			],
 
 			// Form validation default messages.
-			'/settings/validation'      => [
+			'/settings/validation'         => [
 				[
 					'methods'             => WP_REST_Server::READABLE,
 					'callback'            => [ $this, 'get_validation_settings' ],
@@ -181,7 +182,7 @@ class Settings_API {
 			],
 
 			// Privacy settings (data retention, consent, privacy/terms fields).
-			'/settings/privacy'         => [
+			'/settings/privacy'            => [
 				[
 					'methods'             => WP_REST_Server::READABLE,
 					'callback'            => [ $this, 'get_privacy_settings' ],
@@ -194,13 +195,138 @@ class Settings_API {
 				],
 			],
 
-			// Send test email.
-			'/settings/email/test'      => [
+			// Email Reports (weekly donation digest).
+			'/settings/email-reports'      => [
+				[
+					'methods'             => WP_REST_Server::READABLE,
+					'callback'            => [ $this, 'get_email_reports_settings' ],
+					'permission_callback' => [ $this, 'check_permissions' ],
+				],
+				[
+					'methods'             => WP_REST_Server::EDITABLE,
+					'callback'            => [ $this, 'update_email_reports_settings' ],
+					'permission_callback' => [ $this, 'check_permissions' ],
+				],
+			],
+
+			// Send this week's report now, to the addresses in the request.
+			'/settings/email-reports/test' => [
 				'methods'             => WP_REST_Server::CREATABLE,
-				'callback'            => [ $this, 'send_test_email' ],
+				'callback'            => [ $this, 'send_test_email_report' ],
 				'permission_callback' => [ $this, 'check_permissions' ],
 			],
 		];
+	}
+
+	/**
+	 * Get the Email Reports settings (stored values merged over the defaults).
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response
+	 * @since 1.6.1
+	 */
+	public function get_email_reports_settings( $request ) {
+		unset( $request ); // Unused parameter.
+
+		return new WP_REST_Response( self::email_reports_payload( Email_Reports::get_settings() ), 200 );
+	}
+
+	/**
+	 * Update the Email Reports settings and (re)schedule the weekly send.
+	 *
+	 * Turning the report on with no deliverable address is refused with a
+	 * 400 rather than quietly stored as off: the client's address check is
+	 * looser than is_email(), and a success response would leave the screen
+	 * showing the report as on while nothing is scheduled.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response
+	 * @since 1.6.1
+	 */
+	public function update_email_reports_settings( $request ) {
+		$params = $request->get_json_params();
+		$params = is_array( $params ) ? $params : [];
+
+		$wants_on  = filter_var( $params['enabled'] ?? false, FILTER_VALIDATE_BOOLEAN );
+		$sanitized = Email_Reports::sanitize( $params );
+
+		if ( $wants_on && ! $sanitized['enabled'] ) {
+			return new WP_REST_Response(
+				[
+					'success' => false,
+					'code'    => 'no_valid_recipient',
+					'message' => __( 'Enter at least one valid email address to turn on email reports.', 'suredonation' ),
+				],
+				400
+			);
+		}
+
+		return new WP_REST_Response( self::email_reports_payload( Email_Reports::save( $params ) ), 200 );
+	}
+
+	/**
+	 * The Email Reports response body: the stored settings plus the schedule
+	 * state, so the screen can show when the next report goes out, or that
+	 * none is queued.
+	 *
+	 * @param array<string, mixed> $settings Stored settings.
+	 * @return array<string, mixed>
+	 * @since 1.6.1
+	 */
+	private static function email_reports_payload( $settings ) {
+		$next_run = Email_Reports::next_run();
+
+		return [
+			'success'        => true,
+			'settings'       => $settings,
+			'next_run'       => $next_run,
+			'next_run_label' => null === $next_run
+				? ''
+				: Helper::get_string_value( wp_date( Helper::get_string_value( get_option( 'date_format' ) ) . ' ' . Helper::get_string_value( get_option( 'time_format' ) ), $next_run ) ),
+		];
+	}
+
+	/**
+	 * Send this week's report immediately to the addresses in the request.
+	 *
+	 * Reads recipients from the request, not the stored settings, so an admin
+	 * can preview before saving. Sends even when the week has no donations.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response
+	 * @since 1.6.1
+	 */
+	public function send_test_email_report( $request ) {
+		$params     = $request->get_json_params();
+		$recipients = Email_Reports::parse_recipients( is_array( $params ) ? ( $params['recipients'] ?? '' ) : '' );
+
+		if ( [] === $recipients ) {
+			return new WP_REST_Response(
+				[
+					'success' => false,
+					'message' => __( 'Enter at least one valid email address.', 'suredonation' ),
+				],
+				400
+			);
+		}
+
+		if ( ! Email_Reports::send_report( $recipients, true ) ) {
+			return new WP_REST_Response(
+				[
+					'success' => false,
+					'message' => __( 'The report could not be sent. Check your site’s email configuration.', 'suredonation' ),
+				],
+				500
+			);
+		}
+
+		return new WP_REST_Response(
+			[
+				'success' => true,
+				'message' => __( 'Test report sent.', 'suredonation' ),
+			],
+			200
+		);
 	}
 
 	/**

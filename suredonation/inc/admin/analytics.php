@@ -9,6 +9,7 @@ namespace SureDonation\Inc\Admin;
 
 use SureDonation\Inc\Campaign_Templates\Campaign_Templates;
 use SureDonation\Inc\Campaigns\Campaign_Cpt;
+use SureDonation\Inc\Emails\Email_Reports;
 use SureDonation\Inc\Helper;
 use SureDonation\Inc\Payments\Offline\Offline_Helper;
 use SureDonation\Inc\Payments\Payment_Helper;
@@ -310,6 +311,8 @@ class Analytics {
 
 		$privacy_settings = Privacy_Settings::get_settings();
 
+		$email_reports_settings = Email_Reports::get_settings();
+
 		// Computed once: the headline total below is derived from the same rows.
 		$template_usage = $this->get_campaign_template_usage();
 
@@ -348,6 +351,11 @@ class Analytics {
 				'contact_consent_enabled'      => ! empty( $privacy_settings['contact_consent_field'] ),
 				'privacy_policy_field_enabled' => ! empty( $privacy_settings['privacy_policy_field'] ),
 				'terms_field_enabled'          => ! empty( $privacy_settings['terms_conditions_field'] ),
+				// Scheduled sends only go out in live mode, so read this
+				// against the payment_mode already on the KPI records to tell
+				// sites actually receiving a report from sites where it is on
+				// but paused.
+				'email_reports_enabled'        => ! empty( $email_reports_settings['enabled'] ),
 			],
 			'data_retention_period'   => isset( $privacy_settings['minimum_data_retention_period'] ) ? Helper::get_string_value( $privacy_settings['minimum_data_retention_period'] ) : 'none',
 			'block_usage'             => $this->get_block_usage(),

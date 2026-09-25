@@ -31,6 +31,16 @@ class PayPal_Webhook_Listener {
 	use Get_Instance;
 
 	/**
+	 * Accepted clock skew for a relayed delivery, in seconds.
+	 *
+	 * Matches REPLAY_WINDOW_SECONDS in the middleware so the two ends agree on
+	 * what counts as stale.
+	 *
+	 * @since 1.6.1
+	 */
+	const RELAY_REPLAY_WINDOW = 300;
+
+	/**
 	 * Constructor.
 	 *
 	 * @since 1.0.0
@@ -109,8 +119,19 @@ class PayPal_Webhook_Listener {
 		$resource   = isset( $event['resource'] ) && is_array( $event['resource'] ) ? $event['resource'] : [];
 		$event_id   = isset( $event['id'] ) && is_string( $event['id'] ) ? $event['id'] : '';
 
-		// Verify webhook signature.
-		$verified = $this->validate_webhook_signature( $request, $mode );
+		// Two delivery shapes reach this route.
+		//
+		// Relayed: the middleware holds the single partner-app webhook, verifies
+		// PayPal's signature once, and re-signs to this site with the per-site
+		// HMAC secret from the GIT-33 binding. Identified by the signature
+		// headers it adds; PayPal itself never sends them.
+		//
+		// Direct: PayPal delivering to a per-site webhook, which is how every
+		// site connected before the relay still works. Both are kept live so the
+		// two can overlap during rollout.
+		$verified = $this->is_relayed_delivery()
+			? $this->validate_relay_signature( $request, $mode )
+			: $this->validate_webhook_signature( $request, $mode );
 		if ( is_wp_error( $verified ) ) {
 			// A rejected delivery used to vanish without a trace, which is the
 			// worst possible failure mode: the donor has been charged and
@@ -134,6 +155,22 @@ class PayPal_Webhook_Listener {
 			return new WP_REST_Response( $response, 400 );
 		}
 
+		// Signature proves the middleware sent this. It does not prove the event
+		// is ours: the routing map that decided so lives in the middleware, is
+		// single-valued, and a restored database copy carries the binding to a
+		// new host. The merchant id is state we hold ourselves, and the event
+		// names its payee -- so compare them rather than trusting the routing.
+		//
+		// Positive mismatch only. PAYMENT.SALE.* carries no payee at all, and an
+		// absent payee must not start rejecting events that route correctly
+		// today.
+		$owner_check = $this->relayed_event_belongs_here( $event_type, $resource, $mode );
+		if ( is_wp_error( $owner_check ) ) {
+			$this->log_rejected_webhook( $owner_check, $event_type, $resource, $event_id, $mode );
+
+			return new WP_REST_Response( [ 'error' => 'Signature verification failed' ], 400 );
+		}
+
 		$result = $this->process_event( $event_type, $resource, $mode );
 
 		if ( is_wp_error( $result ) ) {
@@ -144,7 +181,180 @@ class PayPal_Webhook_Listener {
 	}
 
 	/**
+	 * Whether this request came from the relay rather than PayPal.
+	 *
+	 * Presence-only, and deliberately not trusted for anything beyond picking a
+	 * verifier: a forged header just routes the request to a check it cannot
+	 * pass, because the HMAC secret never leaves this site and the middleware.
+	 *
+	 * @return bool
+	 * @since 1.6.1
+	 */
+	private function is_relayed_delivery() {
+		return ! empty( $_SERVER['HTTP_X_SIGNATURE'] ) && ! empty( $_SERVER['HTTP_X_TRACKING_ID'] );
+	}
+
+	/**
+	 * Verify a relayed delivery's HMAC.
+	 *
+	 * Mirrors the signature the plugin already builds for its own outbound
+	 * middleware calls (see PayPal_Helper::middleware_request()), in the
+	 * opposite direction, over the body exactly as PayPal sent it — the relay
+	 * forwards bytes untouched precisely so this hash can be reproduced.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @param string          $mode    Payment mode.
+	 * @return true|\WP_Error True on success, error on failure.
+	 * @since 1.6.1
+	 */
+	private function validate_relay_signature( $request, $mode ) {
+		$tracking_id = isset( $_SERVER['HTTP_X_TRACKING_ID'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_X_TRACKING_ID'] ) ) : '';
+		$timestamp   = isset( $_SERVER['HTTP_X_TIMESTAMP'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_X_TIMESTAMP'] ) ) : '';
+		$nonce       = isset( $_SERVER['HTTP_X_NONCE'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_X_NONCE'] ) ) : '';
+		$signature   = isset( $_SERVER['HTTP_X_SIGNATURE'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_X_SIGNATURE'] ) ) : '';
+
+		if ( '' === $tracking_id || '' === $timestamp || '' === $nonce || '' === $signature ) {
+			return new \WP_Error( 'relay_headers_missing', __( 'Relay signature headers are incomplete.', 'suredonation' ) );
+		}
+
+		// disconnect() clears the merchant and the webhook fields but keeps the
+		// binding, so tracking_id and hmac_secret both survive it -- and those
+		// are the only things this method would otherwise check. Without this
+		// guard a disconnected merchant keeps having donations completed and
+		// receipts sent. The direct path already refuses, on no_webhook_id.
+		if ( ! PayPal_Helper::is_paypal_connected( $mode ) ) {
+			return new \WP_Error( 'relay_not_connected', __( 'PayPal is not connected for this mode.', 'suredonation' ) );
+		}
+
+		$hmac_secret = PayPal_Helper::get_hmac_secret( $mode );
+		if ( '' === $hmac_secret ) {
+			return new \WP_Error( 'relay_not_bound', __( 'No middleware binding exists for this mode.', 'suredonation' ) );
+		}
+
+		// The binding is per mode, so a delivery signed for the other mode's
+		// secret must not be accepted here even though both secrets are ours.
+		if ( ! hash_equals( PayPal_Helper::get_tracking_id( $mode ), $tracking_id ) ) {
+			return new \WP_Error( 'relay_tracking_mismatch', __( 'Relay delivery is for a different binding.', 'suredonation' ) );
+		}
+
+		if ( ! ctype_digit( $timestamp ) || abs( time() - (int) $timestamp ) > self::RELAY_REPLAY_WINDOW ) {
+			return new \WP_Error( 'relay_timestamp_stale', __( 'Relay delivery timestamp is outside the accepted window.', 'suredonation' ) );
+		}
+
+		$expected = hash_hmac(
+			'sha256',
+			PayPal_Helper::SIG_DIRECTION_TO_SITE . '.' . $timestamp . '.' . $nonce . '.' . hash( 'sha256', $request->get_body() ),
+			$hmac_secret
+		);
+
+		if ( ! hash_equals( $expected, $signature ) ) {
+			return new \WP_Error( 'relay_signature_invalid', __( 'Relay signature verification failed.', 'suredonation' ) );
+		}
+
+		// Single-use nonce. Checked after the signature so an unauthenticated
+		// caller cannot consume nonces, and only best-effort atomic: the event
+		// handlers below already skip a transaction_id they have recorded, so
+		// the cost of losing this race is a duplicate lookup rather than a
+		// duplicate donation.
+		$nonce_key = 'sd_pp_relay_' . md5( $nonce );
+		if ( false !== get_transient( $nonce_key ) ) {
+			return new \WP_Error( 'relay_replayed', __( 'Relay delivery has already been processed.', 'suredonation' ) );
+		}
+		set_transient( $nonce_key, 1, 2 * self::RELAY_REPLAY_WINDOW );
+
+		return true;
+	}
+
+	/**
+	 * Whether a relayed event names this site's own merchant.
+	 *
+	 * A relayed delivery is authenticated against the middleware, not against
+	 * the merchant -- so a routing mistake reaches a correctly signed, correctly
+	 * verified event to the wrong site, which then completes another party's
+	 * donations and emails their donors. In the database-clone case the
+	 * donations table is a copy too, so transaction_id lookups match and the
+	 * processing is silent.
+	 *
+	 * Only a positive mismatch rejects. Events with no payee (PAYMENT.SALE.*,
+	 * BILLING.SUBSCRIPTION.*) are unaffected, and so is a site that has not
+	 * stored a merchant id.
+	 *
+	 * Not applied to a direct delivery: there PayPal signed the transmission
+	 * against this site's own webhook, so the merchant binding is already
+	 * established by the channel.
+	 *
+	 * @param string               $event_type     PayPal event type.
+	 * @param array<string, mixed> $event_resource Event resource data.
+	 * @param string               $mode           Payment mode.
+	 * @return true|\WP_Error True when it belongs here or cannot be told.
+	 * @since 1.6.1
+	 */
+	private function relayed_event_belongs_here( $event_type, $event_resource, $mode ) {
+		if ( ! $this->is_relayed_delivery() ) {
+			return true;
+		}
+
+		$event_merchant = $this->event_payee_merchant_id( $event_type, $event_resource );
+		if ( '' === $event_merchant ) {
+			return true;
+		}
+
+		$our_merchant = PayPal_Helper::get_paypal_merchant_id( $mode );
+		if ( '' === $our_merchant ) {
+			return true;
+		}
+
+		if ( hash_equals( $our_merchant, $event_merchant ) ) {
+			return true;
+		}
+
+		return new \WP_Error(
+			'relay_merchant_mismatch',
+			__( 'Relay delivery names a different merchant.', 'suredonation' )
+		);
+	}
+
+	/**
+	 * The payee named by an event, where it names one.
+	 *
+	 * @param string               $event_type     PayPal event type.
+	 * @param array<string, mixed> $event_resource Event resource data.
+	 * @return string Merchant id, or '' when the event names no payee.
+	 * @since 1.6.1
+	 */
+	private function event_payee_merchant_id( $event_type, $event_resource ) {
+		if ( 0 === strpos( (string) $event_type, 'PAYMENT.CAPTURE.' ) ) {
+			$payee = isset( $event_resource['payee'] ) && is_array( $event_resource['payee'] )
+				? $event_resource['payee']
+				: [];
+
+			$merchant = $payee['merchant_id'] ?? '';
+
+			return is_string( $merchant ) ? $merchant : '';
+		}
+
+		if ( 0 === strpos( (string) $event_type, 'CHECKOUT.ORDER.' ) ) {
+			$units = isset( $event_resource['purchase_units'] ) && is_array( $event_resource['purchase_units'] )
+				? $event_resource['purchase_units']
+				: [];
+
+			$first = isset( $units[0] ) && is_array( $units[0] ) ? $units[0] : [];
+			$payee = isset( $first['payee'] ) && is_array( $first['payee'] ) ? $first['payee'] : [];
+
+			$merchant = $payee['merchant_id'] ?? '';
+
+			return is_string( $merchant ) ? $merchant : '';
+		}
+
+		return '';
+	}
+
+	/**
 	 * Validate webhook signature via PayPal API.
+	 *
+	 * Only the direct-from-PayPal path reaches this. Its `no_webhook_id` bail is
+	 * kept for exactly that path: a relayed site holds no PayPal webhook id, so
+	 * under the relay the condition is simply never consulted.
 	 *
 	 * @param WP_REST_Request $request Request object.
 	 * @param string          $mode    Payment mode.

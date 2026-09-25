@@ -176,20 +176,36 @@ class Import_Export_API {
 		$donations   = Donations::get_for_export( $filters, $export_cap, 0 );
 
 		// First pass: collect the union of custom-field labels so every row
-		// shares one consistent set of trailing columns.
-		$field_labels = [];
+		// shares one consistent set of trailing columns. The label is
+		// attacker-controlled (submitted for any slug absent from the saved
+		// form), so the union is capped and looked up by key rather than
+		// `in_array()` — otherwise a form fed thousands of distinct labels
+		// turns this into an O(field_count x label_count) scan and a
+		// same-sized column set. Labels past the cap are not dropped; they are
+		// exported instead in a single trailing JSON column below.
+		$max_field_columns = 50;
+		$field_labels      = [];
+		$field_label_index = [];
+		$fields_truncated  = false;
 		foreach ( $donations as $donation ) {
 			foreach ( $this->get_donation_custom_fields( $donation ) as $label => $value ) {
-				if ( ! in_array( $label, $field_labels, true ) ) {
-					$field_labels[] = $label;
+				if ( isset( $field_label_index[ $label ] ) ) {
+					continue;
 				}
+				if ( count( $field_labels ) >= $max_field_columns ) {
+					$fields_truncated = true;
+					continue;
+				}
+				$field_label_index[ $label ] = true;
+				$field_labels[]              = $label;
 			}
 		}
 
 		$rows   = [];
 		$rows[] = array_merge(
 			Column_Map::standard_donation_export_labels(),
-			$field_labels
+			$field_labels,
+			$fields_truncated ? [ Column_Map::other_fields_export_label() ] : []
 		);
 
 		$title_cache = [];
@@ -241,6 +257,11 @@ class Import_Export_API {
 			$field_values = $this->get_donation_custom_fields( $donation );
 			foreach ( $field_labels as $label ) {
 				$row[] = $field_values[ $label ] ?? '';
+			}
+
+			if ( $fields_truncated ) {
+				$overflow = array_diff_key( $field_values, $field_label_index );
+				$row[]    = ! empty( $overflow ) ? wp_json_encode( $overflow ) : '';
 			}
 
 			$rows[] = $row;

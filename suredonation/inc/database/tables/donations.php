@@ -10,6 +10,7 @@ namespace SureDonation\Inc\Database\Tables;
 use SureDonation\Inc\Campaigns\Campaign_Stats;
 use SureDonation\Inc\Database\Base;
 use SureDonation\Inc\Helper;
+use SureDonation\Inc\Pdf\Receipt_Generator;
 use SureDonation\Inc\Traits\Get_Instance;
 
 // Exit if accessed directly.
@@ -1415,10 +1416,22 @@ class Donations extends Base {
 	}
 
 	/**
-	 * Delete a donation record.
+	 * Delete a donation record and its receipt PDF.
+	 *
+	 * `receipt_pdf_url` is the only pointer to the receipt on disk, so once the
+	 * row is gone nothing can reach the file again and it would sit in the
+	 * uploads directory indefinitely, holding the donor's name and email
+	 * alongside the amount (a Pro template can add more through
+	 * `suredonation_receipt_html`). The file is removed first, and the row and
+	 * its pointer are kept while the file survives so a retry can still reach
+	 * it - the same retry contract the privacy eraser follows.
+	 *
+	 * A pointer that fails containment in `relative_to_path()` is the one
+	 * exception: it reports "nothing to delete" and does not block the row,
+	 * because no caller will ever act on it.
 	 *
 	 * @param int $donation_id Donation ID.
-	 * @return int|false Number of rows deleted or false on error.
+	 * @return int|false Number of rows deleted, or false on error or when the receipt file could not be removed.
 	 * @since 0.0.1
 	 */
 	public static function delete( $donation_id ) {
@@ -1426,7 +1439,17 @@ class Donations extends Base {
 			return false;
 		}
 
-		return self::get_instance()->use_delete( [ 'id' => absint( $donation_id ) ] );
+		$donation_id = absint( $donation_id );
+		$donation    = self::get( $donation_id );
+
+		// delete_receipt() is a no-op that reports success when the column is
+		// empty or the file is already gone, so donations without a receipt
+		// fall straight through to the row delete.
+		if ( is_array( $donation ) && ! Receipt_Generator::delete_receipt( Helper::get_string_value( $donation['receipt_pdf_url'] ?? '' ) ) ) {
+			return false;
+		}
+
+		return self::get_instance()->use_delete( [ 'id' => $donation_id ] );
 	}
 
 	/**
@@ -1715,10 +1738,12 @@ class Donations extends Base {
 	 * @param string       $currency     Currency code ('' for no filter).
 	 * @param string       $payment_mode 'test' or 'live' ('' for no filter).
 	 * @param array<mixed> $args         Prepare args, appended to by reference.
+	 * @param string       $after        GMT MySQL datetime; only rows created at or after it ('' for no window). Since 1.6.1.
+	 * @param string       $before       GMT MySQL datetime; only rows created before it ('' for no upper bound). Since 1.6.1.
 	 * @return string SQL fragment beginning with " AND ", or '' when unscoped.
 	 * @since 1.5.0
 	 */
-	private static function scope_fragment( $currency, $payment_mode, array &$args ) {
+	private static function scope_fragment( $currency, $payment_mode, array &$args, $after = '', $before = '' ) {
 		$extra = '';
 
 		$currency = is_string( $currency ) ? strtoupper( trim( $currency ) ) : '';
@@ -1733,6 +1758,20 @@ class Donations extends Base {
 			$args[] = $payment_mode;
 		}
 
+		// created_at is stored in GMT (add() uses current_time( 'mysql', true )),
+		// so callers must pass a GMT datetime or the window drifts by the site offset.
+		$after = is_string( $after ) ? trim( $after ) : '';
+		if ( '' !== $after ) {
+			$extra .= ' AND created_at >= %s';
+			$args[] = $after;
+		}
+
+		$before = is_string( $before ) ? trim( $before ) : '';
+		if ( '' !== $before ) {
+			$extra .= ' AND created_at < %s';
+			$args[] = $before;
+		}
+
 		return $extra;
 	}
 	/**
@@ -1740,15 +1779,17 @@ class Donations extends Base {
 	 *
 	 * @param string $currency     Currency code to scope to ('' for no filter).
 	 * @param string $payment_mode 'test' or 'live' ('' for no filter).
+	 * @param string $after        GMT MySQL datetime; only donations created at or after it ('' for all time). Since 1.6.1.
+	 * @param string $before       GMT MySQL datetime; only donations created before it ('' for no upper bound). Since 1.6.1.
 	 * @return array{total_donations: string, total_raised: string, unique_donors: string, average_donation: string, largest_donation: string} Dashboard statistics.
 	 * @since 0.0.1
 	 */
-	public static function get_dashboard_stats( $currency = '', $payment_mode = '' ) {
+	public static function get_dashboard_stats( $currency = '', $payment_mode = '', $after = '', $before = '' ) {
 		$instance = self::get_instance();
 		global $wpdb;
 
 		$args  = [ $instance->get_tablename() ];
-		$extra = self::scope_fragment( $currency, $payment_mode, $args );
+		$extra = self::scope_fragment( $currency, $payment_mode, $args, $after, $before );
 
 		$sql = "SELECT
 					COUNT(*) as total_donations,
@@ -1811,15 +1852,16 @@ class Donations extends Base {
 	 * @param int    $limit        Number of campaigns to retrieve.
 	 * @param string $currency     Currency code to scope to ('' for no filter).
 	 * @param string $payment_mode 'test' or 'live' ('' for no filter).
+	 * @param string $after        GMT MySQL datetime; only donations created at or after it ('' for all time). Since 1.6.1.
 	 * @return array<int, array{campaign_id: string, donation_count: string, total_raised: string, unique_donors: string}> Array of top campaigns with stats.
 	 * @since 0.0.1
 	 */
-	public static function get_top_campaigns( $limit = 5, $currency = '', $payment_mode = '' ) {
+	public static function get_top_campaigns( $limit = 5, $currency = '', $payment_mode = '', $after = '' ) {
 		$instance = self::get_instance();
 		global $wpdb;
 
 		$args   = [ $instance->get_tablename(), SUREDONATION_POST_TYPE ];
-		$extra  = self::scope_fragment( $currency, $payment_mode, $args );
+		$extra  = self::scope_fragment( $currency, $payment_mode, $args, $after );
 		$args[] = absint( $limit );
 
 		// The join is what makes LIMIT meaningful: orphaned campaign_ids (post
@@ -1840,6 +1882,62 @@ class Donations extends Base {
 					{$extra}
 				GROUP BY d.campaign_id
 				ORDER BY total_raised DESC
+				LIMIT %d";
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $extra is built only from static placeholder fragments; every value travels in $args.
+		$results = $wpdb->get_results( $wpdb->prepare( $sql, $args ), ARRAY_A );
+
+		return $results ? $results : [];
+	}
+
+	/**
+	 * Published campaigns whose most recent completed donation is older than
+	 * $before, or that have never received one.
+	 *
+	 * The scope (currency / payment mode) applies to the donations side of
+	 * the join, so a campaign whose only gifts fall outside the scope is
+	 * reported as never-donated rather than dropped. Campaigns that used to
+	 * receive donations sort first, most recently active first — they are
+	 * the ones an admin acts on — and never-donated campaigns fill whatever
+	 * is left of the limit, so a site with many that never converted does not
+	 * show the same five forever.
+	 *
+	 * @param string $before       GMT MySQL datetime; a campaign is quiet when its last completed donation is earlier than this.
+	 * @param int    $limit        Number of campaigns to retrieve.
+	 * @param string $currency     Currency code to scope donations to ('' for no filter).
+	 * @param string $payment_mode 'test' or 'live' ('' for no filter).
+	 * @return array<int, array{campaign_id: string, campaign_title: string, last_donation_at: string|null}>
+	 * @since 1.6.1
+	 */
+	public static function get_stale_campaigns( $before, $limit = 5, $currency = '', $payment_mode = '' ) {
+		$before = is_string( $before ) ? trim( $before ) : '';
+		if ( '' === $before ) {
+			return [];
+		}
+
+		$instance = self::get_instance();
+		global $wpdb;
+
+		$args   = [ $instance->get_tablename() ];
+		$extra  = self::scope_fragment( $currency, $payment_mode, $args );
+		$args[] = SUREDONATION_POST_TYPE;
+		$args[] = $before;
+		$args[] = absint( $limit );
+
+		$sql = "SELECT
+					p.ID AS campaign_id,
+					p.post_title AS campaign_title,
+					MAX(d.created_at) AS last_donation_at
+				FROM {$wpdb->posts} AS p
+				LEFT JOIN %i AS d
+					ON d.campaign_id = p.ID
+					AND d.payment_status IN ('completed', 'partially_refunded')
+					{$extra}
+				WHERE p.post_type = %s
+					AND p.post_status = 'publish'
+				GROUP BY p.ID, p.post_title
+				HAVING MAX(d.created_at) IS NULL OR MAX(d.created_at) < %s
+				ORDER BY (MAX(d.created_at) IS NULL) ASC, MAX(d.created_at) DESC, p.ID ASC
 				LIMIT %d";
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $extra is built only from static placeholder fragments; every value travels in $args.

@@ -49,7 +49,8 @@ class Receipt_Generator {
 		if ( ! empty( $existing_relative ) ) {
 			$existing_path = self::relative_to_path( Helper::get_string_value( $existing_relative ) );
 
-			if ( $existing_path && file_exists( $existing_path ) ) {
+			// is_file() so a directory can never be served as a cached receipt.
+			if ( $existing_path && is_file( $existing_path ) ) {
 				return $existing_path;
 			}
 		}
@@ -272,13 +273,23 @@ class Receipt_Generator {
 	 * name/email/address, so an erasure must remove the file from disk, not just
 	 * the database columns.
 	 *
+	 * A path that fails containment is refused rather than deleted, and still
+	 * reports true: the caller's row should not be blocked forever by a
+	 * pointer this function will never act on, and refusing to touch the file
+	 * is the safe half of the trade.
+	 *
 	 * @since 1.2.0
 	 * @param string $relative_path Relative path within the uploads directory.
-	 * @return bool True when no file remains (deleted or never existed), false when it survived deletion.
+	 * @return bool True when this function will do nothing further with the path (file removed, never existed, or refused as out of bounds), false when the file survived deletion.
 	 */
 	public static function delete_receipt( $relative_path ) {
 		$filepath = self::relative_to_path( $relative_path );
 
+		// file_exists() here, is_file() below, and the asymmetry is deliberate:
+		// PHPStan narrows a repeated identical call, so guarding with is_file()
+		// makes the post-delete is_file() read as always-false to it. The two
+		// answers only differ for a directory named *.pdf, and that returns true
+		// either way (nothing that is a file remains), so nothing is lost.
 		if ( false === $filepath || ! file_exists( $filepath ) ) {
 			return true;
 		}
@@ -498,8 +509,12 @@ class Receipt_Generator {
 	/**
 	 * Convert a relative path to an absolute file path.
 	 *
+	 * Refuses any value that does not resolve to a plain file inside the
+	 * receipts directory, so a pointer that ever became attacker-influenced
+	 * cannot reach an arbitrary path through either consumer.
+	 *
 	 * @param string $relative_path Relative path within the uploads directory.
-	 * @return string|false Absolute file path or false.
+	 * @return string|false Absolute file path inside the receipts directory, or false.
 	 * @since 1.0.0
 	 */
 	private static function relative_to_path( $relative_path ) {
@@ -507,9 +522,94 @@ class Receipt_Generator {
 			return false;
 		}
 
-		$upload_dir = wp_upload_dir();
+		// Everything below is containment for a value this function does not
+		// own. The column is written only by generate() today, and nothing
+		// sanitizes it on the way into the database, so the stored string is
+		// trusted purely because no write path currently exposes it. Both
+		// consumers are destructive if that ever stops being true: this feeds
+		// wp_delete_file() on every donation delete, and get_or_generate()
+		// hands the resolved path to the donor-facing receipt download. Check
+		// it here, once, rather than relying on every future caller.
+		$normalized = wp_normalize_path( (string) $relative_path );
 
-		return $upload_dir['basedir'] . '/' . $relative_path;
+		// A null byte truncates the path inside the C filesystem calls.
+		if ( false !== strpos( $normalized, "\0" ) ) {
+			return false;
+		}
+
+		// A literal backslash, refused on the raw value before anything else
+		// reads it. Normalization treats it as a separator, so the checks below
+		// would measure a different path from the one this function returns, and
+		// the realpath comparison would normalize it back again. No value the
+		// generator has ever written contains one: the stored string is built
+		// with '/' and sanitize_file_name() strips '\' from the filename.
+		if ( false !== strpos( (string) $relative_path, '\\' ) ) {
+			return false;
+		}
+
+		// Traversal, in any position. This does not stand alone: a segment such
+		// as '.. ' is not matched here, and Windows strips trailing spaces
+		// during path canonicalisation. The realpath() cross-check below is
+		// what covers those, so do not remove it as redundant.
+		if ( preg_match( '#(^|/)\.\.(/|$)#', $normalized ) ) {
+			return false;
+		}
+
+		// Already absolute: a POSIX root, a Windows drive, or a stream wrapper
+		// such as phar:// or http://. None can be a relative receipt path.
+		if ( 0 === strpos( $normalized, '/' ) || preg_match( '#^[a-zA-Z]:/#', $normalized ) || preg_match( '#^[a-zA-Z][a-zA-Z0-9+.-]*://#', $normalized ) ) {
+			return false;
+		}
+
+		// One wp_upload_dir() call feeds both sides. The upload_dir filter runs
+		// on every call, so fetching twice lets a filter that varies its answer
+		// desynchronise the candidate from the directory it is measured against.
+		$upload_dir   = wp_upload_dir();
+		$base_dir     = wp_normalize_path( $upload_dir['basedir'] );
+		$receipts_dir = $base_dir . '/suredonation/receipts';
+		$candidate    = wp_normalize_path( $base_dir . '/' . $normalized );
+
+		// Receipts live in exactly one directory. With traversal already
+		// refused above, a prefix test is a containment test.
+		if ( 0 !== strpos( $candidate, $receipts_dir . '/' ) ) {
+			return false;
+		}
+
+		// Inside the directory is not enough: it also holds the .htaccess,
+		// index.php and web.config that ensure_receipts_dir() writes to keep it
+		// from being served. Resolving one of those would let a delete strip
+		// the directory's protection and expose every donor receipt, which is a
+		// worse outcome than the arbitrary delete this containment exists to
+		// stop. Every name the generator can produce ends in .pdf.
+		$basename = basename( $normalized );
+		if ( '' === $basename || 0 === strpos( $basename, '.' ) || ! preg_match( '#\.pdf\z#i', $basename ) ) {
+			return false;
+		}
+
+		// Built from the raw value, because this is what the function returns
+		// and therefore what the callers act on. Keeping the returned string
+		// byte-identical to the old behaviour matters (get_or_generate() hands
+		// it back and it is compared), but the realpath check below has to
+		// measure that same string: normalization turns a literal backslash
+		// into a separator, so checking only the normalized form would leave a
+		// symlink named with one unexamined.
+		$filepath = $upload_dir['basedir'] . '/' . $relative_path;
+
+		// A symlink can still point out of the directory, and realpath() is the
+		// only thing that sees it. It resolves to false when the file is not
+		// there yet, which is a normal state for both callers, so only an
+		// existing file is cross-checked. Both sides are resolved so that a
+		// symlinked uploads directory, which is common when media sits on
+		// another volume, does not cause a false refusal.
+		$real_path = realpath( $filepath );
+		if ( false !== $real_path ) {
+			$real_dir = realpath( $receipts_dir );
+			if ( false === $real_dir || 0 !== strpos( wp_normalize_path( $real_path ), wp_normalize_path( $real_dir ) . '/' ) ) {
+				return false;
+			}
+		}
+
+		return $filepath;
 	}
 
 	/**

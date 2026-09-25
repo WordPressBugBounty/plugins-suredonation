@@ -27,6 +27,24 @@ if ( ! defined( 'ABSPATH' ) ) {
 class PayPal_Helper {
 
 	/**
+	 * Direction label for a relayed delivery's HMAC.
+	 *
+	 * Both directions otherwise sign the same message with the same key, so a
+	 * signature made for one would be structurally valid for the other: an
+	 * outbound request of ours would verify as an inbound relay delivery.
+	 *
+	 * Only this direction carries a label, and only this one can: site ->
+	 * middleware shipped unlabelled in 1.4.0 and signs orders/create, so
+	 * changing it would fail authentication for every install that has not
+	 * updated. Labelling one side is sufficient -- what blocks a replay is the
+	 * two directions differing, not both being labelled. The middleware uses the
+	 * same value.
+	 *
+	 * @since 1.6.1
+	 */
+	const SIG_DIRECTION_TO_SITE = 'relay';
+
+	/**
 	 * Maximum length of a single value stored in a donation activity log.
 	 *
 	 * @since 1.5.1
@@ -77,6 +95,12 @@ class PayPal_Helper {
 			'merchant_id'      => self::get_paypal_merchant_id( $mode ),
 			'webhook_test_id'  => $settings['webhook_test_id'] ?? '',
 			'webhook_live_id'  => $settings['webhook_live_id'] ?? '',
+			// Under the relay nothing creates a webhook id, so the ids above stay
+			// empty on a perfectly healthy site and a UI keyed on them alone
+			// reports "not connected" forever. This says whether the site is
+			// registered for relayed delivery, which is the equivalent state.
+			'relay_test'       => self::is_relay_registered( 'test' ),
+			'relay_live'       => self::is_relay_registered( 'live' ),
 			// Connected is not the same as able to take money. Both of these
 			// were already known during onboarding and discarded, which is how a
 			// site could show Connected while every capture failed and no
@@ -133,10 +157,12 @@ class PayPal_Helper {
 			'paypal_test_tracking_id'   => '',
 			'paypal_live_hmac_secret'   => '',
 			'paypal_test_hmac_secret'   => '',
-			'webhook_test_secret'       => '',
+			// No webhook_*_secret here: PayPal deliveries are verified through the
+			// middleware (or, for a relayed one, against the hmac_secret above), so
+			// nothing ever wrote a value to it. An always-empty field beside the ones
+			// that matter only invited the reading that the signing secret was missing.
 			'webhook_test_url'          => '',
 			'webhook_test_id'           => '',
-			'webhook_live_secret'       => '',
 			'webhook_live_url'          => '',
 			'webhook_live_id'           => '',
 			// Why the last webhook creation failed, per mode. Creation is
@@ -212,6 +238,67 @@ class PayPal_Helper {
 		$key      = 'live' === $mode ? 'paypal_live_tracking_id' : 'paypal_test_tracking_id';
 
 		return isset( $settings[ $key ] ) && is_string( $settings[ $key ] ) ? $settings[ $key ] : '';
+	}
+
+	/**
+	 * The host a relay registration was made from, if any.
+	 *
+	 * Written by PayPal_Webhook::register_routing() on every successful
+	 * registration, so a non-empty value is the plugin's own record that this
+	 * site is registered for relayed delivery. Used for that rather than the
+	 * webhook id, which the relay never populates.
+	 *
+	 * @param string $mode Payment mode ('test' or 'live').
+	 * @return string Recorded host, or '' when the site has not registered.
+	 * @since 1.6.1
+	 */
+	public static function get_relay_host( $mode ) {
+		$host = get_option( 'suredonation_paypal_relay_host_' . $mode );
+
+		return is_string( $host ) ? $host : '';
+	}
+
+	/**
+	 * A host reduced to what identifies the site: lowercase, no leading www.
+	 *
+	 * @param string $host Host to normalise.
+	 * @return string
+	 * @since 1.6.1
+	 */
+	public static function normalise_host( $host ) {
+		return (string) preg_replace( '/^www\./', '', strtolower( $host ) );
+	}
+
+	/**
+	 * This site's own host, in the form registrations are recorded under.
+	 *
+	 * @return string
+	 * @since 1.6.1
+	 */
+	public static function current_host() {
+		$host = wp_parse_url( home_url(), PHP_URL_HOST );
+
+		return self::normalise_host( is_string( $host ) ? $host : '' );
+	}
+
+	/**
+	 * Whether THIS site is registered for relayed delivery.
+	 *
+	 * Deliberately not "a host is recorded". A binding travels with the
+	 * database, so a restored copy carries the original site's recorded host --
+	 * and for that copy the guard in relay_signature_for() refuses to register,
+	 * meaning it receives nothing. Reporting it as connected because a host
+	 * exists would show "events are being tracked" on the one site where they
+	 * are not, which is the case the guard exists to catch.
+	 *
+	 * @param string $mode Payment mode ('test' or 'live').
+	 * @return bool
+	 * @since 1.6.1
+	 */
+	public static function is_relay_registered( $mode ) {
+		$recorded = self::get_relay_host( $mode );
+
+		return '' !== $recorded && self::normalise_host( $recorded ) === self::current_host();
 	}
 
 	/**
@@ -597,8 +684,15 @@ class PayPal_Helper {
 				);
 			}
 
-			$timestamp     = (string) time();
-			$nonce         = bin2hex( random_bytes( 16 ) );
+			$timestamp = (string) time();
+			$nonce     = bin2hex( random_bytes( 16 ) );
+			// Deliberately unlabelled. This direction shipped in 1.4.0 and signs
+			// orders/create, so prefixing it would fail authentication for every
+			// install that has not updated -- a payment outage, and one we
+			// cannot time, since site owners update when they choose.
+			//
+			// Labelling only the relay direction is enough: the protection comes
+			// from the two differing, not from both carrying a label.
 			$signing_input = $timestamp . '.' . $nonce . '.' . hash( 'sha256', $body_json );
 			$signature     = hash_hmac( 'sha256', $signing_input, $hmac_secret );
 

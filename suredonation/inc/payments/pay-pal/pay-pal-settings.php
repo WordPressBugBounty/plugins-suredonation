@@ -27,6 +27,21 @@ if ( ! defined( 'ABSPATH' ) ) {
  * @since 1.0.0
  */
 class PayPal_Settings {
+
+	/**
+	 * Cron hook that performs the relay registration.
+	 *
+	 * @since 1.6.1
+	 */
+	public const RELAY_REGISTER_HOOK = 'suredonation_register_paypal_relay_routing';
+
+	/**
+	 * Held after a failed registration so a broken middleware is not retried
+	 * on every admin page load.
+	 *
+	 * @since 1.6.1
+	 */
+	private const RELAY_REGISTER_BACKOFF = 'suredonation_paypal_relay_backoff';
 	use Get_Instance;
 
 	/**
@@ -40,6 +55,9 @@ class PayPal_Settings {
 
 		// Intercept PayPal onboarding callback in popup window.
 		add_action( 'admin_init', [ $this, 'intercept_paypal_onboarding_callback' ] );
+		add_action( 'admin_init', [ $this, 'backfill_relay_host' ] );
+		add_action( 'admin_init', [ $this, 'maybe_register_relay_routing' ] );
+		add_action( self::RELAY_REGISTER_HOOK, [ $this, 'run_relay_registration' ] );
 
 		// Gateway registration hooks.
 		add_filter( 'suredonation_payment_gateways', [ $this, 'register_gateway' ] );
@@ -736,8 +754,10 @@ class PayPal_Settings {
 		// that no longer exists, so they go with it rather than being reported
 		// against whatever is connected next.
 		if ( 'live' === $mode ) {
-			$settings['paypal_live_connected']     = false;
-			$settings['paypal_live_merchant_id']   = '';
+			$settings['paypal_live_connected']   = false;
+			$settings['paypal_live_merchant_id'] = '';
+			// Legacy: nothing writes this any more, but an old install may still
+			// hold a value and a secret must not outlive a disconnect.
 			$settings['webhook_live_secret']       = '';
 			$settings['webhook_live_url']          = '';
 			$settings['webhook_live_id']           = '';
@@ -754,6 +774,17 @@ class PayPal_Settings {
 		}
 
 		PayPal_Helper::update_all_paypal_settings( $settings );
+
+		// Retire the relay registration too. The binding itself is deliberately
+		// kept (reconnecting reuses it), so without this the fingerprint would
+		// still match and a reconnect would never re-register.
+		delete_option( 'suredonation_paypal_relay_registered_' . $mode );
+		delete_option( 'suredonation_paypal_relay_claim_cursor_' . $mode );
+		delete_option( 'suredonation_paypal_relay_host_' . $mode );
+
+		// An admin who hits a middleware failure and reconnects to fix it
+		// should not then wait out the backoff.
+		delete_transient( self::RELAY_REGISTER_BACKOFF );
 
 		$response = [
 			'success' => true,
@@ -778,6 +809,212 @@ class PayPal_Settings {
 	}
 
 	/**
+	 * Record the host for sites that registered before the guard existed.
+	 *
+	 * Those sites already match their fingerprint, so they never re-register and
+	 * the host is never written -- leaving the guard skipping on an empty value
+	 * for exactly the installs it should protect. Backfilled on an admin load,
+	 * which is the original host: a copy taken later then mismatches, where
+	 * waiting for the next registration would have recorded whichever host
+	 * happened to register first.
+	 *
+	 * Runs once per mode. It writes only where a registration is already on
+	 * record, so it cannot invent a binding for a site that never had one.
+	 *
+	 * @return void
+	 * @since 1.6.1
+	 */
+	public function backfill_relay_host() {
+		if ( wp_doing_ajax() || wp_doing_cron() || ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+
+		foreach ( [ 'test', 'live' ] as $mode ) {
+			$registered = get_option( 'suredonation_paypal_relay_registered_' . $mode );
+			$host       = get_option( 'suredonation_paypal_relay_host_' . $mode );
+
+			if ( empty( $registered ) || ! empty( $host ) ) {
+				continue;
+			}
+
+			PayPal_Webhook::record_relay_host( $mode );
+		}
+	}
+
+	/**
+	 * Register this site with the webhook relay when its address changes.
+	 *
+	 * The middleware cannot forward to a site whose endpoint it has never been
+	 * told, and nothing else records it -- so a site that never registers is
+	 * silently unreachable, which is the same failure as the old slot cap in a
+	 * new place. Registering on an admin request rather than behind a button
+	 * means an admin chasing "recurring is broken" fixes it by loading a page.
+	 *
+	 * Keyed on a hash of the endpoint and binding rather than a version, so it
+	 * re-runs exactly when the answer changes -- a domain move, a reconnect, a
+	 * staging clone -- and stays quiet otherwise. Same shape as the Stripe
+	 * webhook-event sync in stripe-settings.php, including the context guards:
+	 * admin_init also fires on admin-ajax.php, and the whole donation flow runs
+	 * through nopriv ajax actions, so a donor's payment request reaches here.
+	 *
+	 * @return void
+	 * @since 1.6.1
+	 */
+	public function maybe_register_relay_routing() {
+		if ( wp_doing_ajax() || wp_doing_cron() || ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+
+		// Cheapest check first: the fingerprint is a single option read, while
+		// the backoff transient costs two uncached queries. Most page loads on
+		// most sites take this exit.
+		if ( ! $this->relay_registration_pending() ) {
+			return;
+		}
+
+		// While the backoff is held the last run failed, and rescheduling on
+		// each pageview would queue an event that immediately returns.
+		if ( get_transient( self::RELAY_REGISTER_BACKOFF ) ) {
+			return;
+		}
+
+		if ( ! wp_next_scheduled( self::RELAY_REGISTER_HOOK ) ) {
+			wp_schedule_single_event( time(), self::RELAY_REGISTER_HOOK );
+		}
+	}
+
+	/**
+	 * Whether any mode still needs to be registered with the relay.
+	 *
+	 * Kept free of remote calls: this runs on every admin page load, and the
+	 * work itself belongs on cron.
+	 *
+	 * @return bool
+	 * @since 1.6.1
+	 */
+	private function relay_registration_pending() {
+		foreach ( [ 'test', 'live' ] as $mode ) {
+			$signature = $this->relay_signature_for( $mode );
+
+			if ( false !== $signature
+				&& get_option( 'suredonation_paypal_relay_registered_' . $mode ) !== $signature ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+
+	/**
+	 * The registration fingerprint for a mode, or false if it must not register.
+	 *
+	 * A site that already owns a PayPal webhook is deliberately excluded. Its
+	 * own webhook still delivers, so registering for the relay as well would
+	 * have PayPal send one event and the middleware forward the same event
+	 * again -- two deliveries, and the donor receives two receipts. Existing
+	 * sites move across only when their own webhook is removed first, which
+	 * makes this change a no-op for every currently connected site.
+	 *
+	 * @param string $mode Payment mode ('test' or 'live').
+	 * @return string|false Fingerprint, or false when this mode must not register.
+	 * @since 1.6.1
+	 */
+	private function relay_signature_for( $mode ) {
+		// A disconnected or half-onboarded site must not register. disconnect()
+		// keeps the binding and deletes the registered option, so without this
+		// the next admin load re-registers an endpoint that
+		// validate_relay_signature() will then refuse deliveries for.
+		if ( ! PayPal_Helper::is_paypal_connected( $mode ) ) {
+			return false;
+		}
+
+		if ( '' === PayPal_Helper::get_tracking_id( $mode ) ) {
+			return false;
+		}
+
+		// Deliberately NOT gated on an existing webhook_id. A stored id is not
+		// evidence of a working webhook -- ids outlive the webhooks they name,
+		// and a site whose webhook was removed at PayPal would be excluded from
+		// the relay while receiving nothing at all. Sites that do still have one
+		// briefly receive each event twice during migration; every handler
+		// dedupes, and the site's own webhook is removed once it is routable.
+		// A binding travels with the database. Restore production onto another
+		// host and the tracking id and secret come with it, so this site can
+		// sign a registration as production and repoint the live webhook stream
+		// at itself -- production then receives nothing, silently, while the
+		// copy processes real donations.
+		//
+		// The host is recorded by register_routing() on every successful
+		// registration, whichever route made it. A change is a legitimate domain
+		// move OR a copy, and they are indistinguishable from here, so
+		// auto-registration stops and an admin re-connects. First registration is
+		// unaffected: nothing is recorded yet, so nothing mismatches.
+		// Same check register_routing() applies, kept in one place.
+		if ( ! PayPal_Webhook::host_matches_binding( $mode ) ) {
+			return false;
+		}
+
+		return md5(
+			PayPal_Helper::get_webhook_url( $mode ) . '|' . PayPal_Helper::get_tracking_id( $mode )
+		);
+	}
+
+	/**
+	 * Register this site with the relay. Runs on cron, never in a page load.
+	 *
+	 * @return void
+	 * @since 1.6.1
+	 */
+	public function run_relay_registration() {
+		if ( get_transient( self::RELAY_REGISTER_BACKOFF ) ) {
+			return;
+		}
+
+		$failed = false;
+
+		foreach ( [ 'test', 'live' ] as $mode ) {
+			$signature = $this->relay_signature_for( $mode );
+
+			if ( false === $signature || get_option( 'suredonation_paypal_relay_registered_' . $mode ) === $signature ) {
+				continue;
+			}
+
+			$cursor_option = 'suredonation_paypal_relay_claim_cursor_' . $mode;
+			$cursor_stored = get_option( $cursor_option, 0 );
+			$result        = PayPal_Webhook::register_routing( $mode, is_numeric( $cursor_stored ) ? (int) $cursor_stored : 0 );
+
+			// Only record success. A transient middleware failure must be
+			// retried rather than remembered as done, which would leave the
+			// site permanently unroutable.
+			if ( is_wp_error( $result ) ) {
+				$failed = true;
+				continue;
+			}
+
+			// Claims are sent a page at a time. Advance the cursor and leave the
+			// fingerprint unwritten so the next run continues; a full page means
+			// there is probably another behind it.
+			$claimed = isset( $result['claim_count'] ) && is_numeric( $result['claim_count'] ) ? (int) $result['claim_count'] : 0;
+			$cursor  = isset( $result['claim_cursor'] ) && is_numeric( $result['claim_cursor'] ) ? (int) $result['claim_cursor'] : 0;
+
+			if ( $claimed > 0 && $cursor > 0 ) {
+				update_option( $cursor_option, $cursor, false );
+				continue;
+			}
+
+			// Nothing left to claim: the endpoint is registered and the backlog
+			// is drained, so stop re-running until something actually changes.
+			delete_option( $cursor_option );
+			update_option( 'suredonation_paypal_relay_registered_' . $mode, $signature, false );
+		}
+
+		if ( $failed ) {
+			set_transient( self::RELAY_REGISTER_BACKOFF, true, HOUR_IN_SECONDS );
+		}
+	}
+
+	/**
 	 * Create PayPal webhook.
 	 *
 	 * @param WP_REST_Request $request Request object.
@@ -796,10 +1033,26 @@ class PayPal_Settings {
 			);
 		}
 
-		return new WP_REST_Response(
-			array_merge( [ 'success' => true ], $result ),
-			200
-		);
+		// create_webhook() registers the endpoint but stops there: it reaches the
+		// middleware's legacy route, which does not accept subscription claims,
+		// and it records no host. Both matter -- without the claims, renewals for
+		// subscriptions that predate the relay stay unrouted; without the host,
+		// the guard that stops a restored database repointing the live stream
+		// has nothing to compare against.
+		//
+		// So finish the job on the same click, through the path every other
+		// route already uses. Failure here is not fatal to the response: the
+		// endpoint is registered either way, and cron retries the rest.
+		$relay = PayPal_Webhook::register_routing( $mode );
+
+		$response = array_merge( [ 'success' => true ], $result );
+
+		// Tell the client what actually happened. The webhook id is empty under
+		// the relay -- nothing creates one any more -- so a UI keyed on that
+		// alone reports "not connected" immediately after a successful call.
+		$response['relay_registered'] = ! is_wp_error( $relay );
+
+		return new WP_REST_Response( $response, 200 );
 	}
 
 	/**
@@ -936,6 +1189,15 @@ class PayPal_Settings {
 		// settings screen — connecting must not report success while silently
 		// leaving the site with no webhook.
 		PayPal_Webhook::create_webhook( $mode );
+
+		// And register for relay routing here, not only on cron. Registration is
+		// the ONLY thing that makes a relayed site reachable, and a site with
+		// DISABLE_WP_CRON and no system cron would otherwise sit unreachable
+		// with every donation stuck pending and no receipt -- silently. Cron
+		// remains the self-heal for a later address change.
+		if ( PayPal_Helper::is_paypal_connected( $mode ) ) {
+			PayPal_Webhook::register_routing( $mode );
+		}
 	}
 
 	/**
