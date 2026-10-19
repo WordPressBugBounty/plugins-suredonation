@@ -22,7 +22,7 @@ use SureDonation\Inc\Campaigns\Campaign_Cpt;
 use SureDonation\Inc\Campaigns\Campaign_Meta_Tags;
 use SureDonation\Inc\Campaigns\Campaign_Page;
 use SureDonation\Inc\Database\Register as Database_Register;
-use SureDonation\Inc\Donor_User_Link;
+use SureDonation\Inc\Debug_Log;
 use SureDonation\Inc\FormEditor\Assets as FormEditor_Assets;
 use SureDonation\Inc\Onboarding;
 use SureDonation\Inc\Privacy\Privacy_Data;
@@ -90,6 +90,11 @@ final class Plugin_Loader {
 			return;
 		}
 
+		// Class names only ever map to files under inc/; `..` never belongs in one.
+		if ( false !== strpos( $class_name, '..' ) ) {
+			return;
+		}
+
 		// Remove namespace prefix.
 		$class_name = str_replace( 'SureDonation\\', '', $class_name );
 
@@ -129,6 +134,10 @@ final class Plugin_Loader {
 	public function load_plugin() {
 		// Initialize database tables.
 		Database_Register::init();
+
+		// Debug log retention cron. Registered before anything that can write to
+		// the log, so the expiry hook exists on the request that first creates it.
+		Debug_Log::register_hooks();
 
 		// Back-fill notification identities once, in admin context only — it
 		// writes, and the path it repairs runs during donor payment requests.
@@ -206,9 +215,6 @@ final class Plugin_Loader {
 		PayPal_Settings::get_instance();
 		PayPal_Frontend::get_instance();
 		PayPal_Webhook_Listener::get_instance();
-
-		// Initialize donor-user linking.
-		Donor_User_Link::get_instance();
 	}
 
 	/**
@@ -241,6 +247,22 @@ final class Plugin_Loader {
 				// never clobbers a real install time on re-activation.
 				add_option( 'suredonation_install_time', time() );
 
+				// Drop any uninstall consent breadcrumb left for Pro.
+				//
+				// uninstall.php writes it when this plugin is deleted with the
+				// opt-in on and Pro still installed, so Pro can honour the same
+				// consent when it is deleted afterwards. Free being here again
+				// ends that handover: consent is deliberately not inherited
+				// across a reinstall, and the live toggle is authoritative from
+				// now on. Without this the breadcrumb would outlive the decision
+				// that produced it.
+				$suredonation_options = get_option( 'suredonation_options', [] );
+
+				if ( is_array( $suredonation_options ) && isset( $suredonation_options['uninstall_consent_at'] ) ) {
+					unset( $suredonation_options['uninstall_consent_at'] );
+					update_option( 'suredonation_options', $suredonation_options );
+				}
+
 				// Register the donor role.
 				if ( ! get_role( 'suredonation_donor' ) ) {
 					add_role(
@@ -263,6 +285,7 @@ final class Plugin_Loader {
 				wp_clear_scheduled_hook( Stripe_Settings::WEBHOOK_SYNC_HOOK );
 				wp_clear_scheduled_hook( Email_Reports::CRON_HOOK );
 				wp_clear_scheduled_hook( PayPal_Settings::RELAY_REGISTER_HOOK );
+				wp_clear_scheduled_hook( Debug_Log::EXPIRY_HOOK );
 			}
 		);
 

@@ -8,6 +8,7 @@
 namespace SureDonation\Inc\Admin;
 
 use SureDonation\Inc\Campaigns\Campaign_Cpt;
+use SureDonation\Inc\Debug_Log;
 use SureDonation\Inc\API\Onboarding_API;
 use SureDonation\Inc\Helper;
 use SureDonation\Inc\Onboarding;
@@ -29,6 +30,25 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 class Admin {
 	use Get_Instance;
+
+	/**
+	 * Where Contact Support writes to.
+	 *
+	 * @since 1.7.0
+	 */
+	private const SUPPORT_EMAIL = 'support@suredonation.com';
+
+	/**
+	 * Longest support mailto: this class will produce, in characters.
+	 *
+	 * Mail clients enforce a URL length limit and none of them truncate
+	 * politely: the body is dropped, or the link is, and the person is left
+	 * looking at an empty composer with no idea anything was missing. 1800 sits
+	 * under the shortest limit in common use.
+	 *
+	 * @since 1.7.0
+	 */
+	private const SUPPORT_MAILTO_MAX_LENGTH = 1800;
 
 	/**
 	 * Constructor.
@@ -88,23 +108,15 @@ class Admin {
 			return;
 		}
 
-		if ( Stripe_Helper::is_stripe_connected() && ! Stripe_Helper::is_webhook_configured() ) {
-			Notice_Manager::register_notice(
-				[
-					'id'          => 'sd-webhook-not-configured',
-					'variant'     => 'error',
-					// translators: the <a></a> tags wrap the inline link text and must be kept intact.
-					'message'     => __( 'Webhooks keep SureDonation in sync with Stripe by automatically updating donation and subscription data. Please <a>configure</a> the webhook.', 'suredonation' ),
-					'link'        => [
-						'url' => Payment_Helper::get_settings_url( 'stripe' ),
-					],
-					'event'       => Analytics::TRACKED_EVENTS['webhook'],
-					'dismissible' => false,
-				]
-			);
-			return;
-		}
-
+		// The webhook used to be reported here as well. It is a row on the
+		// dashboard card now, which is the same screen this notice bar sits on,
+		// and saying it twice in one view taught people to read neither.
+		//
+		// Dropping it from the chain promotes what follows: a site that is
+		// connected, unconfigured and in test mode now sees the test-mode
+		// notice, which the webhook branch used to return before. That is the
+		// more urgent of the two anyway - nothing the site takes is real - and
+		// the webhook is still named on the card beneath it.
 		if ( 'test' === Payment_Helper::get_payment_mode() ) {
 			$settings_url = Payment_Helper::get_settings_url();
 			Notice_Manager::register_notice(
@@ -121,6 +133,439 @@ class Admin {
 				]
 			);
 		}
+	}
+
+
+
+	/**
+	 * Self-describing rows for the dashboard failure card.
+	 *
+	 * A card rather than an admin notice. A red banner across the top of the
+	 * screen people land on is a heavy way to deliver a diagnostic, and it
+	 * outranks whatever else that screen was trying to say. The card sits in the
+	 * sidebar, says the same thing, and does not take the page over.
+	 *
+	 * One row per failing category. They read completely differently to a site
+	 * owner and must not be collapsed: donations failing means money is not
+	 * arriving at all, a payment failing after the charge means the books are
+	 * wrong, a notification failing means a donor paid and heard nothing.
+	 *
+	 * Not dismissible, and deliberately so. These clear themselves when the
+	 * thing they describe starts working again - a verified webhook, a clean
+	 * email run, a completed donation - so a dismiss button would only let
+	 * someone hide a fault that is still costing them money. Deleting the log
+	 * clears them too, which is the deliberate way to say "I have dealt with
+	 * this".
+	 *
+	 * Each row carries its own copy, so the front end has no rules of its own to
+	 * keep in step. Nothing here comes from the log text: the title carries a post
+	 * title this site owns, and the message is fixed copy. The entries themselves
+	 * stay in the file, which is what keeps text authored by an anonymous reporter
+	 * out of a payload that every admin page carries - the one thing a row does
+	 * not carry is its support email, which holds an excerpt of them and is built
+	 * on request instead.
+	 *
+	 * @since 1.7.0
+	 * @return array<int,array<string,mixed>>
+	 */
+	private function get_failure_action_items() {
+		if ( ! Helper::current_user_can() ) {
+			return [];
+		}
+
+		// The logging switch is the opt-out for the recorded failures, and only
+		// for those. Someone who turned recording off has said they do not want
+		// to be told about faults it wrote down; they have said nothing about a
+		// webhook that was never set up, and the log has no bearing on whether
+		// it was.
+		$items = Debug_Log::is_enabled() ? $this->get_recorded_failure_items() : [];
+
+		// After the failures, not before. A webhook that is not configured
+		// costs reconciliation; donations that are failing cost donations.
+		$webhook = $this->get_webhook_action_item();
+
+		if ( ! empty( $webhook ) ) {
+			$items[] = $webhook;
+		}
+
+		return $items;
+	}
+
+	/**
+	 * One row per category the log has recorded a failure for.
+	 *
+	 * @since 1.7.0
+	 * @return array<int,array<string,mixed>>
+	 */
+	private function get_recorded_failure_items() {
+		// One shape for every row: "We noticed a <thing> failure on <campaign>."
+		// SureForms words its Form Checks this way and the two are read by the
+		// same people. It also holds the title to naming what broke and leaves
+		// the message below to say what it cost; the previous wording tried to
+		// do both, and each row argued its case differently.
+		//
+		// Configuration checks are deliberately not in this voice: nothing was
+		// noticed happening, something was never set up. SureForms draws the
+		// same line: its caching row reads "%s may interfere with your forms".
+		$copy = [
+			'donation'     => [
+				/* translators: %s: campaign or form name. */
+				'titled'  => __( 'We noticed a donation failure on %s.', 'suredonation' ),
+				'generic' => __( 'We noticed a donation failure.', 'suredonation' ),
+				'message' => __( 'Supporters are trying to give and cannot complete the payment.', 'suredonation' ),
+			],
+			'payment'      => [
+				/* translators: %s: campaign or form name. */
+				'titled'  => __( 'We noticed a payment recording failure on %s.', 'suredonation' ),
+				'generic' => __( 'We noticed a payment recording failure.', 'suredonation' ),
+				'message' => __( 'The money reached your gateway but SureDonation could not record it, so your donation list is incomplete.', 'suredonation' ),
+			],
+			'recurring'    => [
+				/* translators: %s: campaign or form name. */
+				'titled'  => __( 'We noticed a renewal failure on %s.', 'suredonation' ),
+				'generic' => __( 'We noticed a renewal failure.', 'suredonation' ),
+				'message' => __( 'Repeat supporters stop giving without ever being told.', 'suredonation' ),
+			],
+			'notification' => [
+				/* translators: %s: campaign or form name. */
+				'titled'  => __( 'We noticed a notification failure on %s.', 'suredonation' ),
+				'generic' => __( 'We noticed a notification failure.', 'suredonation' ),
+				'message' => __( 'A supporter paid and heard nothing back.', 'suredonation' ),
+			],
+			'integration'  => [
+				/* translators: %s: campaign or form name. */
+				'titled'  => __( 'We noticed an integration failure on %s.', 'suredonation' ),
+				'generic' => __( 'We noticed an integration failure.', 'suredonation' ),
+				'message' => __( 'The records on the other side are incomplete.', 'suredonation' ),
+			],
+		];
+
+		$failures = Debug_Log::get_failures();
+		$items    = [];
+		$is_test  = 'test' === Payment_Helper::get_payment_mode();
+
+		// Ordered by what the failure costs, not by what the option happens to
+		// hold, so the worst row is the one read first.
+		foreach ( array_keys( $copy ) as $category ) {
+			if ( ! isset( $failures[ $category ] ) ) {
+				continue;
+			}
+
+			// Scoped to the mode the failure happened in, not deleted on a mode
+			// change. A test-mode fault carried into live mode reported itself
+			// with the live wording - "the money reached your gateway" - about
+			// money that never existed, and clearing the counts instead would
+			// have hidden genuine live faults the moment someone dipped into
+			// test mode to reproduce one. Scoping fixes both directions and
+			// destroys nothing; the log file keeps every entry either way, each
+			// carrying its own mode.
+			$recorded_mode = Helper::get_string_value( $failures[ $category ]['mode'] ?? '' );
+
+			// A failure recorded before this field existed has no mode to
+			// compare, and is shown rather than hidden: a warning that silently
+			// stops appearing after an update is worse than one shown in the
+			// wrong mode.
+			if ( '' !== $recorded_mode && Payment_Helper::get_payment_mode() !== $recorded_mode ) {
+				continue;
+			}
+
+			$label = Helper::get_string_value( $failures[ $category ]['label'] ?? '' );
+
+			$items[] = [
+				'id'            => 'sd-failure-' . $category,
+				'category'      => $category,
+				'title'         => '' !== $label
+					? sprintf( $copy[ $category ]['titled'], $label )
+					: $copy[ $category ]['generic'],
+				// Dropped in test mode rather than replaced. Each of these says
+				// what the failure cost - "supporters cannot complete the
+				// payment" - and in test mode none of it is true, because
+				// nobody could have given anyway. The caveat that replaces it
+				// is the same sentence for every category, so it is said once
+				// for the card instead of repeated on every row.
+				'message'       => $is_test ? '' : $copy[ $category ]['message'],
+				'count'         => Helper::get_integer_value( $failures[ $category ]['count'] ?? 0 ),
+				// The category, not a finished mailto:. Building one here means
+				// building the support report here, and the report carries the tail
+				// of the log - text an anonymous caller wrote through the public
+				// reporting endpoint - which would then sit in the page source of
+				// every SureDonation admin screen, and cost a read of a file capped
+				// at 1 MB on every one of those page loads. The card asks for it
+				// when somebody presses the button.
+				'support_label' => __( 'Contact Support', 'suredonation' ),
+				'support_for'   => $category,
+			];
+		}
+
+		return $items;
+	}
+
+	/**
+	 * The webhook row, when Stripe is connected and its webhook is not set up.
+	 *
+	 * The same state the admin notice reports, said again where someone is
+	 * already reading about what is wrong with their donations. Nothing here is
+	 * recorded in the log: it is a configuration check, answered by asking
+	 * Stripe's own helper, so it appears on a site that has never had a
+	 * failure.
+	 *
+	 * No Contact Support on this one. It is the site owner's to fix and the
+	 * screen that fixes it is one click away, so a support queue would be the
+	 * wrong first suggestion.
+	 *
+	 * @since 1.7.0
+	 * @return array<string,mixed> Empty when the webhook is configured or
+	 *                             Stripe is not connected.
+	 */
+	private function get_webhook_action_item() {
+		if ( ! Stripe_Helper::is_stripe_connected() || Stripe_Helper::is_webhook_configured() ) {
+			return [];
+		}
+
+		return [
+			'id'        => 'sd-webhook-not-configured',
+			'category'  => 'webhook',
+			'title'     => __( 'Stripe webhooks are not configured.', 'suredonation' ),
+			'message'   => __( 'Webhooks keep SureDonation in sync with Stripe by automatically updating donation and subscription data.', 'suredonation' ),
+			'count'     => 0,
+			'cta_label' => __( 'Configure', 'suredonation' ),
+			'cta_url'   => Payment_Helper::get_settings_url( 'stripe' ),
+			// Carried over with the row. This check used to be an admin notice,
+			// and the notice reported its CTA under this event; moving it here
+			// without the event would have left the allowlist entry with nothing
+			// sending it and quietly ended a metric that was already running.
+			'event'     => Analytics::TRACKED_EVENTS['webhook'],
+		];
+	}
+
+	/**
+	 * A pre-addressed support email for one failure.
+	 *
+	 * A mailto: rather than the contact page, because the composer can carry the
+	 * report and a web form cannot. The site, the versions, which categories are
+	 * failing and the tail of the log are already written out by
+	 * Debug_Log::get_support_report(), so reporting a fault is one click and a
+	 * send rather than "download the log and attach it".
+	 *
+	 * The log is in the body because mailto: has no attachment parameter -
+	 * browsers drop any attempt to add one - and it is a tail rather than the
+	 * whole file because a megabyte of JSON exceeds the URL length every mail
+	 * client enforces.
+	 *
+	 * Subject and body are English on every site, deliberately untranslated:
+	 * they are written for SureDonation support, and a plain literal cannot be
+	 * rewritten by a locale, a translation plugin or a gettext filter.
+	 *
+	 * Built when someone presses Contact Support, never as part of the admin
+	 * bootstrap: the report inside it holds the tail of the log, and the log is
+	 * written through a public endpoint.
+	 *
+	 * The label is resolved here rather than accepted from the caller. This is
+	 * reached over REST, and a caller-supplied campaign name would be text of
+	 * their choosing in an email addressed to our own support queue.
+	 *
+	 * @param string $category One of Debug_Log::CATEGORIES.
+	 * @since 1.7.0
+	 * @return string
+	 */
+	public function get_support_contact_url( $category ) {
+		$failures = Debug_Log::get_failures();
+		$label    = Helper::get_string_value( $failures[ $category ]['label'] ?? '' );
+		$host     = Helper::get_string_value( wp_parse_url( home_url(), PHP_URL_HOST ) );
+		$copy     = $this->get_support_copy( $category );
+		$subject  = sprintf( $copy['subject'], '' !== $host ? $host : 'my site' );
+
+		$url = $this->build_support_mailto_within_limit( $category, $label, $subject );
+
+		// The last resort: the subject alone still names the problem and the site.
+		if ( '' === $url ) {
+			$url = $this->build_support_mailto( $subject );
+		}
+
+		// Escaped on the way out even though every part of it is built here. The
+		// campaign label reaches the body from a post title, and the card renders
+		// this straight into an href.
+		return esc_url_raw( $url, [ 'mailto' ] );
+	}
+
+	/**
+	 * The fullest support mailto: that fits SUPPORT_MAILTO_MAX_LENGTH.
+	 *
+	 * A mailto: is a URL and every client enforces a length limit on it.
+	 * Overrunning it does not truncate politely, it drops the body or the whole
+	 * link. So the cap is measured on the encoded URL rather than the raw report:
+	 * JSON-escaped non-ASCII text grows about eight times once percent-encoded.
+	 * The log gives way first, because the site details are the part support
+	 * cannot do without.
+	 *
+	 * @param string $category The failure being reported.
+	 * @param string $label    Campaign or form it was recorded against, or ''.
+	 * @param string $subject  Subject line.
+	 * @since 1.7.0
+	 * @return string The URL, or '' when even the shortest body is too long.
+	 */
+	private function build_support_mailto_within_limit( $category, $label, $subject ) {
+		$opening = $this->get_support_message( $category, $label );
+
+		foreach ( [ 1200, 800, 400 ] as $budget ) {
+			// CRLF, not "\n". RFC 6068 leaves the line ending to the client and
+			// the major composers normalise either, but Outlook renders a bare LF
+			// body as one run-on line - which is exactly the report an agent then
+			// has to read.
+			$body = str_replace(
+				"\n",
+				"\r\n",
+				$opening . "\n\n" . Debug_Log::get_support_report( $budget )
+			);
+
+			$url = $this->build_support_mailto( $subject, $body );
+
+			if ( strlen( $url ) <= self::SUPPORT_MAILTO_MAX_LENGTH ) {
+				return $url;
+			}
+		}
+
+		return '';
+	}
+
+	/**
+	 * How one category is named to support.
+	 *
+	 * Two strings per category: the subject, and the sentence used when nothing
+	 * has been counted. Kept apart from the card's own copy, which is written
+	 * for a site owner - support is reading for a different thing and the
+	 * wording that works on a dashboard reads oddly in a ticket.
+	 *
+	 * @param string $category One of Debug_Log::CATEGORIES.
+	 * @since 1.7.0
+	 * @return array{subject:string,anon:string}
+	 */
+	private function get_support_copy( $category ) {
+		$copy = [
+			'donation'     => [
+				'subject' => 'SureDonation: donations are failing on %s',
+				'anon'    => 'SureDonation has recorded donations on %s that could not be completed.',
+			],
+			'payment'      => [
+				'subject' => 'SureDonation: a payment was not recorded on %s',
+				'anon'    => 'SureDonation has recorded payments on %s that reached the gateway but were not recorded.',
+			],
+			'recurring'    => [
+				'subject' => 'SureDonation: recurring donations are not renewing on %s',
+				'anon'    => 'SureDonation has recorded recurring donations on %s that could not be renewed.',
+			],
+			'notification' => [
+				'subject' => 'SureDonation: donation emails are not being sent on %s',
+				'anon'    => 'SureDonation recorded donations on %s but could not send the emails for them.',
+			],
+			'integration'  => [
+				'subject' => 'SureDonation: an integration is not receiving donations on %s',
+				'anon'    => 'SureDonation recorded donations on %s but could not pass them to a connected service.',
+			],
+		];
+
+		return $copy[ $category ] ?? [
+			'subject' => 'SureDonation: a problem with donations on %s',
+			'anon'    => 'SureDonation has recorded a problem with donations on %s.',
+		];
+	}
+
+	/**
+	 * The sentence that opens the report, with the count in it.
+	 *
+	 * @param string $category One of Debug_Log::CATEGORIES.
+	 * @param int    $count    How many times it has failed.
+	 * @since 1.7.0
+	 * @return string
+	 */
+	private function get_support_count_sentence( $category, $count ) {
+		$sentences = [
+			'donation'     => [
+				'SureDonation has recorded %d donation that could not be completed.',
+				'SureDonation has recorded %d donations that could not be completed.',
+			],
+			'payment'      => [
+				'SureDonation took %d payment at the gateway but could not record it.',
+				'SureDonation took %d payments at the gateway but could not record them.',
+			],
+			'recurring'    => [
+				'SureDonation could not renew %d recurring donation.',
+				'SureDonation could not renew %d recurring donations.',
+			],
+			'notification' => [
+				'SureDonation recorded %d donation but could not send the email for it.',
+				'SureDonation recorded %d donations but could not send the emails for them.',
+			],
+			'integration'  => [
+				'SureDonation recorded %d donation but could not pass it to a connected service.',
+				'SureDonation recorded %d donations but could not pass them to a connected service.',
+			],
+		];
+
+		$pair = $sentences[ $category ] ?? [
+			'SureDonation has recorded %d problem with donations on this site.',
+			'SureDonation has recorded %d problems with donations on this site.',
+		];
+
+		return sprintf( 1 === $count ? $pair[0] : $pair[1], $count );
+	}
+
+	/**
+	 * The part of the report written as prose.
+	 *
+	 * A greeting, what happened, and the campaign it happened on. The site
+	 * details and the log follow from Debug_Log::get_support_report().
+	 *
+	 * With nothing counted it describes the failure without a number rather
+	 * than reporting a count of one nobody recorded, which is a figure support
+	 * would then chase.
+	 *
+	 * @param string $category One of Debug_Log::CATEGORIES.
+	 * @param string $label    Campaign or form it was recorded against, or ''.
+	 * @since 1.7.0
+	 * @return string
+	 */
+	private function get_support_message( $category, $label = '' ) {
+		$failures = Debug_Log::get_failures();
+		$count    = Helper::get_integer_value( $failures[ $category ]['count'] ?? 0 );
+		$copy     = $this->get_support_copy( $category );
+		$host     = Helper::get_string_value( wp_parse_url( home_url(), PHP_URL_HOST ) );
+
+		$lines = [
+			'Hello SureDonation support,',
+			'',
+			$count > 0
+				? $this->get_support_count_sentence( $category, $count )
+				: sprintf( $copy['anon'], '' !== $host ? $host : 'my site' ),
+		];
+
+		if ( '' !== $label ) {
+			$lines[] = '';
+			$lines[] = 'Campaign: ' . $label;
+		}
+
+		return implode( "\n", $lines );
+	}
+
+	/**
+	 * A mailto: to the support inbox.
+	 *
+	 * @param string $subject Subject line.
+	 * @param string $body    Body with CRLF line endings. Omitted when empty.
+	 * @since 1.7.0
+	 * @return string
+	 */
+	private function build_support_mailto( $subject, $body = '' ) {
+		$query = [ 'subject' => $subject ];
+
+		if ( '' !== $body ) {
+			$query['body'] = $body;
+		}
+
+		// RFC 3986, so a space is %20 rather than +. A mail client reading a
+		// mailto: query the form-encoded way shows literal plus signs through the
+		// whole report.
+		return 'mailto:' . self::SUPPORT_EMAIL . '?' . http_build_query( $query, '', '&', PHP_QUERY_RFC3986 );
 	}
 
 	/**
@@ -325,6 +770,7 @@ class Admin {
 			[
 				'version'                   => SUREDONATION_VER,
 				'apiUrl'                    => rest_url( 'suredonation/v1' ),
+				'mcp_url'                   => rest_url( 'suredonation/v1/mcp' ),
 				'nonce'                     => wp_create_nonce( 'wp_rest' ),
 				'docsURL'                   => 'https://suredonation.com/docs/',
 				'plugin_url'                => SUREDONATION_URL,
@@ -344,6 +790,21 @@ class Admin {
 				'pdf_library_exists'        => Pdf_Utils::check_if_library_exists(),
 				'php_version_compatible'    => Pdf_Utils::is_php_compatible(),
 				'pdf_nonce'                 => wp_create_nonce( 'suredonation_pdf_nonce' ),
+				// Signs the debug-log download link, which is a plain navigation
+				// rather than a fetch because only a navigation reaches the browser's
+				// save dialog.
+				'debug_log_nonce'           => wp_create_nonce( 'suredonation_debug_log' ),
+				// Self-describing rows for the dashboard card. The copy is built
+				// from the category and a post title this site owns, never from
+				// the log text, which has no business in a payload every admin
+				// page carries and is only ever read out of the file.
+				'failure_items'             => $this->get_failure_action_items(),
+				// Said once for the whole card. Someone wiring up a gateway is
+				// exactly who needs to hear it is failing, but they have not
+				// lost a donation over it.
+				'failure_items_note'        => 'test' === Payment_Helper::get_payment_mode()
+					? __( 'These were test-mode failures, so no money was involved. The same failure would stop a real donation.', 'suredonation' )
+					: '',
 				'ajax_url'                  => admin_url( 'admin-ajax.php' ),
 				'plugin_installer_nonce'    => wp_create_nonce( 'updates' ),
 				'plugin_manager_nonce'      => wp_create_nonce( 'suredonation_plugin_manager' ),
@@ -356,6 +817,10 @@ class Admin {
 				// PayPal connection state render synchronously (no post-mount
 				// fetch flicker). PayPal data is the non-sensitive subset only.
 				'payments'                  => [
+					// The admin figures are all scoped to this server-side, and the
+					// query cache is keyed by it so a Test-to-Live switch is a miss
+					// rather than five more minutes of rehearsal numbers.
+					'payment_mode'             => Payment_Helper::get_payment_mode(),
 					'currencies'               => Payment_Helper::get_currencies_list(),
 					'paypal'                   => PayPal_Helper::get_connection_state(),
 					'currency_sign_position'   => Payment_Helper::get_currency_sign_position(),

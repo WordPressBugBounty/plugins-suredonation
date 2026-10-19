@@ -8,6 +8,7 @@
 namespace SureDonation\Inc\Campaigns;
 
 use SureDonation\Inc\Helper;
+use SureDonation\Inc\Payments\Payment_Helper;
 
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
@@ -30,27 +31,45 @@ class Campaign_Stats {
 	private const LIST_CACHE_SIZE = 100;
 
 	/**
+	 * Transient prefixes of the per-campaign caches. clear_cache() drops all
+	 * of them together; keep this list and the get_cached_*() methods in step.
+	 *
+	 * @var array<int, string>
+	 * @since 1.7.0
+	 */
+	private const CACHE_PREFIXES = [
+		'suredonation_stats',
+		'suredonation_recent_donations',
+		'suredonation_top_donors',
+		'suredonation_donor_comments',
+	];
+
+	/**
 	 * Get campaign statistics.
 	 *
 	 * @param int $campaign_id Campaign post ID.
 	 * @return array<string, mixed> Campaign statistics.
 	 * @since 0.0.1
+	 * @since 1.7.0 Scoped to the store's current payment mode.
 	 */
 	public static function get_stats( $campaign_id ) {
 		global $wpdb;
 
 		$donations_table = $wpdb->prefix . 'suredonation_donations';
+		$payment_mode    = self::payment_mode();
 
 		// Get total raised amount (completed and partially refunded donations, minus refunds).
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$total_raised = $wpdb->get_var(
 			$wpdb->prepare(
-				"SELECT COALESCE(SUM(amount - refunded_amount), 0)
+				"SELECT COALESCE(SUM( ( amount - refunded_amount ) / COALESCE( NULLIF( exchange_rate, 0 ), 1 ) ), 0)
 				FROM %i
 				WHERE campaign_id = %d
-				AND payment_status IN ('completed', 'partially_refunded')",
+				AND payment_status IN ('completed', 'partially_refunded')
+				AND payment_mode = %s",
 				$donations_table,
-				$campaign_id
+				$campaign_id,
+				$payment_mode
 			)
 		);
 
@@ -61,9 +80,11 @@ class Campaign_Stats {
 				"SELECT COUNT(*)
 				FROM %i
 				WHERE campaign_id = %d
-				AND payment_status IN ('completed', 'partially_refunded')",
+				AND payment_status IN ('completed', 'partially_refunded')
+				AND payment_mode = %s",
 				$donations_table,
-				$campaign_id
+				$campaign_id,
+				$payment_mode
 			)
 		);
 
@@ -75,10 +96,12 @@ class Campaign_Stats {
 				FROM %i
 				WHERE campaign_id = %d
 				AND payment_status IN ('completed', 'partially_refunded')
+				AND payment_mode = %s
 				AND donor_email IS NOT NULL
 				AND donor_email != ''",
 				$donations_table,
-				$campaign_id
+				$campaign_id,
+				$payment_mode
 			)
 		);
 
@@ -108,12 +131,14 @@ class Campaign_Stats {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$largest_donation = $wpdb->get_var(
 			$wpdb->prepare(
-				"SELECT COALESCE(MAX(amount - refunded_amount), 0)
+				"SELECT COALESCE(MAX( ( amount - refunded_amount ) / COALESCE( NULLIF( exchange_rate, 0 ), 1 ) ), 0)
 				FROM %i
 				WHERE campaign_id = %d
-				AND payment_status IN ('completed', 'partially_refunded')",
+				AND payment_status IN ('completed', 'partially_refunded')
+				AND payment_mode = %s",
 				$donations_table,
-				$campaign_id
+				$campaign_id,
+				$payment_mode
 			)
 		);
 
@@ -141,23 +166,27 @@ class Campaign_Stats {
 	 * @param int $limit Number of donations to retrieve.
 	 * @return array<int, array<string, mixed>>|null Recent donations.
 	 * @since 0.0.1
+	 * @since 1.7.0 Scoped to the store's current payment mode.
 	 */
 	public static function get_recent_donations( $campaign_id, $limit = 10 ) {
 		global $wpdb;
 
 		$donations_table = $wpdb->prefix . 'suredonation_donations';
+		$payment_mode    = self::payment_mode();
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		return $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT id, (amount - refunded_amount) as amount, donor_name, donor_email, is_anonymous, created_at, payment_status
+				"SELECT id, (amount - refunded_amount) as amount, currency, donor_name, donor_email, is_anonymous, created_at, payment_status
 				FROM %i
 				WHERE campaign_id = %d
 				AND payment_status IN ('completed', 'partially_refunded')
+				AND payment_mode = %s
 				ORDER BY created_at DESC
 				LIMIT %d",
 				$donations_table,
 				$campaign_id,
+				$payment_mode,
 				$limit
 			),
 			ARRAY_A
@@ -171,11 +200,13 @@ class Campaign_Stats {
 	 * @param int $limit Number of donors to retrieve.
 	 * @return array<int, array<string, mixed>>|null Top donors.
 	 * @since 0.0.1
+	 * @since 1.7.0 Scoped to the store's current payment mode.
 	 */
 	public static function get_top_donors( $campaign_id, $limit = 10 ) {
 		global $wpdb;
 
 		$donations_table = $wpdb->prefix . 'suredonation_donations';
+		$payment_mode    = self::payment_mode();
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		return $wpdb->get_results(
@@ -183,12 +214,13 @@ class Campaign_Stats {
 				"SELECT
 					donor_email,
 					donor_name,
-					SUM(amount - refunded_amount) as total_donated,
+					SUM( ( amount - refunded_amount ) / COALESCE( NULLIF( exchange_rate, 0 ), 1 ) ) as total_donated,
 					COUNT(*) as donation_count,
 					MAX(created_at) as last_donation_date
 				FROM %i
 				WHERE campaign_id = %d
 				AND payment_status IN ('completed', 'partially_refunded')
+				AND payment_mode = %s
 				AND is_anonymous = 0
 				AND donor_email IS NOT NULL
 				AND donor_email != ''
@@ -197,6 +229,7 @@ class Campaign_Stats {
 				LIMIT %d",
 				$donations_table,
 				$campaign_id,
+				$payment_mode,
 				$limit
 			),
 			ARRAY_A
@@ -216,19 +249,22 @@ class Campaign_Stats {
 	 * @param int $limit Number of comments to retrieve.
 	 * @return array<int, array<string, mixed>>|null Donor comments.
 	 * @since 1.6.0
+	 * @since 1.7.0 Scoped to the store's current payment mode.
 	 */
 	public static function get_donor_comments( $campaign_id, $limit = 10 ) {
 		global $wpdb;
 
 		$donations_table = $wpdb->prefix . 'suredonation_donations';
+		$payment_mode    = self::payment_mode();
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		return $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT id, (amount - refunded_amount) as amount, donor_name, donor_email, is_anonymous, donor_comment, created_at
+				"SELECT id, (amount - refunded_amount) as amount, currency, donor_name, donor_email, is_anonymous, donor_comment, created_at
 				FROM %i
 				WHERE campaign_id = %d
 				AND payment_status IN ('completed', 'partially_refunded')
+				AND payment_mode = %s
 				AND donor_comment_status = 'approved'
 				AND donor_comment IS NOT NULL
 				AND donor_comment != ''
@@ -236,6 +272,7 @@ class Campaign_Stats {
 				LIMIT %d",
 				$donations_table,
 				$campaign_id,
+				$payment_mode,
 				$limit
 			),
 			ARRAY_A
@@ -249,11 +286,13 @@ class Campaign_Stats {
 	 * @param int $days Number of days to include.
 	 * @return array<int, array<string, mixed>>|null Donation timeline.
 	 * @since 0.0.1
+	 * @since 1.7.0 Scoped to the store's current payment mode.
 	 */
 	public static function get_donation_timeline( $campaign_id, $days = 30 ) {
 		global $wpdb;
 
 		$donations_table = $wpdb->prefix . 'suredonation_donations';
+		$payment_mode    = self::payment_mode();
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		return $wpdb->get_results(
@@ -261,15 +300,17 @@ class Campaign_Stats {
 				"SELECT
 					DATE(created_at) as date,
 					COUNT(*) as donation_count,
-					SUM(amount - refunded_amount) as total_amount
+					SUM( ( amount - refunded_amount ) / COALESCE( NULLIF( exchange_rate, 0 ), 1 ) ) as total_amount
 				FROM %i
 				WHERE campaign_id = %d
 				AND payment_status IN ('completed', 'partially_refunded')
+				AND payment_mode = %s
 				AND created_at >= DATE_SUB(NOW(), INTERVAL %d DAY)
 				GROUP BY DATE(created_at)
 				ORDER BY date ASC",
 				$donations_table,
 				$campaign_id,
+				$payment_mode,
 				$days
 			),
 			ARRAY_A
@@ -288,9 +329,10 @@ class Campaign_Stats {
 	 * @param int $cache_duration Cache duration in seconds (default: 5 minutes).
 	 * @return array<int, array<string, mixed>> Recent donations.
 	 * @since 1.0.0
+	 * @since 1.7.0 Cached per payment mode, not just per campaign.
 	 */
 	public static function get_cached_recent_donations( $campaign_id, $limit = 10, $cache_duration = 300 ) {
-		$cache_key = 'suredonation_recent_donations_' . $campaign_id;
+		$cache_key = self::cache_key( 'suredonation_recent_donations', $campaign_id );
 		$donations = get_transient( $cache_key );
 
 		if ( false === $donations || ! is_array( $donations ) ) {
@@ -314,9 +356,10 @@ class Campaign_Stats {
 	 * @param int $cache_duration Cache duration in seconds (default: 5 minutes).
 	 * @return array<int, array<string, mixed>> Top donors.
 	 * @since 1.0.0
+	 * @since 1.7.0 Cached per payment mode, not just per campaign.
 	 */
 	public static function get_cached_top_donors( $campaign_id, $limit = 10, $cache_duration = 300 ) {
-		$cache_key = 'suredonation_top_donors_' . $campaign_id;
+		$cache_key = self::cache_key( 'suredonation_top_donors', $campaign_id );
 		$donors    = get_transient( $cache_key );
 
 		if ( false === $donors || ! is_array( $donors ) ) {
@@ -356,9 +399,10 @@ class Campaign_Stats {
 	 * @param bool $exclude_anonymous Drop comments left on anonymous donations.
 	 * @return array<int, array<string, mixed>> Donor comments.
 	 * @since 1.6.0
+	 * @since 1.7.0 Cached per payment mode, not just per campaign.
 	 */
 	public static function get_cached_donor_comments( $campaign_id, $limit = 10, $cache_duration = 300, $exclude_anonymous = false ) {
-		$cache_key = 'suredonation_donor_comments_' . $campaign_id;
+		$cache_key = self::cache_key( 'suredonation_donor_comments', $campaign_id );
 		$comments  = get_transient( $cache_key );
 
 		if ( false === $comments || ! is_array( $comments ) ) {
@@ -384,15 +428,27 @@ class Campaign_Stats {
 	/**
 	 * Clear campaign stats cache.
 	 *
+	 * Drops the entries for both payment modes: the store's mode when a row
+	 * is written is not necessarily the row's mode (a test-mode webhook can
+	 * land after the switch to live), so clearing only the current mode
+	 * would leave the other mode's figures stale.
+	 *
 	 * @param int $campaign_id Campaign post ID.
 	 * @return void
 	 * @since 0.0.1
+	 * @since 1.7.0 Clears the per-mode entries.
 	 */
 	public static function clear_cache( $campaign_id ) {
-		delete_transient( 'suredonation_stats_' . $campaign_id );
-		delete_transient( 'suredonation_recent_donations_' . $campaign_id );
-		delete_transient( 'suredonation_top_donors_' . $campaign_id );
-		delete_transient( 'suredonation_donor_comments_' . $campaign_id );
+		foreach ( self::CACHE_PREFIXES as $prefix ) {
+			foreach ( [ 'test', 'live' ] as $payment_mode ) {
+				delete_transient( self::cache_key( $prefix, $campaign_id, $payment_mode ) );
+			}
+
+			// The un-suffixed key this class wrote before the mode was part of it.
+			// Nothing reads it now, and a persistent object cache has no expiry
+			// sweep, so without this it would sit there for the life of the site.
+			delete_transient( $prefix . '_' . absint( $campaign_id ) );
+		}
 	}
 
 	/**
@@ -402,9 +458,10 @@ class Campaign_Stats {
 	 * @param int $cache_duration Cache duration in seconds (default: 5 minutes).
 	 * @return array<string, mixed> Campaign statistics.
 	 * @since 0.0.1
+	 * @since 1.7.0 Cached per payment mode, not just per campaign.
 	 */
 	public static function get_cached_stats( $campaign_id, $cache_duration = 300 ) {
-		$cache_key = 'suredonation_stats_' . $campaign_id;
+		$cache_key = self::cache_key( 'suredonation_stats', $campaign_id );
 		$stats     = get_transient( $cache_key );
 
 		if ( false === $stats || ! is_array( $stats ) ) {
@@ -413,5 +470,62 @@ class Campaign_Stats {
 		}
 
 		return $stats;
+	}
+
+	/**
+	 * The payment mode every campaign figure is scoped to.
+	 *
+	 * A row's `payment_mode` decides whether it belongs in a public figure: a
+	 * test-mode donation is a rehearsal, not money the campaign received. The
+	 * scope is the store's current mode, the same default the reporting
+	 * abilities use (Runtime::resolve_report_scope()), so the public page, the
+	 * admin campaign list and the abilities agree.
+	 *
+	 * Currency is deliberately NOT part of the scope. A campaign has no
+	 * currency of its own and the only candidate is the store's current
+	 * setting, so scoping by it would empty every historical figure the moment
+	 * an admin changes that setting - a campaign that raised money would show
+	 * zero, which reads as data loss on a public page. Summing across
+	 * currencies is also wrong on the few sites that have them (a changed
+	 * setting, or a migration), but it overstates rather than erases, and there
+	 * is no UI on these surfaces to reveal what a currency scope would hide.
+	 * Fixing it properly means a per-currency breakdown or a stored rate, which
+	 * is a feature rather than part of this guard. GiveWP draws the same line:
+	 * its goal, form and donor aggregates scope by mode and never by currency,
+	 * and currency is only ever a filter on the one screen that offers the
+	 * reader a currency selector.
+	 *
+	 * @return string 'test' or 'live'.
+	 * @since 1.7.0
+	 */
+	private static function payment_mode() {
+		// The getter is normalised, so this is always one of the pair
+		// clear_cache() drops. Kept as a named seam so a reader of a query
+		// sees what the predicate is scoped to without chasing the settings.
+		return Payment_Helper::get_payment_mode();
+	}
+
+	/**
+	 * Build the transient key for one campaign's cache in one scope.
+	 *
+	 * The mode is part of the key, not only of the query. The plugin neither
+	 * fires nor listens to an action of its own when the store switches mode
+	 * (core's update_option hooks fire on the whole settings option, and
+	 * nothing here consumes them), so an entry filled in test mode would
+	 * otherwise be served for up to the cache lifetime after the switch to
+	 * live. With the mode in the key, a switch is simply a miss.
+	 *
+	 * @param string $prefix       One of CACHE_PREFIXES.
+	 * @param int    $campaign_id  Campaign post ID.
+	 * @param string $payment_mode Mode the entry belongs to; '' for the store's current mode.
+	 * @return string Transient key.
+	 * @since 1.7.0
+	 */
+	private static function cache_key( $prefix, $campaign_id, $payment_mode = '' ) {
+		if ( '' === $payment_mode ) {
+			$payment_mode = self::payment_mode();
+		}
+
+		return $prefix . '_' . absint( $campaign_id ) . '_' . $payment_mode;
 	}
 }

@@ -333,7 +333,12 @@ class Email_Reports {
 
 		$currency     = Payment_Helper::get_currency();
 		$payment_mode = Payment_Helper::get_payment_mode();
-		$report       = self::collect_report_data( time(), $currency, $payment_mode );
+
+		// Scoped by payment mode only. The currency predicate means "paid in",
+		// so passing the base currency here would drop every donation made in
+		// any other one - the totals now convert to base anyway, which is what
+		// this email reports. '' is the documented opt-out in scope_fragment().
+		$report = self::collect_report_data( time(), '', $payment_mode );
 
 		$date_format = Helper::get_string_value( get_option( 'date_format' ) );
 		$subject     = sprintf(
@@ -466,15 +471,17 @@ class Email_Reports {
 		$is_live       = 'live' === $payment_mode;
 		$currency_code = strtoupper( Helper::get_string_value( $currency ) );
 
-		// What the figures cover, said in the email: the Dashboard screen sums
-		// every currency and both modes, the Reports screen scopes by both,
-		// and this report follows Reports. Without the line the admin has no
-		// way to reconcile the two.
+		// What the figures cover, said in the email. This report is scoped by
+		// payment mode only: a donation taken in another currency is included,
+		// converted to the base currency at the rate recorded on the row, so
+		// the total is in one currency without any gift being left out. Saying
+		// "donations in GBP" instead would read as a filter the report does not
+		// apply, and the admin would have no way to reconcile it.
 		$scope_text = $is_live
 			/* translators: %s: currency code, e.g. GBP. */
-			? sprintf( __( 'Figures cover live donations in %s.', 'suredonation' ), $currency_code )
+			? sprintf( __( 'Figures are in %s. Donations taken in another currency are converted at the rate recorded with them.', 'suredonation' ), $currency_code )
 			/* translators: %s: currency code, e.g. GBP. */
-			: sprintf( __( 'Test mode: these figures come from test donations in %s. No real money was processed.', 'suredonation' ), $currency_code );
+			: sprintf( __( 'Test mode: these figures come from test donations and are shown in %s, with other currencies converted at the rate recorded with them. No real money was processed.', 'suredonation' ), $currency_code );
 
 		$campaign_url = static function ( $campaign ) {
 			$id = absint( Helper::get_string_value( $campaign['campaign_id'] ?? 0 ) );

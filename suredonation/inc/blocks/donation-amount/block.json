@@ -55,6 +55,11 @@
 				{ "label": "250", "value": "250" }
 			]
 		},
+		"optionType": {
+			"type": "string",
+			"default": "icon",
+			"enum": [ "icon", "image" ]
+		},
 		"defaultValue": {
 			"type": "string",
 			"default": ""
@@ -62,6 +67,14 @@
 		"showValues": {
 			"type": "boolean",
 			"default": false
+		},
+		"showDescriptions": {
+			"type": "boolean",
+			"default": false
+		},
+		"showSelectionIcon": {
+			"type": "boolean",
+			"default": true
 		},
 		"layout": {
 			"type": "string",

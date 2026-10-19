@@ -29,6 +29,16 @@ if ( ! defined( 'ABSPATH' ) ) {
  * @since 1.0.0
  */
 class Analytics {
+	/**
+	 * Ajax action backing the deactivation-survey checkbox.
+	 *
+	 * Shared between the survey config that declares it and the handler that
+	 * serves it, so the two cannot drift.
+	 *
+	 * @since 1.7.0
+	 */
+	public const UNINSTALL_PREF_ACTION = 'suredonation_set_uninstall_pref';
+
 	use Get_Instance;
 
 	/**
@@ -111,6 +121,9 @@ class Analytics {
 		// REST route the React admin app calls to record notice/UI clicks.
 		add_action( 'rest_api_init', [ $this, 'register_routes' ] );
 
+		// Saves the uninstall preference from the deactivation survey checkbox.
+		add_action( 'wp_ajax_' . self::UNINSTALL_PREF_ACTION, [ $this, 'save_uninstall_preference' ] );
+
 		add_filter( 'bsf_core_stats', [ $this, 'add_suredonation_analytics_data' ] );
 
 		// Keep analytics sends (and their stat queries) off the frontend.
@@ -180,6 +193,27 @@ class Analytics {
 								'popup_description' => __( 'If you have a moment, please share why you are deactivating SureDonation:', 'suredonation' ),
 								'show_on_screens'   => [ 'plugins' ],
 								'plugin_version'    => SUREDONATION_VER,
+
+								/*
+								 * Offers the uninstall preference at the moment
+								 * the decision is being made. This is the only
+								 * surface for the flag, so the copy has to
+								 * carry the whole promise on its own.
+								 *
+								 * Only offered to someone who could act on it,
+								 * so the control is never rendered for a user
+								 * the handler would reject.
+								 */
+								'extra_options'     => current_user_can( 'manage_options' ) ? [
+									[
+										'type'        => 'checkbox',
+										'name'        => 'remove_settings_on_uninstall',
+										'label'       => __( 'Check this to remove your settings, payment gateway connections and preferences when you delete SureDonation. Note: Donations, donors and receipts are never deleted.', 'suredonation' ),
+										'checked'     => (bool) Helper::get_suredonation_option( 'remove_settings_on_uninstall', false ),
+										'ajax_action' => self::UNINSTALL_PREF_ACTION,
+										'nonce'       => wp_create_nonce( self::UNINSTALL_PREF_ACTION ),
+									],
+								] : [],
 							],
 						]
 					),
@@ -187,6 +221,37 @@ class Analytics {
 				],
 			]
 		);
+	}
+
+	/**
+	 * Save the uninstall preference set from the deactivation survey.
+	 *
+	 * Writing this does not deactivate or delete anything: it only records what
+	 * should happen if the plugin is deleted later. It stays reversible - the
+	 * box reflects the stored value next time the popup opens.
+	 *
+	 * The library posts the value as the string '1' or '0' on change, so this
+	 * compares strictly. A cast would read "no" as consent, which is the same
+	 * trap that forced an explicit validate_callback onto the REST route.
+	 *
+	 * @return void
+	 * @since 1.7.0
+	 */
+	public function save_uninstall_preference() {
+
+		if ( ! check_ajax_referer( self::UNINSTALL_PREF_ACTION, 'security', false ) ) {
+			wp_send_json_error( [ 'message' => __( 'Invalid nonce.', 'suredonation' ) ], 403 );
+		}
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( [ 'message' => __( 'You do not have permission to change this setting.', 'suredonation' ) ], 403 );
+		}
+
+		$checked = isset( $_POST['checked'] ) ? sanitize_text_field( wp_unslash( $_POST['checked'] ) ) : '';
+
+		Helper::update_suredonation_option( 'remove_settings_on_uninstall', '1' === $checked );
+
+		wp_send_json_success();
 	}
 
 	/**
@@ -734,6 +799,8 @@ class Analytics {
 			'campaign_donate_button'  => 'suredonation/campaign-donate-button',
 			'campaign_social_sharing' => 'suredonation/campaign-social-sharing',
 			'donation_form'           => 'suredonation/donation-form',
+			// Registered by SureDonation Pro; counted here so every placement reports alike.
+			'donor_dashboard'         => 'suredonation/donor-dashboard',
 		];
 
 		// prepare() fills placeholders in SQL order: the SELECT-list %s LIKEs
@@ -860,6 +927,8 @@ class Analytics {
 			'campaign_donate_button'  => 'suredonation-campaign-donate-button',
 			'campaign_social_sharing' => 'suredonation-campaign-social-sharing',
 			'donation_form'           => 'suredonation-donation-form',
+			// Registered by SureDonation Pro through suredonation_elementor_widgets.
+			'donor_dashboard'         => 'suredonation-donor-dashboard',
 		];
 
 		// prepare() fills placeholders in SQL order: the SELECT-list %s LIKEs
@@ -915,6 +984,8 @@ class Analytics {
 			'campaign_donate_button'  => 'suredonation-campaign-donate-button',
 			'campaign_social_sharing' => 'suredonation-campaign-social-sharing',
 			'donation_form'           => 'suredonation-donation-form',
+			// Registered by SureDonation Pro through suredonation_bricks_elements.
+			'donor_dashboard'         => 'suredonation-donor-dashboard',
 		];
 
 		// prepare() fills placeholders in SQL order: the SELECT-list %s LIKEs
@@ -1028,7 +1099,10 @@ class Analytics {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Single grouped query on a custom table, runs only at analytics send time.
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT DATE(created_at) AS day, COUNT(*) AS donations, COALESCE(SUM(amount),0) AS revenue
+				// Deliberately not Donations::base_amount_sql(): this series has
+				// always been gross, with no refund subtracted, and the shared
+				// fragment nets them. Only the conversion is borrowed.
+				"SELECT DATE(created_at) AS day, COUNT(*) AS donations, COALESCE(SUM( amount / COALESCE( NULLIF( exchange_rate, 0 ), 1 ) ),0) AS revenue
 				FROM %i
 				WHERE payment_status = 'completed' AND created_at >= %s AND created_at < %s
 				GROUP BY day",

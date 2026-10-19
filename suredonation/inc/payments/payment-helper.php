@@ -35,6 +35,18 @@ class Payment_Helper {
 	public const OPTION_KEY = 'payment_settings';
 
 	/**
+	 * Most slack a base-currency comparison will ever allow for rounding.
+	 *
+	 * Five cents: comfortably above the largest slack a real rate asks for
+	 * (about 1.7 cents at a rate of 0.30, below which the base currency's own
+	 * epsilon dominates anyway), and far below any configured minimum, so a
+	 * mistyped rate can no longer turn the tolerance into a hole.
+	 *
+	 * @since 1.7.0
+	 */
+	public const MAX_ROUNDING_SLACK = 0.05;
+
+	/**
 	 * Allowed currency sign positions. Single source of truth for the getter
 	 * and every REST write handler that validates the setting.
 	 *
@@ -164,14 +176,40 @@ class Payment_Helper {
 	}
 
 	/**
-	 * Get current payment mode
+	 * Get current payment mode.
+	 *
+	 * The return is guaranteed to be exactly 'test' or 'live', not merely
+	 * documented as such. Callers use it as a SQL predicate that decides which
+	 * donations count as money the site received, so a third value read back
+	 * from a hand-edited option would either hide live income or silently drop
+	 * the filter, depending on which caller saw it first.
+	 *
+	 * An unrecognised stored value resolves to 'live'. That is the visible
+	 * direction: a misconfigured site shows its real donations rather than an
+	 * empty page, and 'test' stays reachable only by being stored explicitly.
+	 * An absent or blank setting still means 'test', which is the shipped
+	 * default a site keeps until onboarding switches it.
+	 *
+	 * Note that this value does more than scope a query: it also selects which
+	 * gateway credentials are used, at around thirty call sites across Stripe
+	 * and PayPal. So the 'live' fallback picks live keys where the previous
+	 * behaviour would have picked test ones. Both writers of the setting
+	 * allow-list the two modes, so reaching it needs a hand-edited option, but
+	 * the trade is worth stating rather than leaving to be rediscovered.
 	 *
 	 * @return string 'test' or 'live'.
 	 * @since 0.0.1
+	 * @since 1.7.0 Normalised; never returns a value outside the two modes.
 	 */
 	public static function get_payment_mode() {
 		$response = self::get_global_setting( 'payment_mode', 'test' );
-		return ! empty( $response ) && is_string( $response ) ? $response : 'test';
+		$mode     = is_string( $response ) ? strtolower( trim( $response ) ) : '';
+
+		if ( '' === $mode ) {
+			return 'test';
+		}
+
+		return 'test' === $mode ? 'test' : 'live';
 	}
 
 	/**
@@ -405,21 +443,46 @@ class Payment_Helper {
 	 * @since 1.3.0
 	 */
 	public static function has_usable_gateway() {
-		// Connected is not the same as able to take money: an account Stripe has
-		// restricted still holds valid keys. Counting it as usable sends the
-		// admin to the form editor to "pick a gateway" when the gateway itself
-		// is the problem.
-		if ( Stripe_Helper::is_stripe_connected()
-			&& '' !== Stripe_Helper::get_stripe_publishable_key()
-			&& ! Stripe_Helper::is_card_capability_blocked() ) {
-			return true;
+		foreach ( [ 'stripe', 'paypal', 'offline' ] as $gateway ) {
+			if ( self::is_gateway_usable( $gateway ) ) {
+				return true;
+			}
 		}
 
-		if ( PayPal_Helper::is_paypal_connected() ) {
-			return true;
+		return false;
+	}
+
+	/**
+	 * Whether one named gateway is usable on the site right now.
+	 *
+	 * The per-gateway half of has_usable_gateway(), for callers that need to
+	 * know which gateways are live rather than whether any is. Same standard:
+	 * a gateway a payment block would actually render, scoped to the current
+	 * payment mode.
+	 *
+	 * @param string $gateway Gateway slug.
+	 * @return bool
+	 * @since 1.7.0
+	 */
+	public static function is_gateway_usable( $gateway ) {
+		switch ( is_string( $gateway ) ? $gateway : '' ) {
+			case 'stripe':
+				// Connected is not the same as able to take money: an account
+				// Stripe has restricted still holds valid keys. Counting it as
+				// usable sends the admin to the form editor to "pick a gateway"
+				// when the gateway itself is the problem.
+				return Stripe_Helper::is_stripe_connected()
+					&& '' !== Stripe_Helper::get_stripe_publishable_key()
+					&& ! Stripe_Helper::is_card_capability_blocked();
+
+			case 'paypal':
+				return PayPal_Helper::is_paypal_connected();
+
+			case 'offline':
+				return Offline_Helper::is_offline_enabled();
 		}
 
-		return Offline_Helper::is_offline_enabled();
+		return false;
 	}
 
 	/**
@@ -680,6 +743,263 @@ class Payment_Helper {
 	public static function get_currency() {
 		$currency = self::get_global_setting( 'currency', 'USD' );
 		return is_string( $currency ) ? $currency : 'USD';
+	}
+
+	/**
+	 * The currency this submission should be charged in.
+	 *
+	 * The request carries a three-letter code and nothing else; the rate is
+	 * looked up server-side from the stored settings. A payload that could name
+	 * its own rate would let a donor pay a token amount while the donation is
+	 * recorded as being worth far more, which is how the comparable feature in
+	 * GiveWP works and is not a mistake worth copying.
+	 *
+	 * Only an absent or non-string code falls back to the site's configured
+	 * currency, so a request from before this field existed behaves exactly as
+	 * it used to. An unknown or not-currently-enabled code is returned as
+	 * submitted, because the amount travels in that currency and re-labelling it
+	 * as the base would book the figure unconverted - see the comment on the
+	 * return below. validate_payment_amount() refuses it.
+	 *
+	 * @return string Uppercase currency code.
+	 * @since 1.7.0
+	 */
+	public static function get_submitted_currency() {
+		$base = strtoupper( self::get_currency() );
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce/HMAC verified by the calling handler.
+		if ( ! isset( $_POST['currency'] ) || ! is_string( $_POST['currency'] ) ) {
+			return $base;
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce/HMAC verified by the calling handler.
+		$submitted = strtoupper( sanitize_text_field( wp_unslash( $_POST['currency'] ) ) );
+
+		// A code that is present but not allowed is returned as-is rather than
+		// quietly becoming the base currency. The amount travels in the donor's
+		// currency, so re-labelling JPY 3750 as USD books it as $3,750.
+		// validate_payment_amount() refuses an unknown currency, which is the
+		// right answer for a stale tab or a cached page: tell the donor to
+		// reload rather than charge them 150x.
+		return in_array( $submitted, self::get_allowed_currencies(), true ) ? $submitted : ( '' !== $submitted ? $submitted : $base );
+	}
+
+	/**
+	 * Currencies a donor is allowed to pay in.
+	 *
+	 * Defaults to the site's single global currency, so with no extension
+	 * filtering this the plugin behaves exactly as it did before multi-currency
+	 * existed. An extension widens the set; this method still intersects the
+	 * result with the known currency table so a filter cannot introduce a code
+	 * the rest of the plugin has no decimal/symbol data for.
+	 *
+	 * @return array<string> Uppercase currency codes.
+	 * @since 1.7.0
+	 */
+	public static function get_allowed_currencies() {
+		$base = strtoupper( self::get_currency() );
+
+		/**
+		 * Filter the currencies a donor may pay in.
+		 *
+		 * @param array<string> $allowed Uppercase currency codes.
+		 * @since 1.7.0
+		 */
+		$allowed = apply_filters( 'suredonation_allowed_currencies', [ $base ] );
+
+		if ( ! is_array( $allowed ) ) {
+			return [ $base ];
+		}
+
+		$known = self::get_all_currencies_data();
+
+		$allowed = array_values(
+			array_unique(
+				array_filter(
+					array_map(
+						static function ( $code ) use ( $known ) {
+							$code = is_string( $code ) ? strtoupper( trim( $code ) ) : '';
+							return isset( $known[ $code ] ) ? $code : '';
+						},
+						$allowed
+					)
+				)
+			)
+		);
+
+		// The base currency is always payable; a filter must not be able to
+		// lock the site out of its own configured currency.
+		if ( ! in_array( $base, $allowed, true ) ) {
+			$allowed[] = $base;
+		}
+
+		return $allowed;
+	}
+
+	/**
+	 * Exchange rate for a donation currency, in donation-currency units per one
+	 * unit of the site's base currency.
+	 *
+	 * JPY on a USD site returns 150, not 0.00667. Multiply to go base -> donor,
+	 * divide to go donor -> base. This is the single FX seam in the free
+	 * plugin: it performs no conversion of its own and holds no rate data. An
+	 * extension supplies the number.
+	 *
+	 * Fails closed wherever money is still being taken. A filter returning
+	 * something non-numeric or non-positive yields 0.0, and those callers must
+	 * treat it as "this currency is not payable" rather than falling back to
+	 * 1.0: a silent 1.0 at the point of charging would take a 10,000 JPY
+	 * donation as though it were 10,000 USD.
+	 *
+	 * Reading a donation already in the books is the opposite case and is
+	 * settled the other way. A row whose rate could not be resolved when it
+	 * was written is counted at face value by every reader, in SQL through
+	 * `COALESCE( NULLIF( exchange_rate, 0 ), 1 )` and on the donor columns
+	 * through Donors::record_donation(), because dropping it from one total
+	 * while the others keep it is worse than counting it imprecisely.
+	 *
+	 * @param string $currency Donation currency code.
+	 * @return float Rate, or 0.0 when no usable rate is available.
+	 * @since 1.7.0
+	 */
+	public static function get_exchange_rate( $currency ) {
+		$currency = is_string( $currency ) ? strtoupper( trim( $currency ) ) : '';
+
+		if ( '' === $currency || strtoupper( self::get_currency() ) === $currency ) {
+			return 1.0;
+		}
+
+		/**
+		 * Filter the exchange rate for a donation currency.
+		 *
+		 * @param float  $rate     Donation-currency units per 1 base unit.
+		 * @param string $currency Donation currency code.
+		 * @since 1.7.0
+		 */
+		$rate = apply_filters( 'suredonation_exchange_rate', 0.0, $currency );
+
+		if ( ! is_numeric( $rate ) || (float) $rate <= 0 ) {
+			return 0.0;
+		}
+
+		return (float) $rate;
+	}
+
+	/**
+	 * Whether a gateway can settle in a currency.
+	 *
+	 * Defaults to true so a gateway that says nothing keeps working in every
+	 * currency the site accepts, which is what Stripe and the offline method
+	 * want. A gateway with real limits declares them on the filter.
+	 *
+	 * @param string $gateway  Gateway slug.
+	 * @param string $currency Currency code.
+	 * @return bool
+	 * @since 1.7.0
+	 */
+	public static function gateway_supports_currency( $gateway, $currency ) {
+		$gateway  = is_string( $gateway ) ? $gateway : '';
+		$currency = is_string( $currency ) ? strtoupper( trim( $currency ) ) : '';
+
+		if ( '' === $gateway || '' === $currency ) {
+			return true;
+		}
+
+		/**
+		 * Filter whether a gateway can settle in a currency.
+		 *
+		 * @param bool   $supported Whether it is supported.
+		 * @param string $gateway   Gateway slug.
+		 * @param string $currency  Currency code.
+		 * @since 1.7.0
+		 */
+		return (bool) apply_filters( 'suredonation_gateway_supports_currency', true, $gateway, $currency );
+	}
+
+	/**
+	 * Comparison tolerance for a *minimum* amount, in base-currency units.
+	 *
+	 * Deliberately stricter than get_base_amount_epsilon(). Before multi-currency
+	 * both minimum checks were exact - `$amount < $minimum` - while the fixed,
+	 * preset and min/max checks already carried a tolerance. Routing the minimum
+	 * through the general epsilon handed every site a free cent: with a 0.01
+	 * tolerance `4.99 < 5 - 0.01` is false, so a $5.00 minimum accepted $4.99,
+	 * on single-currency installs with no Pro as well.
+	 *
+	 * A donation in the base currency has not been divided by anything, so there
+	 * is no rounding error to forgive and the original exact comparison stands.
+	 * A converted one keeps the slack, because `amount / rate` genuinely can land
+	 * a hair under the bound.
+	 *
+	 * @param string $currency Donation currency code.
+	 * @param mixed  $rate     Rate used to reach the base amount.
+	 * @return float
+	 * @since 1.7.0
+	 */
+	public static function get_minimum_epsilon( $currency, $rate ) {
+		$code = is_string( $currency ) ? strtoupper( trim( $currency ) ) : '';
+
+		if ( '' === $code || strtoupper( self::get_currency() ) === $code ) {
+			return 0.0;
+		}
+
+		return self::get_base_amount_epsilon( $currency, $rate );
+	}
+
+	/**
+	 * Comparison tolerance, in base currency, for an amount that was rounded in
+	 * a donation currency before being submitted.
+	 *
+	 * The donor's client converts a base-currency figure at $rate and rounds it
+	 * to the donation currency's own decimal places. Dividing back therefore
+	 * lands up to half a minor unit of that currency away from the configured
+	 * number, and that error is magnified by 1/$rate. For a currency whose rate
+	 * is below 1 (KWD at roughly 0.31 per USD) half a fils is already worth more
+	 * than a cent, so a flat base-currency epsilon would reject a correctly
+	 * rounded donation. Take whichever tolerance is larger.
+	 *
+	 * @param string $currency Donation currency code.
+	 * @param float  $rate     Donation-currency units per 1 base unit.
+	 * @return float Tolerance expressed in base currency.
+	 * @since 1.7.0
+	 */
+	public static function get_base_amount_epsilon( $currency, $rate ) {
+		$base_epsilon = self::get_amount_epsilon( self::get_currency() );
+
+		if ( ! is_numeric( $rate ) || (float) $rate <= 0 ) {
+			return $base_epsilon;
+		}
+
+		$rounding_slack = ( self::get_amount_epsilon( $currency ) / 2 ) / (float) $rate;
+
+		// Capped, because the slack is inversely proportional to the rate and
+		// rates are typed by hand. An admin who enters the inverse of what they
+		// meant (0.0001 for 10000) produces 50 units of tolerance, which
+		// swallows the configured minimum whole and lets a token payment clear
+		// a form entirely. A cent of slack is all rounding ever needs; anything
+		// beyond that is a mistyped rate, and the right answer there is to
+		// refuse the amount rather than to widen the gate.
+		$rounding_slack = min( $rounding_slack, self::MAX_ROUNDING_SLACK );
+
+		return max( $base_epsilon, $rounding_slack );
+	}
+
+	/**
+	 * Convert an amount in a donation currency into the site's base currency.
+	 *
+	 * @param float  $amount   Amount in $currency.
+	 * @param string $currency Donation currency code.
+	 * @return float|null Base-currency amount, or null when no usable rate exists.
+	 * @since 1.7.0
+	 */
+	public static function convert_to_base( $amount, $currency ) {
+		$rate = self::get_exchange_rate( $currency );
+
+		if ( $rate <= 0 ) {
+			return null;
+		}
+
+		return (float) $amount / $rate;
 	}
 
 	/**
@@ -1042,10 +1362,11 @@ class Payment_Helper {
 	 * @param float      $base_amount    The base donation amount.
 	 * @param float|null $fee_percentage Fee percentage (e.g., 2.9 for 2.9%). Null to use global setting.
 	 * @param float|null $fee_fixed      Fixed fee amount (e.g., 0.30). Null to use global setting.
-	 * @return float The calculated fee amount, rounded to 2 decimal places.
+	 * @param string     $currency       Currency $base_amount is in. Empty means the base currency, which needs no scaling.
+	 * @return float The calculated fee amount, rounded to the currency's own decimal places.
 	 * @since 1.0.0
 	 */
-	public static function calculate_fee( $base_amount, $fee_percentage = null, $fee_fixed = null ) {
+	public static function calculate_fee( $base_amount, $fee_percentage = null, $fee_fixed = null, $currency = '' ) {
 		if ( $base_amount <= 0 ) {
 			return 0.0;
 		}
@@ -1069,10 +1390,28 @@ class Payment_Helper {
 			return 0.0;
 		}
 
-		$total = ( $base_amount + (float) $fee_fixed ) / ( 1 - $rate );
+		// The percentage is a ratio and needs no conversion, but the flat part
+		// is authored in base currency while $base_amount arrives in the
+		// donor's. Left unscaled, a 0.30 fee lands as 0.30 JPY instead of 45,
+		// and as 0.30 KWD instead of 0.09 - under-recovering in one direction
+		// and over-charging the donor in the other.
+		$fee_fixed = (float) $fee_fixed;
+
+		if ( '' !== $currency ) {
+			$exchange_rate = self::get_exchange_rate( $currency );
+
+			// A non-positive rate is already refused upstream by
+			// validate_payment_amount(), so this only guards a direct caller;
+			// 1.0 keeps the long-standing single-currency behaviour.
+			$fee_fixed *= $exchange_rate > 0 ? $exchange_rate : 1.0;
+		}
+
+		$total = ( $base_amount + $fee_fixed ) / ( 1 - $rate );
 		$fee   = $total - $base_amount;
 
-		return round( $fee, 2 );
+		// Round to the donation currency's own precision: two decimals on a
+		// zero-decimal currency invents a minor unit that cannot be charged.
+		return round( $fee, self::is_zero_decimal_currency( $currency ) ? 0 : 2 );
 	}
 
 	/**
@@ -1208,14 +1547,64 @@ class Payment_Helper {
 			$payment_config = array_merge( $payment_config, $payment_config[ $mode_key ] );
 		}
 
-		// Validate currency matches global setting.
-		$global_currency    = strtolower( self::get_currency() );
-		$submitted_currency = strtolower( $currency );
-		if ( $global_currency !== $submitted_currency ) {
+		// Validate the submitted currency is one the site actually accepts. With
+		// no extension widening the set this is just the global currency, so the
+		// single-currency behaviour is unchanged.
+		$submitted_currency = is_string( $currency ) ? strtoupper( trim( $currency ) ) : '';
+		$allowed_currencies = self::get_allowed_currencies();
+
+		if ( ! in_array( $submitted_currency, $allowed_currencies, true ) ) {
 			return [
 				'valid'   => false,
-				/* translators: 1: expected currency, 2: received currency */
-				'message' => sprintf( __( 'Currency mismatch: expected %1$s, received %2$s.', 'suredonation' ), strtoupper( $global_currency ), strtoupper( $submitted_currency ) ),
+				// Names the currency that was refused rather than the site's
+				// base. On a multi-currency site the base is not what the donor
+				// was offered, so "expected USD" described a rule that does not
+				// exist: the usual cause is a tab held open while the currency
+				// was removed from the settings, which reloading resolves.
+				/* translators: %s: the currency code that was submitted */
+				'message' => sprintf( __( 'The currency %s is not available for this donation. Please reload the page and try again.', 'suredonation' ), $submitted_currency ),
+			];
+		}
+
+		// Fail closed when a currency is enabled but has no usable rate. Falling
+		// back to 1.0 here would book a 10,000 JPY donation as 10,000 USD.
+		$rate = self::get_exchange_rate( $submitted_currency );
+		if ( $rate <= 0 ) {
+			return [
+				'valid'   => false,
+				/* translators: %s: currency code */
+				'message' => sprintf( __( 'Donations in %s are temporarily unavailable. Please choose another currency.', 'suredonation' ), $submitted_currency ),
+			];
+		}
+
+		// Every threshold below — fixed_amount, minimum_amount, the donation-amount
+		// presets and the gateway floors — is authored in the site's base currency,
+		// while $amount arrives in the donor's. Comparing the two raw numbers lets
+		// 25 JPY (about $0.17) satisfy a $25 fixed block, so normalise to base
+		// first and keep the donor's currency only for the messages.
+		$base_amount = (float) $amount / $rate;
+
+		// A currency the site accepts is not automatically one this gateway can
+		// settle in, and which currencies an account takes varies by country,
+		// so nothing here hard-codes a list - whoever filters decides. Checked
+		// on the server and not only in the UI, because the gateway is chosen
+		// client-side and the method the form hides can still be posted.
+		if ( ! self::gateway_supports_currency( $gateway, $submitted_currency ) ) {
+			// Brand casing, because this is the one donor-facing string this
+			// check emits and ucfirst() renders PayPal as "Paypal".
+			// get_supported_gateways() is not the source: it has no PayPal
+			// entry, and it labels offline "Offline Donations", which reads
+			// wrong in this sentence.
+			$labels = [
+				'stripe'  => 'Stripe',
+				'paypal'  => 'PayPal',
+				'offline' => __( 'Offline', 'suredonation' ),
+			];
+
+			return [
+				'valid'   => false,
+				/* translators: 1: gateway name, 2: currency code */
+				'message' => sprintf( __( '%1$s cannot accept donations in %2$s. Please choose another payment method or currency.', 'suredonation' ), $labels[ $gateway ] ?? ucfirst( (string) $gateway ), $submitted_currency ),
 			];
 		}
 
@@ -1237,11 +1626,11 @@ class Payment_Helper {
 			$configured_amount = floatval( Helper::get_string_value( $payment_config['fixed_amount'] ) );
 
 			// Allow one minor currency unit of tolerance for float rounding.
-			if ( abs( $amount - $configured_amount ) > self::get_amount_epsilon( $currency ) ) {
+			if ( abs( $base_amount - $configured_amount ) > self::get_base_amount_epsilon( $submitted_currency, $rate ) ) {
 				return [
 					'valid'   => false,
 					/* translators: %s: expected amount with currency */
-					'message' => sprintf( __( 'Payment amount must be exactly %s.', 'suredonation' ), self::format_amount( $configured_amount, $currency ) ),
+					'message' => sprintf( __( 'Payment amount must be exactly %s.', 'suredonation' ), self::format_amount( $configured_amount * $rate, $currency ) ),
 				];
 			}
 		} elseif ( 'variable' === $amount_type ) {
@@ -1249,15 +1638,15 @@ class Payment_Helper {
 			// is explicitly configured in the block. Default is no minimum.
 			$minimum_amount = isset( $payment_config['minimum_amount'] ) ? floatval( Helper::get_string_value( $payment_config['minimum_amount'] ) ) : 0.0;
 
-			if ( $minimum_amount > 0 && $amount < $minimum_amount ) {
+			if ( $minimum_amount > 0 && $base_amount < $minimum_amount - self::get_minimum_epsilon( $submitted_currency, $rate ) ) {
 				return [
 					'valid'   => false,
 					/* translators: %s: minimum amount with currency */
-					'message' => sprintf( __( 'Payment amount must be at least %s.', 'suredonation' ), self::format_amount( $minimum_amount, $currency ) ),
+					'message' => sprintf( __( 'Payment amount must be at least %s.', 'suredonation' ), self::format_amount( $minimum_amount * $rate, $currency ) ),
 				];
 			}
 
-			if ( $amount <= 0 ) {
+			if ( $base_amount <= 0 ) {
 				return [
 					'valid'   => false,
 					'message' => __( 'Payment amount must be greater than zero.', 'suredonation' ),
@@ -1265,7 +1654,7 @@ class Payment_Helper {
 			}
 
 			// Additional validation for donation-amount fields.
-			$dynamic_validation = self::validate_dynamic_amount_field( $payment_config, $block_config, $amount, $currency );
+			$dynamic_validation = self::validate_dynamic_amount_field( $payment_config, $block_config, $base_amount, $currency, $rate );
 			if ( null !== $dynamic_validation ) {
 				return $dynamic_validation;
 			}
@@ -1279,11 +1668,11 @@ class Payment_Helper {
 
 		if ( isset( $gateway_minimums[ $gateway ] ) ) {
 			$minimum = $gateway_minimums[ $gateway ];
-			if ( $amount < $minimum ) {
+			if ( $base_amount < $minimum - self::get_minimum_epsilon( $submitted_currency, $rate ) ) {
 				return [
 					'valid'   => false,
 					/* translators: %s: minimum amount */
-					'message' => sprintf( __( 'Payment amount must be at least %s.', 'suredonation' ), self::format_amount( $minimum, $currency ) ),
+					'message' => sprintf( __( 'Payment amount must be at least %s.', 'suredonation' ), self::format_amount( $minimum * $rate, $currency ) ),
 				];
 			}
 		}
@@ -1331,6 +1720,171 @@ class Payment_Helper {
 		}
 
 		return $configured_type;
+	}
+
+	/**
+	 * Which donation-amount block, if any, hosts the one-time/recurring chooser.
+	 *
+	 * In 'both' mode the donor's choice can render either next to the card (the
+	 * legacy checkbox) or inside the donation-amount block, above the preset
+	 * amounts. Both blocks render independently and an admin may order them
+	 * freely, so neither may decide on its own — they both ask this, and because
+	 * it is a pure function of the stored config they can never disagree.
+	 *
+	 * Returns null — meaning "keep the control on the payment block" — unless
+	 * every condition holds, so an incomplete or ambiguous configuration always
+	 * falls back to the behaviour that existed before the chooser. The billing
+	 * interval rides along because the hosting block labels the recurring option
+	 * with it and has no other way to reach the payment block's cadence.
+	 *
+	 * @param int $form_id Form ID.
+	 * @return array{slug: string, interval: string, label: string, payment_block_id: string}|null Host details, or null for none.
+	 * @since 1.7.0
+	 */
+	public static function get_recurring_chooser_host( $form_id ) {
+		$form_id = (int) $form_id;
+
+		if ( $form_id <= 0 ) {
+			return null;
+		}
+
+		// The amount block renders wherever it is placed, so one embedded in an
+		// arbitrary post must not read another post's configuration.
+		if ( Donation_Form::POST_TYPE !== get_post_type( $form_id ) ) {
+			return null;
+		}
+
+		$block_config = \SureDonation\Inc\Field_Validation::get_or_migrate_block_config_for_legacy_form( $form_id );
+
+		if ( ! is_array( $block_config ) ) {
+			return null;
+		}
+
+		foreach ( $block_config as $block_id => $config ) {
+			if ( ! is_array( $config ) || 'suredonation/payment' !== ( $config['block_name'] ?? '' ) ) {
+				continue;
+			}
+
+			// The same collapse the payment block applies, so a site without Pro —
+			// or with a Pro too old to confirm a subscription — renders no chooser
+			// anywhere rather than one wired to a path that cannot complete.
+			if ( 'both' !== self::effective_payment_type( $config['payment_type'] ?? 'one-time' ) ) {
+				return null;
+			}
+
+			// Null-coalesced, not compared strictly: the key is absent from every
+			// form saved before this setting existed, and the meta is only rewritten
+			// on save_post. Reading the block.json default here keeps the front end
+			// agreeing with the editor, which reads that same default.
+			if ( 'amount' !== ( $config['recurring_option_placement'] ?? 'amount' ) ) {
+				return null;
+			}
+
+			$one_time     = is_array( $config['one_time'] ?? null ) ? $config['one_time'] : [];
+			$subscription = is_array( $config['subscription'] ?? null ) ? $config['subscription'] : [];
+
+			$slug              = Helper::get_string_value( $one_time['variable_amount_field'] ?? '' );
+			$subscription_slug = Helper::get_string_value( $subscription['variable_amount_field'] ?? '' );
+
+			// Both choices must draw a variable amount from the same block, or there
+			// is no single place the chooser belongs. The amount type is checked
+			// because build_amount_config() stores the slug whichever type is set,
+			// so a block switched back to a fixed amount keeps a stale pointer.
+			if (
+				'variable' !== ( $one_time['amount_type'] ?? '' )
+				|| 'variable' !== ( $subscription['amount_type'] ?? '' )
+				|| '' === $slug
+				|| $subscription_slug !== $slug
+			) {
+				return null;
+			}
+
+			// And that block must actually be a donation-amount block — a fixed
+			// amount, or an amount taken from a number or dropdown field, has no
+			// preset pills for the chooser to sit above.
+			if ( 'suredonation/donation-amount' !== ( $one_time['variable_amount_field_block_name'] ?? '' ) ) {
+				return null;
+			}
+
+			// An absent key predates the setting, so it falls back to the default
+			// heading; a present-but-empty one is an admin who cleared it on purpose.
+			$label = array_key_exists( 'recurring_option_label', $config )
+				? Helper::get_string_value( $config['recurring_option_label'] )
+				: __( 'Donation Frequency', 'suredonation' );
+
+			return [
+				'slug'             => $slug,
+				'interval'         => Helper::get_string_value( $config['subscription_interval'] ?? 'month' ),
+				'label'            => $label,
+				// The chooser points aria-controls at the payment block's amount
+				// panels, which are keyed by that block's id.
+				'payment_block_id' => Helper::get_string_value( $block_id ),
+			];
+		}
+
+		return null;
+	}
+
+	/**
+	 * The adverb naming a billing interval, for labelling the donor's choice.
+	 *
+	 * Deliberately separate from `Payment_Markup::get_interval_label()`, which
+	 * returns the noun ('month') because it completes the sentence "$50 per
+	 * month". A control label needs the adverb ('Monthly').
+	 *
+	 * @param string $interval Interval slug: day, week, month or year.
+	 * @return string Translated adverb, defaulting to the monthly form.
+	 * @since 1.7.0
+	 */
+	public static function get_interval_adverb( $interval ) {
+		$adverbs = [
+			'day'   => __( 'Daily', 'suredonation' ),
+			'week'  => __( 'Weekly', 'suredonation' ),
+			'month' => __( 'Monthly', 'suredonation' ),
+			'year'  => __( 'Yearly', 'suredonation' ),
+		];
+
+		$interval = is_string( $interval ) ? $interval : '';
+
+		return $adverbs[ $interval ] ?? $adverbs['month'];
+	}
+
+	/**
+	 * Labels for the two options in the one-time/recurring chooser.
+	 *
+	 * The recurring label follows the configured billing interval rather than
+	 * being author-entered, so it can never contradict what the donor is actually
+	 * charged. Sites needing different wording filter it.
+	 *
+	 * @param string $interval Configured billing interval slug.
+	 * @param int    $form_id  Form ID, for context in the filter.
+	 * @return array{one-time: string, subscription: string} Option labels.
+	 * @since 1.7.0
+	 */
+	public static function get_payment_type_chooser_labels( $interval, $form_id = 0 ) {
+		$labels = [
+			'one-time'     => __( 'One-Time', 'suredonation' ),
+			'subscription' => self::get_interval_adverb( $interval ),
+		];
+
+		/**
+		 * Filter the labels on the donor's one-time/recurring chooser.
+		 *
+		 * @since 1.7.0
+		 * @param array{one-time: string, subscription: string} $labels   Option labels.
+		 * @param string                                        $interval Configured billing interval.
+		 * @param int                                           $form_id  Form ID.
+		 */
+		$filtered = apply_filters( 'suredonation_payment_type_chooser_labels', $labels, $interval, (int) $form_id );
+
+		if ( ! is_array( $filtered ) ) {
+			return $labels;
+		}
+
+		return [
+			'one-time'     => Helper::get_string_value( $filtered['one-time'] ?? $labels['one-time'] ),
+			'subscription' => Helper::get_string_value( $filtered['subscription'] ?? $labels['subscription'] ),
+		];
 	}
 
 	/**
@@ -1619,7 +2173,7 @@ class Payment_Helper {
 	 * The caller is responsible for nonce/token checks.
 	 *
 	 * @since 1.1.1
-	 * @return array<string, array{label: string, value: string}> Map of field slug => label/value.
+	 * @return array<string, array{label: string, value: string, group: string}> Map of field slug => label/value/group.
 	 */
 	public static function get_submitted_field_data() {
 		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce/HMAC verified by the calling handler.
@@ -1967,13 +2521,18 @@ class Payment_Helper {
 	 *
 	 * This is called by the webhook handler to detect amount manipulation.
 	 *
-	 * @param string $payment_intent_id The Stripe payment intent ID.
-	 * @param int    $actual_amount     The actual amount charged (in cents).
-	 * @param string $currency          The currency code.
+	 * @param string $payment_intent_id        The Stripe payment intent ID.
+	 * @param int    $actual_amount            The actual amount charged (in cents).
+	 * @param string $currency                 The currency code.
+	 * @param string $fallback_transaction_id  A second id to resolve the donation by when
+	 *                                         the intent id does not match a row - the
+	 *                                         intent's charge id, which is what a recurring
+	 *                                         donation stores.
 	 * @return bool|WP_Error True if amounts match, WP_Error if mismatch or not found.
 	 * @since 0.0.1
+	 * @since 1.7.0 Added $fallback_transaction_id.
 	 */
-	public static function verify_payment_intent_amount( $payment_intent_id, $actual_amount, $currency ) {
+	public static function verify_payment_intent_amount( $payment_intent_id, $actual_amount, $currency, $fallback_transaction_id = '' ) {
 		$metadata = self::get_payment_intent_metadata( $payment_intent_id );
 
 		if ( is_array( $metadata ) ) {
@@ -1989,6 +2548,14 @@ class Payment_Helper {
 			// server-side at intent creation), and fail closed for any payment
 			// we actually created.
 			$donation = Donations::get_by_transaction_id( $payment_intent_id );
+
+			// A recurring donation stores the charge id, not the intent id, so the
+			// lookup above never matches one. Without this the fallback classified
+			// every subscription payment as "not ours" and returned true below -
+			// failing open on exactly the path it was written to fail closed on.
+			if ( ! is_array( $donation ) && '' !== (string) $fallback_transaction_id ) {
+				$donation = Donations::get_by_transaction_id( $fallback_transaction_id );
+			}
 
 			if ( ! is_array( $donation ) || empty( $donation['id'] ) ) {
 				// No donation we created matches this intent — a genuinely
@@ -2052,12 +2619,13 @@ class Payment_Helper {
 	 *
 	 * @param array<string, mixed> $payment_config Payment block configuration.
 	 * @param array<string, mixed> $block_config   All block configurations.
-	 * @param float                $amount         Submitted amount.
-	 * @param string               $currency       Currency code.
+	 * @param float                $amount         Submitted amount, already converted to base currency.
+	 * @param string               $currency       Donation currency code, for display only.
+	 * @param float                $rate           Donation-currency units per 1 base unit.
 	 * @return array<mixed>|null Validation result array or null if validation passes.
 	 * @since 0.0.1
 	 */
-	private static function validate_dynamic_amount_field( $payment_config, $block_config, $amount, $currency ) {
+	private static function validate_dynamic_amount_field( $payment_config, $block_config, $amount, $currency, $rate = 1.0 ) {
 		// Check if variable amount field block name is set.
 		$dynamic_amount_field_block_name = isset( $payment_config['variable_amount_field_block_name'] ) && is_string( $payment_config['variable_amount_field_block_name'] ) ? $payment_config['variable_amount_field_block_name'] : '';
 
@@ -2106,12 +2674,12 @@ class Payment_Helper {
 
 		// Handle number block validation.
 		if ( 'suredonation/number' === $dynamic_amount_field_block_name ) {
-			return self::validate_number_field_amount( $variable_amount_block_config, $amount, $currency );
+			return self::validate_number_field_amount( $variable_amount_block_config, $amount, $currency, $rate );
 		}
 
 		// Handle donation-amount block validation.
 		if ( 'suredonation/donation-amount' === $dynamic_amount_field_block_name ) {
-			return self::validate_multi_choice_amount( $variable_amount_block_config, $amount, $currency );
+			return self::validate_multi_choice_amount( $variable_amount_block_config, $amount, $currency, $rate );
 		}
 
 		// A variable-amount field is declared with a block type we have no
@@ -2127,12 +2695,13 @@ class Payment_Helper {
 	 * Validate amount from number field against configured min/max.
 	 *
 	 * @param array<string, mixed>|null $number_block_config Number block configuration.
-	 * @param float                     $amount              Submitted amount.
-	 * @param string                    $currency            Currency code.
+	 * @param float                     $amount              Submitted amount, already converted to base currency.
+	 * @param string                    $currency            Donation currency code, for display only.
+	 * @param float                     $rate                Donation-currency units per 1 base unit.
 	 * @return array<string, mixed>|null Validation result array or null if validation passes.
 	 * @since 0.0.1
 	 */
-	private static function validate_number_field_amount( $number_block_config, $amount, $currency ) {
+	private static function validate_number_field_amount( $number_block_config, $amount, $currency, $rate = 1.0 ) {
 		// Fail-safe reject when the field config is missing. The caller already
 		// rejects an unresolvable config, so this is defensive: a configured
 		// number field must never validate an amount against no constraints.
@@ -2143,29 +2712,55 @@ class Payment_Helper {
 			];
 		}
 
-		// One minor currency unit of tolerance for float rounding.
-		$epsilon = self::get_amount_epsilon( $currency );
+		// Tolerance in base currency: $amount arrives already converted, while
+		// every bound below is authored in base.
+		//
+		// Both bounds here were exact before multi-currency: Field_Validation
+		// compared `$number < validation_min` and `$number > validation_max`
+		// outright. An amount field now stands aside from that check and is
+		// bounded here instead, so routing these through the general epsilon
+		// would hand every site a free cent in each direction - 4.99 clearing a
+		// 5.00 minimum, 5.01 clearing a 5.00 maximum - on single-currency
+		// installs with no Pro as well. get_minimum_epsilon() keeps the exact
+		// comparison when nothing was divided and allows slack only once it
+		// was, which is what both bounds want here despite its name.
+		$epsilon = self::get_minimum_epsilon( $currency, $rate );
+
+		// The number block declares minValue/maxValue, which land under the
+		// validation_* keys; the bare min/max keys only ever come from a block
+		// that declares those attributes directly. Reading both means the bound
+		// an admin actually set is the one enforced, in base currency.
+		// `??` only falls through on null, so a present-but-zero `min` would
+		// silence validation_min - the key the number block actually writes.
+		// Prefer a bound that is genuinely set over one that is merely present.
+		$min_source = isset( $number_block_config['min'] ) && is_numeric( $number_block_config['min'] ) && (float) $number_block_config['min'] > 0
+			? $number_block_config['min']
+			: ( $number_block_config['validation_min'] ?? null );
+		$max_source = isset( $number_block_config['max'] ) && is_numeric( $number_block_config['max'] ) && (float) $number_block_config['max'] > 0
+			? $number_block_config['max']
+			: ( $number_block_config['validation_max'] ?? null );
 
 		// Validate min value if configured.
-		if ( isset( $number_block_config['min'] ) && is_numeric( $number_block_config['min'] ) ) {
-			$min_value = (float) $number_block_config['min'];
+		if ( is_numeric( $min_source ) ) {
+			$min_value = (float) $min_source;
 			if ( $amount < $min_value - $epsilon ) {
 				return [
 					'valid'   => false,
 					/* translators: %s: minimum amount with currency */
-					'message' => sprintf( __( 'Payment amount must be at least %s.', 'suredonation' ), self::format_amount( $min_value, $currency ) ),
+					'message' => sprintf( __( 'Payment amount must be at least %s.', 'suredonation' ), self::format_amount( $min_value * $rate, $currency ) ),
 				];
 			}
 		}
 
-		// Validate max value if configured.
-		if ( isset( $number_block_config['max'] ) && is_numeric( $number_block_config['max'] ) ) {
-			$max_value = (float) $number_block_config['max'];
+		// Validate max value if configured. A validation_max of 0 means "no
+		// maximum", matching how the markup renders it.
+		if ( is_numeric( $max_source ) && (float) $max_source > 0 ) {
+			$max_value = (float) $max_source;
 			if ( $amount > $max_value + $epsilon ) {
 				return [
 					'valid'   => false,
 					/* translators: %s: maximum amount with currency */
-					'message' => sprintf( __( 'Payment amount cannot exceed %s.', 'suredonation' ), self::format_amount( $max_value, $currency ) ),
+					'message' => sprintf( __( 'Payment amount cannot exceed %s.', 'suredonation' ), self::format_amount( $max_value * $rate, $currency ) ),
 				];
 			}
 		}
@@ -2177,12 +2772,13 @@ class Payment_Helper {
 	 * Validate amount from donation-amount field against configured options.
 	 *
 	 * @param array<string, mixed>|null $multi_choice_config Multi-choice block configuration.
-	 * @param float                     $amount              Submitted amount.
-	 * @param string                    $currency            Currency code.
+	 * @param float                     $amount              Submitted amount, already converted to base currency.
+	 * @param string                    $currency            Donation currency code, for display only.
+	 * @param float                     $rate                Donation-currency units per 1 base unit.
 	 * @return array<string, mixed>|null Validation result array or null if validation passes.
 	 * @since 0.0.1
 	 */
-	private static function validate_multi_choice_amount( $multi_choice_config, $amount, $currency ) {
+	private static function validate_multi_choice_amount( $multi_choice_config, $amount, $currency, $rate = 1.0 ) {
 		// Verify the variable amount block config was found.
 		if ( empty( $multi_choice_config ) || ! is_array( $multi_choice_config ) ) {
 			return [
@@ -2191,8 +2787,9 @@ class Payment_Helper {
 			];
 		}
 
-		// One minor currency unit of tolerance for float rounding.
-		$epsilon = self::get_amount_epsilon( $currency );
+		// Tolerance in base currency: $amount arrives already converted, while
+		// every bound below is authored in base. See get_base_amount_epsilon().
+		$epsilon = self::get_base_amount_epsilon( $currency, $rate );
 
 		// Donation Amount is a single-select radio group. Extract the preset
 		// option values and check whether the submitted amount matches one.
@@ -2240,7 +2837,7 @@ class Payment_Helper {
 			return [
 				'valid'   => false,
 				/* translators: %s: minimum amount with currency */
-				'message' => sprintf( __( 'Payment amount must be at least %s.', 'suredonation' ), self::format_amount( $min, $currency ) ),
+				'message' => sprintf( __( 'Payment amount must be at least %s.', 'suredonation' ), self::format_amount( $min * $rate, $currency ) ),
 			];
 		}
 
@@ -2248,7 +2845,7 @@ class Payment_Helper {
 			return [
 				'valid'   => false,
 				/* translators: %s: maximum amount with currency */
-				'message' => sprintf( __( 'Payment amount cannot exceed %s.', 'suredonation' ), self::format_amount( $max, $currency ) ),
+				'message' => sprintf( __( 'Payment amount cannot exceed %s.', 'suredonation' ), self::format_amount( $max * $rate, $currency ) ),
 			];
 		}
 

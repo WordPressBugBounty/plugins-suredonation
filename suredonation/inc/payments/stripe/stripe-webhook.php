@@ -14,7 +14,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 use SureDonation\Inc\Database\Tables\Donations;
 use SureDonation\Inc\Database\Tables\Donors;
+use SureDonation\Inc\Debug_Log;
 use SureDonation\Inc\Emails\Email_Handler;
+use SureDonation\Inc\Helper;
 use SureDonation\Inc\Payments\Payment_Helper;
 use SureDonation\Inc\Traits\Get_Instance;
 use WP_REST_Request;
@@ -115,7 +117,7 @@ class Stripe_Webhook {
 		$sig_header = $request->get_header( 'stripe_signature' );
 
 		if ( empty( $sig_header ) ) {
-			$this->log_webhook_event( $mode, 'error', 'Missing Stripe signature header' );
+			$this->log_webhook_event( $mode, 'error', 'Missing Stripe signature header', [ 'signature' => 'missing' ] );
 			return new WP_REST_Response( [ 'error' => 'Missing signature' ], 400 );
 		}
 
@@ -124,7 +126,7 @@ class Stripe_Webhook {
 		$event      = $this->verify_webhook_signature( $payload, $sig_header, $mode, $account_id );
 
 		if ( is_wp_error( $event ) ) {
-			$this->log_webhook_event( $mode, 'error', $event->get_error_message() );
+			$this->log_webhook_event( $mode, 'error', $event->get_error_message(), [ 'signature' => $this->describe_signature( $sig_header ) ] );
 			return new WP_REST_Response( [ 'error' => 'Webhook signature verification failed' ], 400 );
 		}
 
@@ -376,6 +378,12 @@ class Stripe_Webhook {
 			return new \WP_Error( 'missing_payment_intent_id', 'Payment intent ID not found in event data' );
 		}
 
+		// A one-time donation stores the payment intent id in transaction_id, but a
+		// recurring one stores the charge id, so a lookup keyed on the intent alone
+		// never matches a subscription payment. Every lookup below therefore falls
+		// back to the intent's own latest_charge, which the event already carries.
+		$charge_id = isset( $data['latest_charge'] ) && is_string( $data['latest_charge'] ) ? $data['latest_charge'] : '';
+
 		// Security: Verify payment amount matches expected amount.
 		// This detects payment amount manipulation attacks.
 		$actual_amount = isset( $data['amount'] ) && is_numeric( $data['amount'] ) ? (int) $data['amount'] : 0;
@@ -384,12 +392,13 @@ class Stripe_Webhook {
 		$amount_verification = Payment_Helper::verify_payment_intent_amount(
 			$payment_intent_id,
 			$actual_amount,
-			$currency
+			$currency,
+			$charge_id
 		);
 
 		if ( is_wp_error( $amount_verification ) ) {
 			// Find donation and mark as suspicious for manual review.
-			$donation = Donations::get_by_transaction_id( $payment_intent_id );
+			$donation = self::resolve_donation_for_intent( $payment_intent_id, $charge_id );
 			if ( $donation && isset( $donation['id'] ) && is_numeric( $donation['id'] ) ) {
 				$donation_id = absint( $donation['id'] );
 				$error_data  = $amount_verification->get_error_data();
@@ -414,10 +423,32 @@ class Stripe_Webhook {
 		}
 
 		// Find donation by transaction ID.
-		$donation = Donations::get_by_transaction_id( $payment_intent_id );
+		$donation = self::resolve_donation_for_intent( $payment_intent_id, $charge_id );
 
 		if ( ! $donation || ! isset( $donation['id'] ) || ! is_numeric( $donation['id'] ) ) {
+			// An unmatched event is treated as ours until it proves otherwise,
+			// because the row may simply not have been inserted yet and Stripe's
+			// retry is what recovers that. The one case we can rule out is an
+			// intent another install created: Stripe delivers every event on a
+			// connected account to every endpoint registered against it, so a
+			// shared account means a site receives the other's payments. Acked
+			// silently, because retrying and logging a failure for a payment that
+			// was never ours is what filled the donation-failure log with other
+			// sites' successful payments.
+			if ( self::intent_belongs_to_another_site( $data ) ) {
+				return true;
+			}
+
 			return new \WP_Error( 'donation_not_found', 'Donation record not found for transaction: ' . $payment_intent_id );
+		}
+
+		// Pro owns a subscription row: it completes one under a lock and credits
+		// the donor with Donors::record_donation(), which writes no
+		// record_donation_once() marker -- so finishing the one-time path here
+		// would complete the row outside that lock and credit the donor twice.
+		// Acked rather than retried: the charge id just proved the event is ours.
+		if ( in_array( $donation['donation_type'] ?? '', [ 'recurring', 'renewal' ], true ) ) {
+			return true;
 		}
 
 		$donation_id = absint( $donation['id'] );
@@ -448,22 +479,23 @@ class Stripe_Webhook {
 		// Update donor statistics.
 		if ( ! empty( $donation['donor_id'] ) ) {
 			$donor_id_val = $donation['donor_id'];
-			$amount_val   = $donation['amount'] ?? 0;
 			$donor_id     = is_numeric( $donor_id_val ) ? (int) $donor_id_val : 0;
-			$amount       = is_numeric( $amount_val ) ? (float) $amount_val : 0.0;
+			$amount       = Donations::get_charged_amount( $donation );
 			if ( $donor_id > 0 ) {
 				// The client-side confirm records this too. Whichever arrives
 				// first wins; the other is a no-op, so a donor's total is not
 				// doubled when both run.
-				Donors::record_donation_once( $donor_id, $amount, $donation_id );
+				$currency_val = $donation['currency'] ?? '';
+				$rate_raw     = $donation['exchange_rate'] ?? null;
+				$rate_val     = is_numeric( $rate_raw ) ? (string) $rate_raw : null;
+				Donors::record_donation_once( $donor_id, $amount, $donation_id, is_string( $currency_val ) ? $currency_val : '', $rate_val );
 			}
 		}
 
 		// Send confirmation emails if not already sent by complete_donation().
-		// Skip for recurring/renewal donations — pro plugin handles subscription emails.
-		$was_pending     = 'pending' === ( $donation['payment_status'] ?? '' );
-		$is_subscription = in_array( $donation['donation_type'] ?? '', [ 'recurring', 'renewal' ], true );
-		if ( $was_pending && ! $is_subscription ) {
+		// Subscription rows returned above; Pro sends theirs.
+		$was_pending = 'pending' === ( $donation['payment_status'] ?? '' );
+		if ( $was_pending ) {
 			$campaign_id   = isset( $donation['campaign_id'] ) && is_numeric( $donation['campaign_id'] ) ? absint( $donation['campaign_id'] ) : 0;
 			$form_id       = isset( $donation['form_id'] ) && is_numeric( $donation['form_id'] ) ? absint( $donation['form_id'] ) : 0;
 			$donation_data = [
@@ -864,7 +896,68 @@ class Stripe_Webhook {
 	}
 
 	/**
+	 * Resolve the donation a payment intent belongs to.
+	 *
+	 * A one-time donation stores the payment intent id in `transaction_id`; a
+	 * recurring one stores the charge id instead (see Pro's subscription handler,
+	 * which records `latest_charge`). A lookup keyed on the intent alone therefore
+	 * misses every subscription payment, which is why the intent's own
+	 * `latest_charge` is tried second.
+	 *
+	 * @param string $payment_intent_id Stripe payment intent id.
+	 * @param string $charge_id         The intent's latest charge id, when the event carried one.
+	 *
+	 * @return array<string, mixed>|null The donation row, or null when none matches.
+	 *
+	 * @since 1.7.0
+	 */
+	private static function resolve_donation_for_intent( $payment_intent_id, $charge_id = '' ) {
+		$donation = Donations::get_by_transaction_id( $payment_intent_id );
+
+		if ( ! $donation && '' !== (string) $charge_id ) {
+			$donation = Donations::get_by_transaction_id( $charge_id );
+		}
+
+		return is_array( $donation ) ? $donation : null;
+	}
+
+	/**
+	 * Whether a payment intent was created by a different install.
+	 *
+	 * Only answers true when the intent carries a `site_url` that is not this
+	 * site's. An intent with no `site_url` predates that metadata, or was not
+	 * created by SureDonation at all, and is left to the caller's normal
+	 * not-found handling rather than being silently discarded.
+	 *
+	 * @param array<string, mixed> $data Payment intent object from the event.
+	 *
+	 * @return bool
+	 *
+	 * @since 1.7.0
+	 */
+	private static function intent_belongs_to_another_site( array $data ) {
+		$metadata = isset( $data['metadata'] ) && is_array( $data['metadata'] ) ? $data['metadata'] : [];
+		$site_url = isset( $metadata['site_url'] ) && is_string( $metadata['site_url'] ) ? $metadata['site_url'] : '';
+
+		if ( '' === $site_url ) {
+			return false;
+		}
+
+		return untrailingslashit( $site_url ) !== untrailingslashit( home_url() );
+	}
+
+	/**
 	 * Log webhook event.
+	 *
+	 * Two sinks, deliberately. The transient is the webhook health indicator the
+	 * settings screen reads: one record per mode, overwritten, holding only the
+	 * latest state. That is the right shape for "is the webhook working right
+	 * now" and the wrong shape for everything else, because the previous error
+	 * is gone the moment a second one lands and the whole thing expires in a day.
+	 *
+	 * The debug log is the history. Failures only, so a working webhook writes
+	 * nothing, and a retry storm collapses into one line with a repeat count
+	 * rather than three days of identical entries.
 	 *
 	 * @param string               $mode    Payment mode.
 	 * @param string               $type    Event type (began, success, failure, error).
@@ -874,6 +967,61 @@ class Stripe_Webhook {
 	 * @since 0.0.1
 	 */
 	private function log_webhook_event( $mode, $type, $message, $data = [] ) {
+		if ( 'success' === $type ) {
+			// Events are getting through again, so the warning goes. Only this
+			// category: a webhook working says nothing about whether the receipt
+			// it triggered was sent or the renewal it belongs to ran.
+			//
+			// And only Stripe's. A site running both gateways was having its
+			// PayPal payment fault wiped by the next Stripe donation, including
+			// the one that says PayPal took the money and we failed to record
+			// it.
+			Debug_Log::clear_category( 'payment', $mode, 'stripe' );
+		}
+
+		if ( in_array( $type, [ 'failure', 'error' ], true ) ) {
+			// Whether it verified, never the signature value. Nobody has ever read
+			// one usefully, and this is the only question asked of it.
+			$signature = Helper::get_string_value( $data['signature'] ?? ( 'error' === $type ? 'unverified' : 'present' ) );
+			$verified  = 'present' === $signature;
+
+			// Anything that did not verify was written by whoever chose to post to
+			// a public route, so it is recorded once an hour per reason rather than
+			// once per request. Without this a few thousand requests spend the
+			// file's whole 1 MB on the fact that somebody is probing, and real
+			// failures stop being written at all.
+			//
+			// A verified delivery that failed in processing is always recorded:
+			// Stripe sent it, so there is a real event behind it.
+			if ( $verified || Debug_Log::throttle( 'stripe:webhook:' . $mode . ':' . $signature ) ) {
+				Debug_Log::append(
+					[
+						'type'             => 'webhook',
+						'gateway'          => 'stripe',
+						'mode'             => $mode,
+						'source'           => 'stripe:webhook',
+						'message'          => $message,
+						// The event type, not its payload. The payload carries the
+						// customer object, the donor's email and the amount, and it
+						// stays where it already is - behind the Stripe dashboard
+						// login, retrievable by someone who is already authorised.
+						'code'             => Helper::get_string_value( $data['type'] ?? '' ),
+						// Only from a delivery that verified. On one that did not,
+						// the id is a value the sender chose, and it is part of what
+						// makes two entries the same failure - so an unverified
+						// writer could hand every request a fresh id and defeat the
+						// collapsing that keeps a retry storm down to one line.
+						'webhook_event_id' => $verified ? Helper::get_string_value( $data['id'] ?? '' ) : '',
+						'signature'        => $signature,
+					],
+					// Stripe sent an event about money that moved, and we did not
+					// record it. That is the books being wrong, not a donor being
+					// unable to give - a different problem with a different fix.
+					'payment'
+				);
+			}
+		}
+
 		$transient_key = "suredonation_webhook_{$mode}_status";
 		$status        = get_transient( $transient_key );
 
@@ -905,6 +1053,47 @@ class Stripe_Webhook {
 		}
 
 		set_transient( $transient_key, $status, DAY_IN_SECONDS );
+	}
+
+	/**
+	 * Whether the supplied signature header is shaped like one of Stripe's.
+	 *
+	 * The invariant: nothing this function returns is ever counted as a fault,
+	 * because nothing it sees is evidence of one. The header's format is
+	 * published by Stripe, so a well-formed header proves only that whoever
+	 * sent it has read the documentation. A rejected signature here is
+	 * indistinguishable from a rotated signing secret, and the dashboard
+	 * warning is reserved for things the sender had to prove. PayPal's relay
+	 * path can say more only because it matches a value that never leaves the
+	 * server first.
+	 *
+	 * The rotated-secret case keeps the log file: every rejection is written
+	 * there with its reason. What it loses is the dashboard warning, which is a
+	 * real cost rather than a technicality. The settings screen's webhook
+	 * health transient does not cover it - that value is written by
+	 * log_webhook_event() and read by nothing. Surfacing an unverifiable
+	 * rejection safely would mean a warning that says "webhooks cannot be
+	 * verified" rather than "the money reached your gateway", and that warning
+	 * does not exist yet.
+	 *
+	 * Shape only, and deliberately so: it is a filter for accidents, not a
+	 * security control. The verification below it is the security control.
+	 *
+	 * @param string $sig_header Raw Stripe-Signature header.
+	 * @return string 'missing' with no header, 'unverified' when it is shaped like
+	 *                a signature, 'malformed' otherwise. Never 'invalid'.
+	 * @since 1.7.0
+	 */
+	private function describe_signature( $sig_header ) {
+		$header = Helper::get_string_value( $sig_header );
+
+		if ( '' === trim( $header ) ) {
+			return 'missing';
+		}
+
+		$shaped = 1 === preg_match( '/\bt=\d+/', $header ) && 1 === preg_match( '/\bv1=[a-f0-9]{64}/i', $header );
+
+		return $shaped ? 'unverified' : 'malformed';
 	}
 
 	/**

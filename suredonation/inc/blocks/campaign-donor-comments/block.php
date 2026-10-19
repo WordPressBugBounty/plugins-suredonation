@@ -123,7 +123,7 @@ class Block extends Base {
 								<div class="suredonation-campaign-donor-comments__meta">
 									<span class="suredonation-campaign-donor-comments__name"><?php echo esc_html( $name ); ?></span>
 									<?php if ( $show_amount ) : ?>
-										<span class="suredonation-campaign-donor-comments__amount"><?php echo esc_html( Payment_Helper::format_amount( Helper::get_float_value( $comment['amount'] ?? 0 ) ) ); ?></span>
+										<span class="suredonation-campaign-donor-comments__amount"><?php echo esc_html( Payment_Helper::format_amount( Helper::get_float_value( $comment['amount'] ?? 0 ), Helper::get_string_value( $comment['currency'] ?? '' ) ) ); ?></span>
 									<?php endif; ?>
 								</div>
 								<?php if ( $needs_excerpt ) : ?>

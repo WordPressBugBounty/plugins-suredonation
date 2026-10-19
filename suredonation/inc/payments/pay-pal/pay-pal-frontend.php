@@ -9,6 +9,7 @@
 namespace SureDonation\Inc\Payments\PayPal;
 
 use SureDonation\Inc\Database\Tables\Donations;
+use SureDonation\Inc\Debug_Log;
 use SureDonation\Inc\Database\Tables\Donors;
 use SureDonation\Inc\Emails\Email_Handler;
 use SureDonation\Inc\Field_Validation;
@@ -62,8 +63,19 @@ class PayPal_Frontend {
 		check_ajax_referer( 'suredonation_donation_form', 'nonce' );
 
 		// Reject bot submissions caught by the honeypot before processing.
+		//
+		// 'blocked' because the trap firing is this site working, exactly as on
+		// the Stripe path. The browser reports a failed order either way and
+		// cannot tell a caught bot from a gateway that is down, so without this
+		// every spam submission put "We noticed a donation failure" on the
+		// dashboard with a Contact Support link beside it.
 		if ( Helper::is_honeypot_spam() ) {
-			wp_send_json_error( [ 'message' => __( 'Your submission was flagged as spam. Please try again.', 'suredonation' ) ] );
+			wp_send_json_error(
+				[
+					'message' => __( 'Your submission was flagged as spam. Please try again.', 'suredonation' ),
+					'blocked' => true,
+				]
+			);
 		}
 
 		// A page cache can serve a form rendered in the other payment mode. Its
@@ -87,6 +99,7 @@ class PayPal_Frontend {
 				[
 					'message'     => esc_html( $data->get_error_message() ),
 					'fieldErrors' => is_array( $error_data ) && isset( $error_data['fieldErrors'] ) ? $error_data['fieldErrors'] : [],
+					'blocked'     => self::is_donor_side_rejection( Helper::get_string_value( $data->get_error_code() ) ),
 				]
 			);
 		}
@@ -316,6 +329,11 @@ class PayPal_Frontend {
 		);
 
 		if ( is_wp_error( $result ) ) {
+			// PayPal's own codes. INSTRUMENT_DECLINED arrives here, among the
+			// issues, and is the one failure on this branch where nothing is
+			// wrong with the site.
+			$issues = is_array( $result->get_error_data() ) ? Helper::get_string_value( $result->get_error_data()['codes'] ?? '' ) : '';
+
 			// The failure behind ticket 1521527 (PAYEE_ACCOUNT_NOT_VERIFIED) arrived
 			// here, was formatted into the donor's error message, and was then
 			// discarded — leaving an activity log that read only "Donation Created".
@@ -331,7 +349,7 @@ class PayPal_Frontend {
 					// support can quote them. The raw payload is deliberately not
 					// stored: it rendered as a truncated JSON blob saying the same
 					// thing as the reason above.
-					'issues' => is_array( $result->get_error_data() ) ? ( $result->get_error_data()['codes'] ?? '' ) : '',
+					'issues' => $issues,
 				]
 			);
 
@@ -339,8 +357,19 @@ class PayPal_Frontend {
 			// per-field issue strings are useful to an admin reading the activity
 			// log, not to an unauthenticated donor mid-checkout — and they put the
 			// merchant's account state on a public page.
+			//
+			// One bit of it does go back: whether the funding instrument was
+			// declined. The browser cannot tell that from any other capture
+			// failure - both arrive as success:false with the message above - and
+			// it has to, because a decline is the gateway working and must not be
+			// recorded as a donation the site lost. A decline is the donor's own
+			// news and names nothing about the merchant's account, so it carries
+			// none of what the message withholds.
 			wp_send_json_error(
-				[ 'message' => __( 'We could not complete your payment. Please try again, or contact us if you have already been charged.', 'suredonation' ) ]
+				[
+					'message'  => __( 'We could not complete your payment. Please try again, or contact us if you have already been charged.', 'suredonation' ),
+					'declined' => false !== stripos( $issues, 'INSTRUMENT_DECLINED' ),
+				]
 			);
 		}
 
@@ -357,8 +386,13 @@ class PayPal_Frontend {
 					'reason' => $error_message,
 				]
 			);
+			// The other shape a decline takes: PayPal answers the call but reports
+			// the capture as DECLINED rather than COMPLETED.
 			wp_send_json_error(
-				[ 'message' => __( 'We could not complete your payment. Please try again, or contact us if you have already been charged.', 'suredonation' ) ]
+				[
+					'message'  => __( 'We could not complete your payment. Please try again, or contact us if you have already been charged.', 'suredonation' ),
+					'declined' => 0 === strcasecmp( 'DECLINED', $capture_status ),
+				]
 			);
 		}
 
@@ -382,7 +416,35 @@ class PayPal_Frontend {
 					'mode'     => PayPal_Helper::clean_log_value( $mode ),
 				]
 			);
-			wp_send_json_error( [ 'message' => __( 'Payment amount verification failed.', 'suredonation' ) ] );
+			// The one branch on this route that the donor's money has already
+			// passed through: PayPal reported COMPLETED, so the funds moved and
+			// only our record of them is wrong. That belongs on the dashboard,
+			// and it is recorded here rather than left to the browser to report
+			// back: everything the entry needs is already known and verified at
+			// this point, where the capture response is in hand.
+			$mismatch_campaign = isset( $donation['campaign_id'] ) ? absint( $donation['campaign_id'] ) : 0;
+
+			Debug_Log::append(
+				[
+					'type'           => 'finalize',
+					'gateway'        => 'paypal',
+					'mode'           => $mode,
+					'source'         => 'paypal:verify_order',
+					'message'        => 'PayPal captured an amount that does not match the donation, which was marked suspicious',
+					'donation_id'    => $donation_id,
+					'currency'       => Helper::get_string_value( $donation['currency'] ?? '' ),
+					'campaign_id'    => $mismatch_campaign,
+					'campaign_title' => $mismatch_campaign > 0 ? Helper::get_string_value( get_the_title( $mismatch_campaign ) ) : '',
+				],
+				'payment'
+			);
+
+			wp_send_json_error(
+				[
+					'message'  => __( 'Payment amount verification failed.', 'suredonation' ),
+					'captured' => true,
+				]
+			);
 		}
 
 		// Update donation status.
@@ -413,6 +475,35 @@ class PayPal_Frontend {
 				'mode'            => ucfirst( Payment_Helper::get_payment_mode() ),
 			]
 		);
+
+		if ( ! $update_result ) {
+			// The exact state this log exists for: PayPal has the money and our
+			// row does not say so. Nothing else reports it. The donation's own
+			// activity log above records it, but that is a per-donation screen
+			// nobody opens unless they already suspect the donation, and the
+			// response below is deliberately a success - the donor did pay, and
+			// this is the site's bookkeeping to repair, not their problem - so
+			// the browser never sees a failure to report either.
+			//
+			// 'finalize' is the one place that label is literally true: the
+			// capture completed, and what came after it did not.
+			$failed_campaign = isset( $donation['campaign_id'] ) ? absint( $donation['campaign_id'] ) : 0;
+
+			Debug_Log::append(
+				[
+					'type'           => 'finalize',
+					'gateway'        => 'paypal',
+					'mode'           => $mode,
+					'source'         => 'paypal:verify_order',
+					'message'        => 'PayPal reported the capture completed but the donation status update failed',
+					'donation_id'    => $donation_id,
+					'currency'       => Helper::get_string_value( $donation['currency'] ?? '' ),
+					'campaign_id'    => $failed_campaign,
+					'campaign_title' => $failed_campaign > 0 ? Helper::get_string_value( get_the_title( $failed_campaign ) ) : '',
+				],
+				'payment'
+			);
+		}
 
 		// Send confirmation email.
 		$campaign_id   = isset( $donation['campaign_id'] ) ? absint( $donation['campaign_id'] ) : 0;
@@ -613,6 +704,47 @@ class PayPal_Frontend {
 	}
 
 	/**
+	 * Whether a validation rejection is the donor's to fix rather than a fault.
+	 *
+	 * The browser sees one shape for every rejection - success:false and a
+	 * sentence - so it cannot tell "this campaign ended last week", which is a
+	 * setting working, from "PayPal is not configured", which is a site that
+	 * takes no money at all. Guessing from the presence of field errors covers
+	 * only half of them: a missing email and a paused campaign both arrive with
+	 * no field map, and both are the donor's side of the line.
+	 *
+	 * So the answer is sent with the response, and this is the list. The test
+	 * for membership is that the same donor could succeed by changing what they
+	 * typed or by coming back when the campaign reopens. Everything absent from
+	 * it stays a fault, because the rest mean donations are failing for
+	 * everybody until somebody with admin access fixes the site.
+	 *
+	 * Two codes look like they belong here and do not. 'invalid_submission' is
+	 * the wrapper around validate_submission(), which also carries the amount
+	 * check's "Payment configuration not found for this form." - a broken form
+	 * configuration, not a mistyped field. 'payment_type_mismatch' means pro's
+	 * bundle never evaluated, so a recurring form is being charged once. Both
+	 * fail for every donor, and Stripe counts both as faults; listing them here
+	 * would hide a broken site on one gateway and not the other.
+	 *
+	 * @param string $code Error code from extract_and_validate_form_data().
+	 * @since 1.7.0
+	 * @return bool True when the donor can clear it themselves.
+	 */
+	private static function is_donor_side_rejection( $code ) {
+		return in_array(
+			$code,
+			[
+				'missing_email',
+				'invalid_amount',
+				'campaign_unavailable',
+				'campaign_paused',
+			],
+			true
+		);
+	}
+
+	/**
 	 * Extract and validate common form data from POST.
 	 *
 	 * @return array<string, mixed>|\WP_Error Validated form data or error.
@@ -652,7 +784,7 @@ class PayPal_Frontend {
 			return new \WP_Error( 'missing_email', __( 'Email address is required.', 'suredonation' ) );
 		}
 
-		$currency = Payment_Helper::get_currency();
+		$currency = Payment_Helper::get_submitted_currency();
 
 		// Basic amount validation — must be positive regardless of form context.
 		if ( $amount <= 0 ) {
@@ -758,7 +890,7 @@ class PayPal_Frontend {
 			}
 
 			if ( $cover_fees ) {
-				$expected_fees = Payment_Helper::calculate_fee( $base_amount, $fee_percentage, $fee_fixed );
+				$expected_fees = Payment_Helper::calculate_fee( $base_amount, $fee_percentage, $fee_fixed, $currency );
 				$fees_covered  = $expected_fees;
 				$amount        = $base_amount + $fees_covered;
 			}

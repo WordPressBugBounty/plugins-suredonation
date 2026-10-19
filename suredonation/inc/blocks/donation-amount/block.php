@@ -38,7 +38,13 @@ class Block extends Base {
 
 		$markup_class = new Donation_Amount_Markup( $attributes );
 		ob_start();
-		echo wp_kses( $markup_class->markup(), self::get_allowed_form_html() );
+		// Allow the data: protocol so a lazy-load optimizer's inline placeholder in
+		// a per-option image's src survives kses. Without it this pass strips the
+		// src and the option image renders blank, while the form renderer's second
+		// pass (inc/fields/form-renderer.php) would have let it through — the bug
+		// class documented in inc/blocks/CLAUDE.md, which the Image block already
+		// compensates for the same way.
+		echo wp_kses( $markup_class->markup(), self::get_allowed_form_html(), array_merge( wp_allowed_protocols(), [ 'data' ] ) );
 		$output = ob_get_clean();
 		return false !== $output ? $output : '';
 	}

@@ -183,29 +183,58 @@ class Import_Export_API {
 		// turns this into an O(field_count x label_count) scan and a
 		// same-sized column set. Labels past the cap are not dropped; they are
 		// exported instead in a single trailing JSON column below.
+		// Columns are keyed by SLUG, not by label. Two fields on one form can
+		// share a label (they are told apart by slug, and the submission path
+		// stores them under separate keys); keying the union by label collapsed
+		// them into a single column and silently dropped one field's values from
+		// the export. SureForms keys its own entry export by block id for the
+		// same reason.
 		$max_field_columns = 50;
-		$field_labels      = [];
-		$field_label_index = [];
+		$field_columns     = [];
 		$fields_truncated  = false;
+		$has_custom_fields = false;
 		foreach ( $donations as $donation ) {
-			foreach ( $this->get_donation_custom_fields( $donation ) as $label => $value ) {
-				if ( isset( $field_label_index[ $label ] ) ) {
+			foreach ( $this->get_donation_custom_fields( $donation ) as $slug => $field ) {
+				$has_custom_fields = true;
+				if ( isset( $field_columns[ $slug ] ) ) {
 					continue;
 				}
-				if ( count( $field_labels ) >= $max_field_columns ) {
+				if ( count( $field_columns ) >= $max_field_columns ) {
 					$fields_truncated = true;
 					continue;
 				}
-				$field_label_index[ $label ] = true;
-				$field_labels[]              = $label;
+				$field_columns[ $slug ] = [
+					'label' => $field['label'],
+					'group' => $field['group'],
+				];
 			}
 		}
+
+		// Header text stays the plain label, because that is what a human reads
+		// and what an older export used. Only a genuine collision is
+		// disambiguated, and only from the second occurrence on, so the common
+		// case produces exactly the same header as before. The header must stay
+		// unique: it is the key the "Field Slugs" map is looked up by on import.
+		$header_seen = [];
+		foreach ( $field_columns as $slug => $col ) {
+			$header = $col['label'];
+			if ( isset( $header_seen[ $header ] ) ) {
+				$header = sprintf( '%1$s (%2$s)', $col['label'], $slug );
+			}
+			$header_seen[ $header ]           = true;
+			$field_columns[ $slug ]['header'] = $header;
+		}
+
+		$field_labels = array_column( $field_columns, 'header' );
 
 		$rows   = [];
 		$rows[] = array_merge(
 			Column_Map::standard_donation_export_labels(),
 			$field_labels,
-			$fields_truncated ? [ Column_Map::other_fields_export_label() ] : []
+			$fields_truncated ? [ Column_Map::other_fields_export_label() ] : [],
+			// Only when the export actually carries custom fields, so an export
+			// from a site with none is byte-identical to before.
+			$has_custom_fields ? [ Column_Map::field_slugs_export_label() ] : []
 		);
 
 		$title_cache = [];
@@ -227,6 +256,8 @@ class Import_Export_API {
 				$donation['fees_covered'] ?? '',
 				$donation['refunded_amount'] ?? '',
 				$donation['currency'] ?? '',
+				$donation['exchange_rate'] ?? '',
+				$donation['base_currency'] ?? '',
 				$donation['gateway'] ?? '',
 				$donation['payment_status'] ?? '',
 				$donation['payment_mode'] ?? '',
@@ -255,13 +286,30 @@ class Import_Export_API {
 			];
 
 			$field_values = $this->get_donation_custom_fields( $donation );
-			foreach ( $field_labels as $label ) {
-				$row[] = $field_values[ $label ] ?? '';
+			foreach ( array_keys( $field_columns ) as $slug ) {
+				$row[] = $field_values[ $slug ]['value'] ?? '';
 			}
 
 			if ( $fields_truncated ) {
-				$overflow = array_diff_key( $field_values, $field_label_index );
-				$row[]    = ! empty( $overflow ) ? wp_json_encode( $overflow ) : '';
+				$overflow = [];
+				foreach ( array_diff_key( $field_values, $field_columns ) as $slug => $field ) {
+					$overflow[ $field['label'] ] = $field['value'];
+				}
+				$row[] = ! empty( $overflow ) ? wp_json_encode( $overflow ) : '';
+			}
+
+			if ( $has_custom_fields ) {
+				// Keyed by the column header rather than the raw label, so a
+				// disambiguated column still resolves to its own slug on import.
+				$meta = [];
+				foreach ( $field_values as $slug => $field ) {
+					$header          = $field_columns[ $slug ]['header'] ?? $field['label'];
+					$meta[ $header ] = [
+						'slug'  => $slug,
+						'group' => $field['group'],
+					];
+				}
+				$row[] = ! empty( $meta ) ? wp_json_encode( $meta ) : '';
 			}
 
 			$rows[] = $row;
@@ -281,10 +329,15 @@ class Import_Export_API {
 	}
 
 	/**
-	 * Extract a donation's submitted custom form-field values as a label => value map.
+	 * Extract a donation's submitted custom form-field values, keyed by slug.
+	 *
+	 * Keyed by slug rather than label because two fields on one form can share a
+	 * label while remaining distinct records - the submission path stores them
+	 * under separate keys, and collapsing them here dropped one field's values
+	 * from the export entirely.
 	 *
 	 * @param array<string, mixed> $donation Decoded donation row.
-	 * @return array<string, string> Custom-field values keyed by label.
+	 * @return array<string, array{label: string, value: string, group: string}> Fields keyed by slug.
 	 * @since 1.3.0
 	 */
 	private function get_donation_custom_fields( $donation ) {
@@ -296,14 +349,22 @@ class Import_Export_API {
 			? $data['fields']
 			: [];
 
-		foreach ( $fields as $field ) {
+		foreach ( $fields as $slug => $field ) {
 			if ( ! is_array( $field ) || empty( $field['label'] ) ) {
 				continue;
 			}
+
+			$slug  = Helper::get_string_value( $slug );
 			$label = Helper::get_string_value( $field['label'] );
-			if ( '' !== $label ) {
-				$out[ $label ] = Helper::get_string_value( $field['value'] ?? '' );
+			if ( '' === $slug || '' === $label ) {
+				continue;
 			}
+
+			$out[ $slug ] = [
+				'label' => $label,
+				'value' => Helper::get_string_value( $field['value'] ?? '' ),
+				'group' => Helper::get_string_value( $field['group'] ?? '' ),
+			];
 		}
 
 		return $out;

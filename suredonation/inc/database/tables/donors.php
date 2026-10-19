@@ -9,6 +9,7 @@ namespace SureDonation\Inc\Database\Tables;
 
 use SureDonation\Inc\Database\Base;
 use SureDonation\Inc\Helper;
+use SureDonation\Inc\Payments\Payment_Helper;
 use SureDonation\Inc\Traits\Get_Instance;
 
 // Exit if accessed directly.
@@ -53,15 +54,22 @@ class Donors extends Base {
 	/**
 	 * Valid order columns.
 	 *
+	 * `total_donated` and `donation_count` are deliberately absent. They exist
+	 * on this table, but the list renders the mode-scoped figures computed from
+	 * donation rows, so ordering by the stored columns would sort the page by a
+	 * number the reader cannot see: on a site that rehearsed before going live,
+	 * the top of "highest donors" would be rows showing 0.00. Ordering on the
+	 * scoped figure means aggregating before the LIMIT, which is a rewrite of
+	 * both branches of get_admin_list() rather than a predicate.
+	 *
 	 * @var array<string>
 	 * @since 0.0.1
+	 * @since 1.7.0 The two money columns are no longer orderable.
 	 */
 	private static $valid_order_columns = [
 		'id',
 		'email',
 		'name',
-		'total_donated',
-		'donation_count',
 		'created_at',
 		'updated_at',
 		'last_donation_date',
@@ -525,19 +533,25 @@ class Donors extends Base {
 			return;
 		}
 
-		// Check if a WP user already exists with this email.
-		$existing_user = get_user_by( 'email', $email );
-
-		if ( $existing_user ) {
-			self::update( $donor_id, [ 'user_id' => $existing_user->ID ] );
-			return;
-		}
+		// Deliberately no bind here at all, not even for a donor who is
+		// currently logged in as a WP account whose own email matches.
+		// get_or_create() -- and therefore this method -- runs at
+		// payment-intent creation, before any charge completes (see
+		// Stripe_Frontend::create_pending_donation()), so "logged in as a
+		// matching account" is reachable by an attacker who abandons at the
+		// card step: register with a victim's email on a site whose
+		// registration flow doesn't verify it, open any donation form while
+		// logged in as that account, and the row binds without ever paying.
+		// A later guest donation under the same email then attaches to the
+		// attacker's row. The verified path is
+		// SureDonationPro\Inc\DonorDashboard\Account_Link -- one mailed,
+		// one-time-token click, whether the donor got here by donating first
+		// or registering first.
 
 		// Creating a brand-new WordPress account for a donor is gated behind an
 		// explicit, default-off setting. On public (nopriv) donation paths this
 		// prevents unsolicited account creation and new-user notification emails
-		// for attacker-supplied emails. Linking to an already-existing user
-		// (handled above) is always allowed.
+		// for attacker-supplied emails.
 		$donor_settings = Helper::get_suredonation_option( 'donor_settings', [] );
 		if ( empty( $donor_settings['create_wp_user'] ) ) {
 			return;
@@ -616,13 +630,15 @@ class Donors extends Base {
 	 * and impossible to unpick, whereas a missed one is visible against the
 	 * donation list and recomputable.
 	 *
-	 * @param  int   $donor_id    Donor row ID.
-	 * @param  float $amount      Donation amount.
-	 * @param  int   $donation_id Donation row ID this call is for.
+	 * @param  int               $donor_id    Donor row ID.
+	 * @param  float             $amount      Donation amount, in $currency.
+	 * @param  int               $donation_id Donation row ID this call is for.
+	 * @param  string            $currency    Currency of $amount. Empty means base currency.
+	 * @param  float|string|null $exchange_rate Rate stamped on the donation row; null falls back to a live lookup.
 	 * @return bool True when this call recorded it, false when already recorded or invalid.
 	 * @since  1.6.0
 	 */
-	public static function record_donation_once( $donor_id, $amount, $donation_id ) {
+	public static function record_donation_once( $donor_id, $amount, $donation_id, $currency = '', $exchange_rate = null ) {
 		$donation_id = absint( $donation_id );
 
 		if ( $donation_id <= 0 ) {
@@ -639,7 +655,7 @@ class Donors extends Base {
 		// read that saw nothing.
 		set_transient( $key, true, WEEK_IN_SECONDS );
 
-		$recorded = (bool) self::record_donation( $donor_id, $amount );
+		$recorded = (bool) self::record_donation( $donor_id, $amount, $currency, $exchange_rate );
 
 		if ( ! $recorded ) {
 			// record_donation() refuses a non-positive amount or a donor row
@@ -662,14 +678,65 @@ class Donors extends Base {
 	 * repeat call for the same donation from a second gift. Callers that can be
 	 * reached twice for one donation should use record_donation_once().
 	 *
-	 * @param int   $donor_id Donor ID.
-	 * @param float $amount   Donation amount.
+	 * `total_donated` and `largest_donation` are single-currency columns, so an
+	 * amount given in a donation currency is converted to the site's base before
+	 * it is added. Without that a 10,000 JPY gift would be banked as 10,000 of
+	 * the base currency and outrank every real donor on the leaderboard. Passing
+	 * no currency keeps the historic behaviour of treating the amount as base.
+	 *
+	 * @param int               $donor_id Donor ID.
+	 * @param float             $amount   Donation amount, in $currency.
+	 * @param string            $currency Currency of $amount. Empty means base currency.
+	 * @param float|string|null $exchange_rate Rate stamped on the donation row. A stamped 0 means the row is unpriced and is banked at face value; null means no rate travelled with the call and one is looked up live.
 	 * @return int|false Number of rows updated or false on error.
 	 * @since 0.0.1
 	 */
-	public static function record_donation( $donor_id, $amount ) {
+	public static function record_donation( $donor_id, $amount, $currency = '', $exchange_rate = null ) {
 		if ( empty( $donor_id ) || $amount <= 0 ) {
 			return false;
+		}
+
+		if ( '' !== $currency ) {
+			// Prefer the rate stamped on the donation row. Re-deriving a live
+			// one makes this column disagree with every other reader, which all
+			// divide by the row's own exchange_rate: an admin completing a
+			// pending donation a week later would bank it at that week's rate.
+			// It also stops a donation in a currency the site no longer prices
+			// from silently never reaching the donor's totals.
+			if ( is_numeric( $exchange_rate ) ) {
+				$stamped = (float) $exchange_rate;
+
+				// A stamped 0 is not a missing rate. It is a recorded "nothing
+				// could price this currency when the row was written", and the
+				// row is already in the books being counted at face value by
+				// every SQL reader. Looking up a live rate here would re-open
+				// the very split this branch exists to close: an imported row
+				// stamped 0, priced by the admin a month later and only then
+				// completed, would reach the donor's total converted while the
+				// campaign that received it still counted it whole.
+				$amount = $stamped > 0 ? (float) $amount / $stamped : (float) $amount;
+			} else {
+				// Nothing was stamped, so there is no recorded decision to
+				// honour and a live rate is the best answer available.
+				$converted = Payment_Helper::convert_to_base( (float) $amount, $currency );
+
+				// A null conversion means nothing can price this currency: an
+				// imported row, or one taken before the currency was removed
+				// from the settings. Every SQL reader already degrades exactly
+				// that row to face value through
+				// `COALESCE( NULLIF( exchange_rate, 0 ), 1 )`, so do the same
+				// here rather than refusing.
+				//
+				// Refusing looked safer but split the books: the campaign
+				// goal, the dashboard and analytics all counted the row at
+				// face value while this column alone left it out, so a donor's
+				// total disagreed with the campaign they gave to. Retrying does
+				// not resolve it either - the rate is still missing on the next
+				// pass - so the donation simply never landed. Face value is
+				// what this column did before multi-currency, and it keeps
+				// every reader telling the same story.
+				$amount = null === $converted ? (float) $amount : $converted;
+			}
 		}
 
 		$donor = self::get( $donor_id );
@@ -699,32 +766,42 @@ class Donors extends Base {
 	}
 
 	/**
-	 * Get top donors by total donated.
+	 * Get top donors by money actually received.
 	 *
-	 * @param int $limit Number of donors to retrieve.
-	 * @return array<int, array<string, mixed>> Array of top donors.
+	 * @param int    $limit        Number of donors to retrieve.
+	 * @param string $payment_mode 'test' or 'live' ('' for no filter).
+	 * @return array<int, array{id: string, name: string, email: string, total_donated: string, donation_count: string}> Ranked donors. Not full donor rows: only the columns a leaderboard needs.
 	 * @since 0.0.1
+	 * @since 1.7.0 Computed from donation rows and scoped to a payment mode.
 	 */
-	public static function get_top_donors( $limit = 10 ) {
+	public static function get_top_donors( $limit = 10, $payment_mode = '' ) {
 		$instance = self::get_instance();
 		global $wpdb;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$results = $wpdb->get_results(
-			$wpdb->prepare(
-				'SELECT * FROM %i WHERE donor_status = %s ORDER BY total_donated DESC LIMIT %d',
-				$instance->get_tablename(),
-				'active',
-				absint( $limit )
-			),
-			ARRAY_A
-		);
+		// Ranked on money actually received, joined from the donation rows. The
+		// denormalised total_donated column this used to order by counts every
+		// mode and is never decremented on refund, so a rehearsal could put a
+		// donor at the top of a live leaderboard.
+		$args   = [ $instance->get_tablename(), $wpdb->prefix . 'suredonation_donations', 'active' ];
+		$extra  = Donations::scope_fragment_for( '', $payment_mode, $args, 'dn' );
+		$args[] = absint( $limit );
 
-		if ( ! $results || ! is_array( $results ) ) {
-			return [];
-		}
+		$sql = "SELECT d.id, d.name, d.email,
+					COALESCE(SUM( ( dn.amount - dn.refunded_amount ) / COALESCE( NULLIF( dn.exchange_rate, 0 ), 1 ) ), 0) AS total_donated,
+					COUNT(dn.id) AS donation_count
+				FROM %i d
+				INNER JOIN %i dn ON dn.donor_id = d.id
+				WHERE d.donor_status = %s
+				AND dn.payment_status IN ('completed', 'partially_refunded')
+				{$extra}
+				GROUP BY d.id, d.name, d.email
+				ORDER BY total_donated DESC
+				LIMIT %d";
 
-		return array_map( [ $instance, 'decode_by_datatype' ], $results );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Live totals; $extra is static placeholder text and every value travels in $args.
+		$results = $wpdb->get_results( $wpdb->prepare( $sql, $args ), ARRAY_A );
+
+		return is_array( $results ) ? $results : [];
 	}
 
 	/**
@@ -1114,24 +1191,40 @@ class Donors extends Base {
 	/**
 	 * Get aggregate donor statistics.
 	 *
+	 * @param string $payment_mode 'test' or 'live' ('' for no filter).
 	 * @return array{total_donors: int, total_donated: float, average_donation: float} Aggregate stats.
 	 * @since 1.0.0
+	 * @since 1.7.0 The money figures come from donation rows, scoped to a payment mode.
 	 */
-	public static function get_aggregate_stats() {
+	public static function get_aggregate_stats( $payment_mode = '' ) {
 		$instance = self::get_instance();
 		global $wpdb;
 		$table = $instance->get_tablename();
 
+		// The donor count is a count of people and matches the list below it, so
+		// it stays a plain count of donor records. The two money figures do not:
+		// they came from the denormalised columns, which count every mode and are
+		// never decremented on refund, so they are computed from the donation rows.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$row = $wpdb->get_row(
-			$wpdb->prepare(
-				'SELECT COUNT(*) AS total_donors, COALESCE(SUM(total_donated), 0) AS total_donated, COALESCE(SUM(donation_count), 0) AS total_donation_count FROM %i',
-				$table
-			),
-			ARRAY_A
-		);
+		$donor_count = $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM %i', $table ) );
 
-		$total_donors         = is_numeric( $row['total_donors'] ?? 0 ) ? (int) $row['total_donors'] : 0;
+		// Joined to the donors table so the money describes the same population as
+		// the count beside it. A donation row whose donor was deleted, or that
+		// carries no donor id, would otherwise be counted in "Total Donations"
+		// while being unrepresented in "Total Donors".
+		$args  = [ $wpdb->prefix . 'suredonation_donations', $table ];
+		$extra = Donations::scope_fragment_for( '', $payment_mode, $args, 'dn' );
+		$sql   = "SELECT COALESCE(SUM( ( dn.amount - dn.refunded_amount ) / COALESCE( NULLIF( dn.exchange_rate, 0 ), 1 ) ), 0) AS total_donated,
+					COUNT(*) AS total_donation_count
+				FROM %i dn
+				INNER JOIN %i d ON dn.donor_id = d.id
+				WHERE dn.payment_status IN ('completed', 'partially_refunded')
+				{$extra}";
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Live totals; $extra is static placeholder text and every value travels in $args.
+		$row = $wpdb->get_row( $wpdb->prepare( $sql, $args ), ARRAY_A );
+
+		$total_donors         = is_numeric( $donor_count ) ? (int) $donor_count : 0;
 		$total_donated        = is_numeric( $row['total_donated'] ?? 0 ) ? (float) $row['total_donated'] : 0.0;
 		$total_donation_count = is_numeric( $row['total_donation_count'] ?? 0 ) ? (int) $row['total_donation_count'] : 0;
 		$average_donation     = $total_donation_count > 0 ? $total_donated / $total_donation_count : 0.0;

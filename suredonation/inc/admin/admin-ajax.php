@@ -7,6 +7,7 @@
 
 namespace SureDonation\Inc\Admin;
 
+use SureDonation\Inc\Debug_Log;
 use SureDonation\Inc\Helper;
 use SureDonation\Inc\Payments\Payment_Helper;
 use SureDonation\Inc\Post_Types\Donation_Form;
@@ -37,6 +38,66 @@ class Admin_Ajax {
 		add_action( 'wp_ajax_suredonation_recommended_plugin_install', 'wp_ajax_install_plugin' );
 		add_action( 'wp_ajax_suredonation_recommended_plugin_activate', [ $this, 'recommended_plugin_activate' ] );
 		add_action( 'wp_ajax_suredonation_integration', [ $this, 'generate_data_for_suretriggers_integration' ] );
+		add_action( 'wp_ajax_suredonation_download_debug_log', [ $this, 'download_debug_log' ] );
+	}
+
+	/**
+	 * Send the debug log to the browser as a file download.
+	 *
+	 * Over admin-ajax rather than REST because the response is a file body, and
+	 * because a download has to be a plain link the browser navigates to - fetch
+	 * cannot hand a file to the save dialog without buffering the whole thing.
+	 *
+	 * Takes no filename parameter, by design. The path is derived from
+	 * Debug_Log, which is the only thing that knows it; accepting one would turn
+	 * a capability-gated download into a path-traversal read of any file the web
+	 * server can open.
+	 *
+	 * Capability is checked before the nonce. A logged-out visitor who guesses
+	 * the action should be refused for the reason that actually applies, and
+	 * checking the nonce first leaks that the action exists.
+	 *
+	 * @since 1.7.0
+	 * @return void
+	 */
+	public function download_debug_log() {
+		if ( ! Helper::current_user_can() ) {
+			wp_die( esc_html__( 'You do not have permission to download this file.', 'suredonation' ), '', [ 'response' => 403 ] );
+		}
+
+		if ( ! check_ajax_referer( 'suredonation_debug_log', '_wpnonce', false ) ) {
+			wp_die( esc_html__( 'Invalid nonce.', 'suredonation' ), '', [ 'response' => 403 ] );
+		}
+
+		Debug_Log::maybe_expire();
+
+		$path     = Debug_Log::get_log_path( false );
+		$contents = '';
+
+		if ( '' !== $path && file_exists( $path ) ) {
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents, WordPress.WP.AlternativeFunctions.file_system_read_file_get_contents -- Reading a file owned by Debug_Log; WP_Filesystem would prompt for credentials.
+			$contents = file_get_contents( $path );
+		}
+
+		if ( ! is_string( $contents ) || '' === $contents ) {
+			// An empty download looks like a broken button. Say what it means
+			// instead, because on a healthy site this is the expected result.
+			$contents = __( 'No errors have been recorded. SureDonation only writes to this log when something fails, so an empty log means donations are going through.', 'suredonation' );
+		}
+
+		nocache_headers();
+		header( 'Content-Type: text/plain; charset=utf-8' );
+		// The file holds whatever a gateway put in an error string. Serving it as
+		// text/plain is not enough on its own - a sniffing browser can still treat
+		// it as HTML and run what is inside.
+		header( 'X-Content-Type-Options: nosniff' );
+		header( 'Content-Disposition: attachment; filename="suredonation-debug-log.txt"' );
+		header( 'Content-Length: ' . strlen( $contents ) );
+
+		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- A text/plain attachment body, not markup; escaping would corrupt the JSON lines support has to read.
+		echo $contents;
+
+		exit;
 	}
 
 	/**

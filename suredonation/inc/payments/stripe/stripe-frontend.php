@@ -14,6 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 use SureDonation\Inc\Database\Tables\Donations;
 use SureDonation\Inc\Database\Tables\Donors;
+use SureDonation\Inc\Debug_Log;
 use SureDonation\Inc\Emails\Email_Handler;
 use SureDonation\Inc\Helper;
 use SureDonation\Inc\Payments\Payment_Helper;
@@ -84,8 +85,19 @@ class Stripe_Frontend {
 		check_ajax_referer( 'suredonation_donation_form', 'nonce' );
 
 		// Reject bot submissions caught by the honeypot before processing.
+		//
+		// 'blocked' because the trap firing is this site working. The browser
+		// reports a failed donation either way and cannot tell a caught bot from
+		// a gateway that is down, so without this every spam submission put "We
+		// noticed a donation failure" on the dashboard with a Contact Support
+		// link beside it.
 		if ( Helper::is_honeypot_spam() ) {
-			wp_send_json_error( [ 'message' => __( 'Your submission was flagged as spam. Please try again.', 'suredonation' ) ] );
+			wp_send_json_error(
+				[
+					'message' => __( 'Your submission was flagged as spam. Please try again.', 'suredonation' ),
+					'blocked' => true,
+				]
+			);
 		}
 
 		// A page cache can serve a form rendered in the other payment mode. Its
@@ -163,6 +175,13 @@ class Stripe_Frontend {
 				'base_amount'     => $base_amount_cents,
 				'fees_covered'    => $fees_covered_cents,
 				'cover_fees'      => $cover_fees ? 'yes' : 'no',
+				// Which install created this intent. Stripe delivers every event on
+				// a connected account to every endpoint registered against it, so a
+				// site sharing an account with another install receives the other's
+				// payments and cannot otherwise tell them from one of its own whose
+				// row has gone missing. Without it the webhook has to assume every
+				// unmatched event might be ours, retry it, and log a failure.
+				'site_url'        => home_url(),
 			],
 		];
 
@@ -196,6 +215,10 @@ class Stripe_Frontend {
 			[
 				'campaign_id'       => $campaign_id,
 				'amount'            => $amount,
+				// Passed in rather than re-read from $_POST by the writer: this
+				// value has been through validate_payment_amount(), a second
+				// read of the request has not.
+				'currency'          => $currency,
 				'donor_email'       => $donor_email,
 				'donor_name'        => $donor_name,
 				'transaction_id'    => $payment_intent_id,
@@ -315,6 +338,28 @@ class Stripe_Frontend {
 					'setup_future_usage' => $capture_result['setup_future_usage'],
 				]
 			);
+			// The capture already succeeded, so the money moved and this row
+			// will not say completed. Recorded here for the same reason as
+			// PayPal's amount mismatch: the status this branch writes keeps
+			// the browser's own report from counting, so if nothing is said
+			// here nothing warns the owner at all.
+			$saved_card_campaign = isset( $donation['campaign_id'] ) ? absint( $donation['campaign_id'] ) : 0;
+
+			Debug_Log::append(
+				[
+					'type'           => 'finalize',
+					'gateway'        => 'stripe',
+					'mode'           => Payment_Helper::get_payment_mode(),
+					'source'         => 'stripe:complete_donation',
+					'message'        => 'A one-time donation saved the payment method for future use, so it was captured and marked suspicious rather than completed',
+					'donation_id'    => $donation_id,
+					'currency'       => Helper::get_string_value( $donation['currency'] ?? '' ),
+					'campaign_id'    => $saved_card_campaign,
+					'campaign_title' => $saved_card_campaign > 0 ? Helper::get_string_value( get_the_title( $saved_card_campaign ) ) : '',
+				],
+				'payment'
+			);
+
 			wp_send_json_error( [ 'message' => __( 'Payment verification failed', 'suredonation' ) ] );
 		}
 
@@ -358,11 +403,16 @@ class Stripe_Frontend {
 			$donor_id       = is_numeric( $donor_id_value ) ? absint( $donor_id_value ) : 0;
 
 			if ( $donor_id > 0 ) {
-				$amount_value = $donation['amount'] ?? 0;
+				// The creditable amount is in the donation's own currency, so the
+				// row's currency and stamped rate go with it and the conversion
+				// happens once, inside record_donation().
+				$currency_value = $donation['currency'] ?? '';
 				Donors::record_donation_once(
 					$donor_id,
-					is_numeric( $amount_value ) ? (float) $amount_value : 0.0,
-					$donation_id
+					Donations::get_charged_amount( $donation ),
+					$donation_id,
+					is_string( $currency_value ) ? $currency_value : '',
+					$donation['exchange_rate'] ?? null
 				);
 			}
 		}
@@ -418,8 +468,22 @@ class Stripe_Frontend {
 			$account_id = Stripe_Helper::get_default_account_id();
 		}
 
-		$is_default           = ( '' !== $account_id && Stripe_Helper::get_default_account_id() === $account_id );
-		$user                 = get_user_by( 'email', $email );
+		$is_default = ( '' !== $account_id && Stripe_Helper::get_default_account_id() === $account_id );
+
+		// The usermeta cache below is a convenience for a donor paying while
+		// logged into their own account — not a lookup keyed on whoever else
+		// happens to share this email. A bare get_user_by( 'email' ) match is
+		// not proof of account ownership (GIT-132): reusing a cached customer
+		// id from an unrelated account would attach this charge, and any
+		// saved card on it, to that account's Stripe customer object.
+		$user = null;
+		if ( is_user_logged_in() ) {
+			$current_user = wp_get_current_user();
+			if ( $current_user->user_email && 0 === strcasecmp( $current_user->user_email, $email ) ) {
+				$user = $current_user;
+			}
+		}
+
 		$meta_key             = '_suredonation_stripe_customer_id_' . $account_id; // Per-account cache key.
 		$existing_customer_id = '';
 
@@ -529,11 +593,19 @@ class Stripe_Frontend {
 			wp_send_json_error( [ 'message' => __( 'Invalid campaign', 'suredonation' ) ] );
 		}
 
+		// The donor's to fix by filling the field in, like any other validation
+		// message, so it is not a fault even though it arrives without the
+		// fieldErrors map that marks the rest of them.
 		if ( empty( $donor_email ) ) {
-			wp_send_json_error( [ 'message' => __( 'Email address is required', 'suredonation' ) ] );
+			wp_send_json_error(
+				[
+					'message' => __( 'Email address is required', 'suredonation' ),
+					'blocked' => true,
+				]
+			);
 		}
 
-		$currency = Payment_Helper::get_currency();
+		$currency = Payment_Helper::get_submitted_currency();
 
 		// Fail closed: server-side validation is the source of truth, so a
 		// submission without the form/block context cannot be validated and must
@@ -586,13 +658,27 @@ class Stripe_Frontend {
 				wp_send_json_error( [ 'message' => __( 'Invalid campaign', 'suredonation' ) ] );
 			}
 
+			// A closed campaign refusing a donation is the setting doing its job,
+			// not a failure. A cached page keeps its donate button working after a
+			// campaign is paused or unpublished, so these fire on perfectly
+			// healthy sites every time one ends.
 			if ( 'publish' !== $campaign->post_status ) {
-				wp_send_json_error( [ 'message' => __( 'This campaign is not available for donations.', 'suredonation' ) ] );
+				wp_send_json_error(
+					[
+						'message' => __( 'This campaign is not available for donations.', 'suredonation' ),
+						'blocked' => true,
+					]
+				);
 			}
 
 			$campaign_status = Helper::get_campaign_meta_value( $campaign_id, 'campaign_status', 'active' );
 			if ( 'paused' === $campaign_status || 'completed' === $campaign_status ) {
-				wp_send_json_error( [ 'message' => __( 'This campaign is not currently accepting donations.', 'suredonation' ) ] );
+				wp_send_json_error(
+					[
+						'message' => __( 'This campaign is not currently accepting donations.', 'suredonation' ),
+						'blocked' => true,
+					]
+				);
 			}
 		}
 
@@ -616,7 +702,7 @@ class Stripe_Frontend {
 
 			if ( $cover_fees ) {
 				// Recalculate fee and total server-side from base_amount — do not trust client-supplied amount.
-				$expected_fees = Payment_Helper::calculate_fee( $base_amount, $fee_config['fee_percentage'], $fee_config['fee_fixed'] );
+				$expected_fees = Payment_Helper::calculate_fee( $base_amount, $fee_config['fee_percentage'], $fee_config['fee_fixed'], $currency );
 				$fees_covered  = $expected_fees;
 				$amount        = $base_amount + $fees_covered;
 			}
@@ -661,6 +747,9 @@ class Stripe_Frontend {
 	private function create_pending_donation( array $args ) {
 		$campaign_id       = absint( $args['campaign_id'] );
 		$amount            = (float) $args['amount'];
+		$currency          = isset( $args['currency'] ) && is_string( $args['currency'] )
+			? $args['currency']
+			: Payment_Helper::get_submitted_currency();
 		$donor_email       = $args['donor_email'];
 		$donor_name        = $args['donor_name'];
 		$transaction_id    = $args['transaction_id'];
@@ -695,7 +784,7 @@ class Stripe_Frontend {
 				'donor_id'             => $donor_id ? $donor_id : 0,
 				'amount'               => $amount,
 				'fees_covered'         => $fees_covered,
-				'currency'             => Payment_Helper::get_currency(),
+				'currency'             => $currency,
 				'gateway'              => 'stripe',
 				'payment_status'       => 'pending',
 				'payment_mode'         => Payment_Helper::get_payment_mode(),

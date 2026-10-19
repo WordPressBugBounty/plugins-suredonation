@@ -3,11 +3,12 @@
  * Donor resolver for the GiveWP migration tool.
  *
  * Looks up or creates the SureDonation donor row that a given GiveWP
- * payment belongs to. Matches Charitable's verified pattern: link to an
- * existing WP user if one is found by id or email, otherwise store
- * user_id = 0. Never creates a WP user during migration — the donor
- * dashboard's magic-link auth works against the donors table alone
- * (see suredonation-pro/inc/donor-dashboard/magic-link.php:187).
+ * payment belongs to. Links to an existing WP user only from GiveWP's own
+ * stored payment-user id, never by email — a bare email match against an
+ * existing WP account is not proof that account controls that mailbox
+ * (GIT-132) — otherwise stores user_id = 0. Never creates a WP user during
+ * migration — the donor dashboard's magic-link auth works against the
+ * donors table alone (see suredonation-pro/inc/donor-dashboard/magic-link.php:187).
  *
  * When the GiveWP donor id is known, the row is enriched from
  * give_donormeta so phone, company, structured address, and any
@@ -110,7 +111,7 @@ class Donor_Mapper {
 			? $profile['address_str']
 			: $this->address_from_payment_meta( $payment_meta );
 
-		$wp_user_id = $this->resolve_wp_user_id( $payment_meta, $email );
+		$wp_user_id = $this->resolve_wp_user_id( $payment_meta );
 
 		$givewp_block = array_filter(
 			[
@@ -261,24 +262,20 @@ class Donor_Mapper {
 	}
 
 	/**
-	 * Resolve a WP user ID for an imported donor, link-only-if-exists pattern.
+	 * Resolve a WP user ID for an imported donor from GiveWP's own record of
+	 * who it belongs to. No email fallback: a bare email match against an
+	 * existing WP account is not proof that account controls that mailbox
+	 * (GIT-132), and the donor dashboard's verified link flow is the path
+	 * back for a donor who registers later under this address.
 	 *
-	 * @param  array  $payment_meta GiveWP payment meta.
-	 * @param  string $email        Donor email (already sanitized).
-	 * @return int 0 if no WP user found.
+	 * @param  array $payment_meta GiveWP payment meta.
+	 * @return int 0 if GiveWP recorded no WP user for this donor.
 	 * @since  1.0.0
 	 */
-	private function resolve_wp_user_id( $payment_meta, $email ) {
+	private function resolve_wp_user_id( $payment_meta ) {
 		$give_user_id = $this->raw_give_user_id( $payment_meta );
 		if ( $give_user_id > 0 ) {
 			$user = get_userdata( $give_user_id );
-			if ( $user instanceof \WP_User ) {
-				return (int) $user->ID;
-			}
-		}
-
-		if ( '' !== $email ) {
-			$user = get_user_by( 'email', $email );
 			if ( $user instanceof \WP_User ) {
 				return (int) $user->ID;
 			}

@@ -456,7 +456,7 @@ class PayPal_Helper {
 	}
 
 	/**
-	 * Format amount for PayPal API (handles zero-decimal currencies).
+	 * Format an amount for PayPal, respecting zero-decimal currencies.
 	 *
 	 * @param float  $amount   Amount in major units.
 	 * @param string $currency Currency code.

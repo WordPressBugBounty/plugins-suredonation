@@ -129,10 +129,40 @@ class Service_Provider {
 			Campaign_Social_Sharing_Widget::class,
 		];
 
+		/**
+		 * Filters the Elementor widget classes SureDonation registers.
+		 *
+		 * An add-on appends its own class names here; each must extend
+		 * `Base_Widget` (or `\Elementor\Widget_Base`) and be autoloadable.
+		 * SureDonation Pro registers its Donor Dashboard widget this way.
+		 * Runs inside Elementor's `elementor/widgets/register`, so the
+		 * Elementor classes exist by the time a class is constructed.
+		 *
+		 * @since 1.7.0
+		 * @param array<int, class-string> $widget_classes Widget class names, in registration order.
+		 */
+		$widget_classes = apply_filters( 'suredonation_elementor_widgets', $widget_classes );
+
 		// Construct inside the loop so one broken widget can't abort
-		// registration of the others.
-		foreach ( $widget_classes as $widget_class ) {
-			$widgets_manager->register( new $widget_class() );
+		// registration of the others. Only a concrete Widget_Base subclass is
+		// constructed: a name that does not resolve (an add-on's typo, or an
+		// add-on loaded without its dependency), a class outside Elementor's
+		// hierarchy and an abstract class are all skipped. is_subclass_of()
+		// autoloads the name and is false for one that does not exist.
+		foreach ( is_array( $widget_classes ) ? $widget_classes : [] as $widget_class ) {
+			if ( ! is_string( $widget_class ) || ! is_subclass_of( $widget_class, \Elementor\Widget_Base::class ) ) {
+				continue;
+			}
+			if ( ! ( new \ReflectionClass( $widget_class ) )->isInstantiable() ) {
+				continue;
+			}
+			/**
+			 * The widget to hand Elementor; the subclass check above is the type guard.
+			 *
+			 * @var \Elementor\Widget_Base $widget
+			 */
+			$widget = new $widget_class();
+			$widgets_manager->register( $widget );
 		}
 	}
 

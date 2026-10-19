@@ -10,6 +10,7 @@ namespace SureDonation\Inc\Database\Tables;
 use SureDonation\Inc\Campaigns\Campaign_Stats;
 use SureDonation\Inc\Database\Base;
 use SureDonation\Inc\Helper;
+use SureDonation\Inc\Payments\Payment_Helper;
 use SureDonation\Inc\Pdf\Receipt_Generator;
 use SureDonation\Inc\Traits\Get_Instance;
 
@@ -25,6 +26,15 @@ class Donations extends Base {
 	use Get_Instance;
 
 	/**
+	 * Gateways whose `amount` is the base gift only, with covered fees stored
+	 * separately in `fees_covered`. Every other gateway stores the charged
+	 * total in `amount`. Read by get_charged_amount().
+	 *
+	 * @since 1.7.0
+	 */
+	public const GATEWAYS_STORING_BASE_AMOUNT = [ 'paypal' ];
+
+	/**
 	 * Table suffix.
 	 *
 	 * @var string
@@ -38,7 +48,7 @@ class Donations extends Base {
 	 * @var int
 	 * @since 0.0.1
 	 */
-	protected $table_version = 7;
+	protected $table_version = 8;
 
 	/**
 	 * Valid donor-comment moderation statuses.
@@ -132,6 +142,17 @@ class Donations extends Base {
 			'currency'               => [
 				'type'    => 'string',
 				'default' => 'USD',
+			],
+			// Declared 'string' (binds %s) and not 'decimal' (binds %f) on
+			// purpose: %f is 6 decimals, which silently truncates the small
+			// rates this column has to hold. `amount` is declared the same way.
+			'exchange_rate'          => [
+				'type'    => 'string',
+				'default' => '1',
+			],
+			'base_currency'          => [
+				'type'    => 'string',
+				'default' => '',
 			],
 			'transaction_id'         => [
 				'type'    => 'string',
@@ -259,6 +280,8 @@ class Donations extends Base {
 			'fees_covered DECIMAL(26,8) NOT NULL DEFAULT 0',
 			'refunded_amount DECIMAL(26,8) NOT NULL DEFAULT 0',
 			'currency VARCHAR(10) NOT NULL',
+			'exchange_rate DECIMAL(20,10) NOT NULL DEFAULT 1',
+			'base_currency VARCHAR(10) NOT NULL DEFAULT \'\'',
 			'transaction_id VARCHAR(255) NOT NULL',
 			'customer_id VARCHAR(50) NOT NULL',
 			'stripe_account_id VARCHAR(50) NOT NULL DEFAULT \'\'',
@@ -314,7 +337,12 @@ class Donations extends Base {
 	 * key the Charitable importer dedupes on with a single indexed lookup per
 	 * row, instead of scanning + JSON-decoding every prior imported row per batch;
 	 * version 7 added `donor_comment_status`, defaulting to `approved` so
-	 * comments that predate moderation stay visible.
+	 * comments that predate moderation stay visible; version 8 added
+	 * `exchange_rate` + `base_currency` for the currency switcher, so a row
+	 * records what its `amount` was worth in the site's base currency at the
+	 * time. Version 8 needs no backfill: every pre-v8 donation was taken in the
+	 * site's one global currency, and the `exchange_rate DEFAULT 1` those rows
+	 * receive divides them back to themselves.
 	 *
 	 * Version 7 rather than 6: `import_provenance` had already taken 6 on dev
 	 * while this branch was open, and the upgrade only runs when the number
@@ -345,6 +373,17 @@ class Donations extends Base {
 			'import_provenance VARCHAR(64) NOT NULL DEFAULT \'\' AFTER import_source',
 			'stripe_account_id VARCHAR(50) NOT NULL DEFAULT \'\' AFTER customer_id',
 			'donor_comment_status VARCHAR(20) NOT NULL DEFAULT \'approved\' AFTER donor_comment',
+			// Rate is donation-currency units per 1 base unit (JPY on a USD site
+			// is 150, not 0.00667), matching how both competitors store it. The
+			// DEFAULT 1 is what makes every pre-v8 row exact without a backfill:
+			// those rows were all in the single global currency, so dividing by 1
+			// returns them unchanged.
+			// Appended rather than placed AFTER currency: an instant ADD COLUMN
+			// requires the column to go last on MariaDB and on MySQL before
+			// 8.0.29, and anything else rebuilds the table, during which every
+			// insert fails. Column order carries no meaning here.
+			'exchange_rate DECIMAL(20,10) NOT NULL DEFAULT 1',
+			'base_currency VARCHAR(10) NOT NULL DEFAULT \'\'',
 			'INDEX idx_subscription (subscription_id)',
 			'INDEX idx_subscription_status (subscription_status)',
 			'INDEX idx_parent_subscription (parent_subscription_id)',
@@ -532,6 +571,82 @@ class Donations extends Base {
 	}
 
 	/**
+	 * SQL expression for a donation's net value in the site's base currency.
+	 *
+	 * Rows store `amount` and `refunded_amount` in the currency the donor paid
+	 * in, plus the rate that applied at the time. Netting the refund *before*
+	 * dividing is what keeps a partial refund correct: both figures are in the
+	 * same donation currency, so subtracting them is valid, and the single
+	 * division then carries the pair into base. Converting the amount first and
+	 * subtracting a raw refund afterwards would mix two currencies.
+	 *
+	 * Pre-v8 rows need no special handling: `exchange_rate` defaults to 1 and
+	 * those donations were all in the site's single currency, so they divide
+	 * back to themselves. `NULLIF` is a cheap guard against a zero reaching the
+	 * column from anywhere, which would otherwise take out a public progress bar
+	 * with a division error rather than just reading slightly wrong.
+	 *
+	 * @param string $alias Optional table alias, including the trailing dot.
+	 * @return string SQL fragment.
+	 * @since 1.7.0
+	 */
+	public static function base_amount_sql( $alias = '' ) {
+		$alias = is_string( $alias ) ? $alias : '';
+
+		return sprintf(
+			'( ( %1$samount - %1$srefunded_amount ) / COALESCE( NULLIF( %1$sexchange_rate, 0 ), 1 ) )',
+			$alias
+		);
+	}
+
+	/**
+	 * Record the exchange rate and base currency a row should be read back with.
+	 *
+	 * Done here rather than at each call site because `add()` is the single
+	 * insert path: fourteen callers across both plugins (gateway frontends, the
+	 * recurring handlers, both webhook listeners, the importers and the
+	 * abilities runtime) all funnel through it, and a row written without a rate
+	 * is silently excluded from every base-currency total.
+	 *
+	 * An explicitly supplied rate always wins, so a renewal can inherit the rate
+	 * its parent subscription was created at instead of today's.
+	 *
+	 * @param array<mixed> $data Donation data, modified in place.
+	 * @return void
+	 * @since 1.7.0
+	 */
+	private static function stamp_base_currency( array &$data ) {
+		if ( ! isset( $data['base_currency'] ) ) {
+			$data['base_currency'] = strtoupper( Payment_Helper::get_currency() );
+		}
+
+		if ( isset( $data['exchange_rate'] ) && is_numeric( $data['exchange_rate'] ) && (float) $data['exchange_rate'] > 0 ) {
+			return;
+		}
+
+		$currency = isset( $data['currency'] ) && is_string( $data['currency'] ) ? $data['currency'] : '';
+		$rate     = Payment_Helper::get_exchange_rate( $currency );
+
+		// A zero rate means no extension could price this currency. Storing 1
+		// would book the face value as base-currency money and be
+		// indistinguishable from a genuine 1:1 row, so store 0 instead: the
+		// row then says "unpriced" rather than "worth exactly one base unit".
+		//
+		// What every reader does with that 0 is count the row at face value:
+		// in SQL through `COALESCE( NULLIF( exchange_rate, 0 ), 1 )`, and on
+		// the donor columns through Donors::record_donation(). That is also
+		// what SureDonation did with a foreign-currency import before
+		// multi-currency existed, and having all of them follow the one rule
+		// is what stops a donor's lifetime total disagreeing with the campaign
+		// they gave to. Nothing repairs these rows or notifies anyone, so the
+		// imprecision is permanent rather than pending.
+		//
+		// Written through number_format rather than a string cast because PHP
+		// renders small floats in exponent form.
+		$data['exchange_rate'] = $rate > 0 ? number_format( $rate, 10, '.', '' ) : '0';
+	}
+
+	/**
 	 * Add a new donation record.
 	 *
 	 * @param array<mixed> $data Donation data to insert.
@@ -550,6 +665,8 @@ class Donations extends Base {
 		if ( ! isset( $data['created_at'] ) ) {
 			$data['created_at'] = current_time( 'mysql', true );
 		}
+
+		self::stamp_base_currency( $data );
 
 		$result = $instance->use_insert( $data );
 
@@ -709,6 +826,38 @@ class Donations extends Base {
 		}
 
 		return $updated;
+	}
+
+	/**
+	 * What the donor was actually charged for a donation.
+	 *
+	 * `amount` does not mean the same thing on every gateway. Stripe stores the
+	 * charged total (base plus covered fees); PayPal stores the base and keeps
+	 * the covered fees in `fees_covered` (see GATEWAYS_STORING_BASE_AMOUNT).
+	 * Anything that has to agree with the gateway about one row reads it from
+	 * here: crediting a donor's lifetime total, and capping a refund at what
+	 * the gateway can actually return. Both are off by the covered fee on one
+	 * of the two gateways otherwise, and in opposite directions.
+	 *
+	 * @param array<string,mixed>|mixed $donation Donation row from self::get().
+	 * @return float Amount charged; 0.0 for a row it cannot read.
+	 * @since 1.7.0
+	 */
+	public static function get_charged_amount( $donation ) {
+		// A row whose amount cannot be read is worth nothing, fees included.
+		if ( ! is_array( $donation ) || ! isset( $donation['amount'] ) || ! is_numeric( $donation['amount'] ) ) {
+			return 0.0;
+		}
+
+		$amount = (float) $donation['amount'];
+
+		if ( ! in_array( $donation['gateway'] ?? '', self::GATEWAYS_STORING_BASE_AMOUNT, true ) ) {
+			return $amount;
+		}
+
+		$fees = isset( $donation['fees_covered'] ) && is_numeric( $donation['fees_covered'] ) ? (float) $donation['fees_covered'] : 0.0;
+
+		return $amount + max( 0.0, $fees );
 	}
 
 	/**
@@ -1729,11 +1878,188 @@ class Donations extends Base {
 	}
 
 	/**
+	 * Received totals per donor, scoped to a payment mode.
+	 *
+	 * The donors table carries denormalised `total_donated` / `donation_count`
+	 * columns, but they count every mode and are never decremented on refund,
+	 * so a screen that reads them disagrees with the scoped figures beside it.
+	 * This computes the same three numbers from the donation rows instead, net
+	 * of refunds, so `largest_donation` cannot exceed the lifetime beside it.
+	 *
+	 * Takes a list rather than one id so a donor list costs one query instead
+	 * of one per row. Every requested id is present in the result, so a caller
+	 * never has to special-case a donor with nothing in this mode.
+	 *
+	 * @param array<int> $donor_ids    Donor IDs to total.
+	 * @param string     $payment_mode 'test' or 'live' ('' for the store's current mode).
+	 * @return array<int, array{total_donated: float, donation_count: int, largest_donation: float}> Totals keyed by donor ID.
+	 * @since 1.7.0
+	 */
+	public static function get_totals_by_donor( array $donor_ids, $payment_mode = '' ) {
+		$ids = array_values(
+			array_unique(
+				array_filter(
+					array_map( 'intval', $donor_ids ),
+					static function ( $id ) {
+						return $id > 0;
+					}
+				)
+			)
+		);
+
+		$totals = [];
+		foreach ( $ids as $id ) {
+			$totals[ $id ] = [
+				'total_donated'    => 0.0,
+				'donation_count'   => 0,
+				'largest_donation' => 0.0,
+			];
+		}
+
+		if ( empty( $ids ) ) {
+			return $totals;
+		}
+
+		$instance = self::get_instance();
+		global $wpdb;
+
+		$placeholders = implode( ', ', array_fill( 0, count( $ids ), '%d' ) );
+		$args         = array_merge( [ $instance->get_tablename() ], $ids );
+		$extra        = self::scope_fragment( '', self::resolve_mode( $payment_mode ), $args );
+
+		$sql = sprintf(
+			"SELECT donor_id,
+					COALESCE(SUM( ( amount - refunded_amount ) / COALESCE( NULLIF( exchange_rate, 0 ), 1 ) ), 0) as total_donated,
+					COUNT(*) as donation_count,
+					COALESCE(MAX( ( amount - refunded_amount ) / COALESCE( NULLIF( exchange_rate, 0 ), 1 ) ), 0) as largest_donation
+				FROM %%i
+				WHERE donor_id IN ( %s )
+				AND payment_status IN ('completed', 'partially_refunded')
+				%s
+				GROUP BY donor_id",
+			$placeholders,
+			$extra
+		);
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- Live totals; $placeholders is generated from a count and $extra is a static fragment, so every value is bound.
+		$rows = $wpdb->get_results( $wpdb->prepare( $sql, $args ), ARRAY_A );
+
+		foreach ( (array) $rows as $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+
+			$donor_id = absint( $row['donor_id'] ?? 0 );
+			if ( ! isset( $totals[ $donor_id ] ) ) {
+				continue;
+			}
+
+			$totals[ $donor_id ] = [
+				'total_donated'    => (float) ( $row['total_donated'] ?? 0 ),
+				'donation_count'   => (int) ( $row['donation_count'] ?? 0 ),
+				'largest_donation' => (float) ( $row['largest_donation'] ?? 0 ),
+			];
+		}
+
+		return $totals;
+	}
+
+	/**
+	 * The payment mode a query should use when the caller did not name one.
+	 *
+	 * These aggregates default to the store's mode rather than requiring every
+	 * caller to pass it, because the screens reading them have no mode control.
+	 * Taking it as an argument still lets a caller that does - a reporting
+	 * ability asked for the other mode - get an answer consistent with the rest
+	 * of its response.
+	 *
+	 * @param string $payment_mode Caller-supplied mode, or '' for the store's.
+	 * @return string 'test' or 'live'.
+	 * @since 1.7.0
+	 */
+	private static function resolve_mode( $payment_mode ) {
+		$payment_mode = is_string( $payment_mode ) ? strtolower( trim( $payment_mode ) ) : '';
+
+		if ( '' === $payment_mode ) {
+			return Payment_Helper::get_payment_mode();
+		}
+
+		// Two values out, so the docblock above is a guarantee rather than a
+		// description. A caller building a cache key from this would otherwise
+		// get a third one through.
+		return 'test' === $payment_mode ? 'test' : 'live';
+	}
+
+	/**
+	 * Public form of scope_fragment() for queries built outside this class.
+	 *
+	 * The donors table reports on donation rows too, and its queries join this
+	 * table under an alias, so it needs the same predicate with a column
+	 * prefix. Exposing one builder keeps a second copy of the rule from
+	 * drifting; suredonation-pro can use it for the same reason.
+	 *
+	 * As with scope_fragment(), the values are appended to $args by reference, so
+	 * the rule is that the fragment's placeholders sit where the fragment sits:
+	 * everything already in $args must appear before it in the SQL, and anything
+	 * appended after this call must appear after it. Donors::get_top_donors()
+	 * relies on the second half, pushing its LIMIT value once the fragment is
+	 * built.
+	 *
+	 * @param string       $currency     Currency code ('' for no filter).
+	 * @param string       $payment_mode 'test' or 'live' ('' for no filter).
+	 * @param array<mixed> $args         Prepare args, appended to by reference.
+	 * @param string       $alias        Table alias to qualify the columns with, without
+	 *                                   the dot, e.g. 'dn'. Anything that is not a bare
+	 *                                   SQL identifier is ignored.
+	 * @return string SQL fragment beginning with ' AND ', or '' when unscoped.
+	 * @since 1.7.0
+	 */
+	public static function scope_fragment_for( $currency, $payment_mode, array &$args, $alias = '' ) {
+		$fragment = self::scope_fragment( $currency, $payment_mode, $args );
+
+		// The alias is the one part of this fragment that is not a placeholder, so
+		// it is the one part that could carry SQL. Callers pass a literal today,
+		// but this is public and a future one might not, so only a bare
+		// identifier is accepted and anything else is dropped. Dropping it yields
+		// an unqualified column, which a joined query rejects loudly as ambiguous
+		// rather than running something unintended.
+		$alias = is_string( $alias ) ? $alias : '';
+		if ( '' !== $alias && ! preg_match( '/\A[A-Za-z_][A-Za-z0-9_]*\z/', $alias ) ) {
+			$alias = '';
+		}
+
+		if ( '' === $alias || '' === $fragment ) {
+			return $fragment;
+		}
+
+		$alias .= '.';
+
+		return str_replace( [ ' AND currency', ' AND payment_mode' ], [ ' AND ' . $alias . 'currency', ' AND ' . $alias . 'payment_mode' ], $fragment );
+	}
+
+	/**
 	 * Build the currency / payment-mode scope for a reporting query.
 	 *
-	 * Amounts in different currencies cannot be summed into one figure, and test
-	 * donations must not be counted alongside live ones. Both filters are opt-in
-	 * so existing callers keep their behaviour; the abilities always pass them.
+	 * Test donations must not be counted alongside live ones, so every caller
+	 * should pass a payment mode.
+	 *
+	 * Two conventions for an empty mode live in this class, and the difference
+	 * is deliberate rather than drift. The readers behind screens with no mode
+	 * control - get_form_stats(), its bulk form, get_donor_activity() and
+	 * get_totals_by_donor() - resolve '' to the store's mode, because a
+	 * forgotten argument there would silently unscope a figure a person reads.
+	 * The reporting readers that take a caller-chosen scope keep '' meaning no
+	 * filter, because an ability may legitimately want every mode. Check which
+	 * kind you are adding to before copying a default.
+	 *
+	 * Currency is different, and opt-in for a reason: a form, campaign or donor
+	 * has no currency of its own, so the only candidate scope is the store's
+	 * current setting, and scoping by it empties every historical figure the
+	 * moment an admin changes that setting. Pass a currency only where the
+	 * screen offers the reader a currency selector and can therefore show them
+	 * what is being left out - the reporting abilities and the Pro reports
+	 * screen. Everywhere else, leave it empty and accept a mixed-currency sum;
+	 * reporting those properly needs a per-currency breakdown, not a predicate.
 	 *
 	 * @param string       $currency     Currency code ('' for no filter).
 	 * @param string       $payment_mode 'test' or 'live' ('' for no filter).
@@ -1752,10 +2078,16 @@ class Donations extends Base {
 			$args[] = $currency;
 		}
 
+		// Empty means no mode filter, the documented opt-out. Anything else
+		// filters: an unrecognised value resolves to 'live' rather than dropping
+		// the predicate, because skipping it silently counts test money again -
+		// the defect this scope exists to prevent. Callers coming through
+		// Payment_Helper::get_payment_mode() are already normalised; this covers
+		// one that is not.
 		$payment_mode = is_string( $payment_mode ) ? strtolower( trim( $payment_mode ) ) : '';
-		if ( in_array( $payment_mode, [ 'test', 'live' ], true ) ) {
+		if ( '' !== $payment_mode ) {
 			$extra .= ' AND payment_mode = %s';
-			$args[] = $payment_mode;
+			$args[] = 'test' === $payment_mode ? 'test' : 'live';
 		}
 
 		// created_at is stored in GMT (add() uses current_time( 'mysql', true )),
@@ -1793,10 +2125,10 @@ class Donations extends Base {
 
 		$sql = "SELECT
 					COUNT(*) as total_donations,
-					COALESCE(SUM(amount - refunded_amount), 0) as total_raised,
+					COALESCE(SUM( ( amount - refunded_amount ) / COALESCE( NULLIF( exchange_rate, 0 ), 1 ) ), 0) as total_raised,
 					COUNT(DISTINCT donor_email) as unique_donors,
-					COALESCE(AVG(amount - refunded_amount), 0) as average_donation,
-					COALESCE(MAX(amount - refunded_amount), 0) as largest_donation
+					COALESCE(AVG( ( amount - refunded_amount ) / COALESCE( NULLIF( exchange_rate, 0 ), 1 ) ), 0) as average_donation,
+					COALESCE(MAX( ( amount - refunded_amount ) / COALESCE( NULLIF( exchange_rate, 0 ), 1 ) ), 0) as largest_donation
 				FROM %i
 				WHERE payment_status IN ('completed', 'partially_refunded')
 					{$extra}";
@@ -1872,7 +2204,7 @@ class Donations extends Base {
 					d.campaign_id,
 					p.post_title AS campaign_title,
 					COUNT(*) as donation_count,
-					COALESCE(SUM(amount - refunded_amount), 0) as total_raised,
+					COALESCE(SUM( ( amount - refunded_amount ) / COALESCE( NULLIF( exchange_rate, 0 ), 1 ) ), 0) as total_raised,
 					COUNT(DISTINCT donor_email) as unique_donors
 				FROM %i AS d
 				INNER JOIN {$wpdb->posts} AS p
@@ -1984,9 +2316,9 @@ class Donations extends Base {
 				break;
 		}
 
-		// Amounts of different currencies cannot be summed into one figure, so
-		// scope the query to a single currency. Callers that don't care still
-		// get coherent numbers because the default is the store currency.
+		// Optional currency scope for callers that offer the reader a currency
+		// selector (the reporting abilities do). The default is no filter, so an
+		// unscoped caller sums across currencies - see scope_fragment().
 		$currency = is_string( $currency ) ? strtoupper( trim( $currency ) ) : '';
 		$extra    = '';
 		$args     = [ $date_format, $instance->get_tablename(), $after, $before ];
@@ -2001,17 +2333,19 @@ class Donations extends Base {
 			$args[] = absint( $campaign_id );
 		}
 
-		// Test and live donations must not be summed together either.
+		// Test and live donations must not be summed together either; see
+		// scope_fragment() for why an unrecognised value filters rather than
+		// dropping the predicate.
 		$payment_mode = is_string( $payment_mode ) ? strtolower( trim( $payment_mode ) ) : '';
-		if ( in_array( $payment_mode, [ 'test', 'live' ], true ) ) {
+		if ( '' !== $payment_mode ) {
 			$extra .= ' AND payment_mode = %s';
-			$args[] = $payment_mode;
+			$args[] = 'test' === $payment_mode ? 'test' : 'live';
 		}
 
 		$sql = "SELECT
 					DATE_FORMAT(created_at, %s) as period,
 					COUNT(*) as donation_count,
-					COALESCE(SUM(amount - refunded_amount), 0) as total_amount
+					COALESCE(SUM( ( amount - refunded_amount ) / COALESCE( NULLIF( exchange_rate, 0 ), 1 ) ), 0) as total_amount
 				FROM %i
 				WHERE payment_status IN ('completed', 'partially_refunded')
 					AND DATE(created_at) >= %s
@@ -2053,26 +2387,32 @@ class Donations extends Base {
 	}
 
 	/**
-	 * Get completed entry count and revenue for a single donation form.
+	 * Get received entry count and revenue for a single donation form.
 	 *
-	 * @param int $form_id Donation form post ID.
+	 * Scoped to the store's current payment mode: a test-mode rehearsal is not
+	 * revenue the form took. Not scoped by currency - see scope_fragment().
+	 *
+	 * @param int    $form_id      Donation form post ID.
+	 * @param string $payment_mode 'test' or 'live' ('' for the store's current mode).
 	 * @return array{entries: int, revenue: float} Form totals.
 	 * @since 1.5.0
+	 * @since 1.7.0 Scoped to the store's payment mode; counts partial refunds net.
 	 */
-	public static function get_form_stats( $form_id ) {
+	public static function get_form_stats( $form_id, $payment_mode = '' ) {
 		$instance = self::get_instance();
 		global $wpdb;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Live totals; caching would show stale figures.
-		$result = $wpdb->get_row(
-			$wpdb->prepare(
-				'SELECT COUNT(*) as entries, COALESCE(SUM(amount - refunded_amount), 0) as revenue FROM %i WHERE form_id = %d AND payment_status = %s',
-				$instance->get_tablename(),
-				absint( $form_id ),
-				'completed'
-			),
-			ARRAY_A
-		);
+		$args  = [ $instance->get_tablename(), absint( $form_id ) ];
+		$extra = self::scope_fragment( '', self::resolve_mode( $payment_mode ), $args );
+
+		$sql = "SELECT COUNT(*) as entries, COALESCE(SUM( ( amount - refunded_amount ) / COALESCE( NULLIF( exchange_rate, 0 ), 1 ) ), 0) as revenue
+				FROM %i
+				WHERE form_id = %d
+				AND payment_status IN ('completed', 'partially_refunded')
+				{$extra}";
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Live totals; $extra is static placeholder text and every value travels in $args.
+		$result = $wpdb->get_row( $wpdb->prepare( $sql, $args ), ARRAY_A );
 
 		return [
 			'entries' => is_array( $result ) ? (int) ( $result['entries'] ?? 0 ) : 0,
@@ -2083,14 +2423,18 @@ class Donations extends Base {
 	/**
 	 * Get entry and revenue totals for several forms in one query.
 	 *
-	 * get_form_stats() is a per-form query, so formatting a page of N forms ran
-	 * N COUNT/SUM queries. This collapses that to one GROUP BY for the page.
+	 * The per-form query in get_form_stats() meant formatting a page of N forms
+	 * ran N COUNT/SUM queries. This collapses that to one GROUP BY per page.
 	 *
-	 * @param array<int> $form_ids Form IDs to total.
+	 * Scoped to the store's current payment mode, matching get_form_stats().
+	 *
+	 * @param array<int> $form_ids     Form IDs to total.
+	 * @param string     $payment_mode 'test' or 'live' ('' for the store's current mode).
 	 * @return array<int, array{entries: int, revenue: float}> Totals keyed by form ID; every requested ID is present.
 	 * @since 1.5.0
+	 * @since 1.7.0 Scoped to the store's payment mode; counts partial refunds net.
 	 */
-	public static function get_form_stats_bulk( array $form_ids ) {
+	public static function get_form_stats_bulk( array $form_ids, $payment_mode = '' ) {
 		// intval, not absint: absint( -1 ) is 1, which would silently total a
 		// real form the caller never asked about.
 		$ids = array_values(
@@ -2123,17 +2467,22 @@ class Donations extends Base {
 
 		$placeholders = implode( ', ', array_fill( 0, count( $ids ), '%d' ) );
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- Live totals; placeholders are generated from a count, every value is bound.
-		$rows = $wpdb->get_results(
-			$wpdb->prepare(
-				sprintf(
-					'SELECT form_id, COUNT(*) as entries, COALESCE(SUM(amount - refunded_amount), 0) as revenue FROM %%i WHERE form_id IN ( %s ) AND payment_status = %%s GROUP BY form_id',
-					$placeholders
-				),
-				array_merge( [ $instance->get_tablename() ], $ids, [ 'completed' ] )
-			),
-			ARRAY_A
+		$args  = array_merge( [ $instance->get_tablename() ], $ids );
+		$extra = self::scope_fragment( '', self::resolve_mode( $payment_mode ), $args );
+
+		$sql = sprintf(
+			"SELECT form_id, COUNT(*) as entries, COALESCE(SUM( ( amount - refunded_amount ) / COALESCE( NULLIF( exchange_rate, 0 ), 1 ) ), 0) as revenue
+				FROM %%i
+				WHERE form_id IN ( %s )
+				AND payment_status IN ('completed', 'partially_refunded')
+				%s
+				GROUP BY form_id",
+			$placeholders,
+			$extra
 		);
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- Live totals; $placeholders is generated from a count and $extra is a static fragment, so every value is bound.
+		$rows = $wpdb->get_results( $wpdb->prepare( $sql, $args ), ARRAY_A );
 
 		if ( ! is_array( $rows ) ) {
 			return $stats;
@@ -2296,13 +2645,18 @@ class Donations extends Base {
 	/**
 	 * Get donation activity data for a specific donor (for chart).
 	 *
+	 * Scoped to the store's current payment mode: a test-mode rehearsal is not
+	 * money the donor gave. Not scoped by currency - see scope_fragment().
+	 *
 	 * @param int    $donor_id Donor ID.
 	 * @param string $after    Start date (Y-m-d).
-	 * @param string $before   End date (Y-m-d).
+	 * @param string $before       End date (Y-m-d).
+	 * @param string $payment_mode 'test' or 'live' ('' for the store's current mode).
 	 * @return array{chart_data: array<int, array{date: string, amount: float}>, stats: array{lifetime: float, highest: float, average: float}} Activity data.
 	 * @since 1.0.0
+	 * @since 1.7.0 Scoped to the store's payment mode; the chart, highest and average are all net of refunds.
 	 */
-	public static function get_donor_activity( $donor_id, $after = '', $before = '' ) {
+	public static function get_donor_activity( $donor_id, $after = '', $before = '', $payment_mode = '' ) {
 		if ( empty( $donor_id ) ) {
 			return [
 				'chart_data' => [],
@@ -2328,39 +2682,39 @@ class Donations extends Base {
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		// Chart data: donations grouped by date.
-		$chart_data = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT DATE(created_at) as date, COALESCE(SUM(amount), 0) as amount
+		$payment_mode = self::resolve_mode( $payment_mode );
+
+		// Chart data: donations grouped by date. Net of refunds, so a bar and the
+		// lifetime total below it are the same arithmetic.
+		$chart_args  = [ $table, absint( $donor_id ), $after, $before ];
+		$chart_extra = self::scope_fragment( '', $payment_mode, $chart_args );
+		$chart_sql   = "SELECT DATE(created_at) as date, COALESCE(SUM( ( amount - refunded_amount ) / COALESCE( NULLIF( exchange_rate, 0 ), 1 ) ), 0) as amount
 				FROM %i
 				WHERE donor_id = %d
 					AND payment_status IN ('completed', 'partially_refunded')
 					AND DATE(created_at) >= %s
 					AND DATE(created_at) <= %s
+					{$chart_extra}
 				GROUP BY DATE(created_at)
-				ORDER BY date ASC",
-				$table,
-				absint( $donor_id ),
-				$after,
-				$before
-			),
-			ARRAY_A
-		);
+				ORDER BY date ASC";
+
+		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $chart_extra is static placeholder text; every value travels in $chart_args.
+		$chart_data = $wpdb->get_results( $wpdb->prepare( $chart_sql, $chart_args ), ARRAY_A );
 
 		// Lifetime stats for this donor.
-		$stats = $wpdb->get_row(
-			$wpdb->prepare(
-				"SELECT
-					COALESCE(SUM(amount - refunded_amount), 0) as lifetime,
-					COALESCE(MAX(amount), 0) as highest,
-					COALESCE(AVG(amount), 0) as average
+		$stats_args  = [ $table, absint( $donor_id ) ];
+		$stats_extra = self::scope_fragment( '', $payment_mode, $stats_args );
+		$stats_sql   = "SELECT
+					COALESCE(SUM( ( amount - refunded_amount ) / COALESCE( NULLIF( exchange_rate, 0 ), 1 ) ), 0) as lifetime,
+					COALESCE(MAX( ( amount - refunded_amount ) / COALESCE( NULLIF( exchange_rate, 0 ), 1 ) ), 0) as highest,
+					COALESCE(AVG( ( amount - refunded_amount ) / COALESCE( NULLIF( exchange_rate, 0 ), 1 ) ), 0) as average
 				FROM %i
-				WHERE donor_id = %d AND payment_status IN ('completed', 'partially_refunded')",
-				$table,
-				absint( $donor_id )
-			),
-			ARRAY_A
-		);
+				WHERE donor_id = %d
+					AND payment_status IN ('completed', 'partially_refunded')
+					{$stats_extra}";
+
+		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $stats_extra is static placeholder text; every value travels in $stats_args.
+		$stats = $wpdb->get_row( $wpdb->prepare( $stats_sql, $stats_args ), ARRAY_A );
 
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
@@ -2571,8 +2925,8 @@ class Donations extends Base {
 	 * demand via the admin delete actions (and can be wired to WordPress's
 	 * personal-data eraser hooks if a retention policy is later required).
 	 *
-	 * @param int                                                $donation_id Donation ID.
-	 * @param array<string, array{label: string, value: string}> $field_data  Submitted fields as label/value pairs.
+	 * @param int                                                               $donation_id Donation ID.
+	 * @param array<string, array{label: string, value: string, group: string}> $field_data  Submitted fields keyed by slug.
 	 * @return bool True on success, false on failure.
 	 * @since 1.1.1
 	 */

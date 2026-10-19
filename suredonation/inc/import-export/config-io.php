@@ -173,6 +173,36 @@ class Config_IO {
 	}
 
 	/**
+	 * Post meta keys that are never exported with a campaign or form, and never
+	 * written back on import (credentials, or values bound to this site's
+	 * encryption key that cannot be read anywhere else).
+	 *
+	 * @return array<int, string> Secret meta key names.
+	 * @since 1.7.0
+	 */
+	public static function get_secret_meta_keys() {
+		// Built in rather than left to Pro's filter: an export or import made
+		// while Pro is inactive must still skip these.
+		$keys = [
+			'_suredonation_webhooks', // [pro] Webhooks::META_KEY: URLs that can be credentials, headers bound to this site's key.
+		];
+
+		/**
+		 * Post meta keys that hold secrets. Every `_suredonation_*` meta travels in
+		 * a campaign export by default; a key registered here is stripped from
+		 * the export and ignored in an import file. Keys can only be added: the
+		 * built-in ones stay whatever this returns.
+		 *
+		 * @param array<int, string> $keys Secret meta key names.
+		 * @since 1.7.0
+		 */
+		$filtered = apply_filters( 'suredonation_export_secret_meta_keys', $keys );
+		$filtered = is_array( $filtered ) ? array_filter( $filtered, 'is_string' ) : [];
+
+		return array_values( array_unique( array_merge( $keys, $filtered ) ) );
+	}
+
+	/**
 	 * Option sub-keys excluded from export because they are operational/state,
 	 * not user settings, and are unsafe or meaningless to restore (schema
 	 * versions, analytics queues, onboarding flags).
@@ -193,6 +223,17 @@ class Config_IO {
 			// scheduler; a restored key would arm this site's weekly revenue
 			// report to another site's addresses.
 			\SureDonation\Inc\Emails\Email_Reports::OPTION_KEY,
+			// Consent to destroy this site's settings on uninstall. It is a
+			// decision about this install, made by this site's owner; riding an
+			// export would arm settings destruction - gateway credentials and
+			// webhook secrets included - on a site whose owner never agreed to
+			// it, with the damage landing silently at plugin deletion.
+			'remove_settings_on_uninstall',
+			// The breadcrumb free leaves for Pro when it is deleted first. It is
+			// the same consent by another name: Pro treats a recent one as
+			// permission to sweep, so an imported settings file carrying it
+			// would arm Pro's uninstall on a site whose owner never agreed.
+			'uninstall_consent_at',
 		];
 	}
 
@@ -385,7 +426,8 @@ class Config_IO {
 	/**
 	 * Write a post's `_suredonation_*` meta from an import payload.
 	 *
-	 * Non-SureDonation keys are ignored. Values are slashed for the meta API so
+	 * Non-SureDonation keys and secret keys (see get_secret_meta_keys()) are
+	 * ignored. Values are slashed for the meta API so
 	 * JSON-string metas round-trip intact.
 	 *
 	 * @param int                  $post_id Post ID.
@@ -397,8 +439,9 @@ class Config_IO {
 		if ( ! is_array( $meta ) ) {
 			return;
 		}
+		$secret = self::get_secret_meta_keys();
 		foreach ( $meta as $key => $value ) {
-			if ( 0 !== strpos( (string) $key, '_suredonation_' ) ) {
+			if ( 0 !== strpos( (string) $key, '_suredonation_' ) || in_array( (string) $key, $secret, true ) ) {
 				continue;
 			}
 			$stored = ( is_array( $value ) || is_string( $value ) ) ? wp_slash( $value ) : $value;
@@ -470,8 +513,8 @@ class Config_IO {
 	/**
 	 * Collect a post's `_suredonation_*` meta as a key => value map.
 	 *
-	 * Only SureDonation-owned meta is exported; core/third-party meta is
-	 * skipped. Single values are taken as stored (JSON-string metas such as the
+	 * Only SureDonation-owned meta is exported; core/third-party meta and the
+	 * keys from get_secret_meta_keys() are skipped. Single values are taken as stored (JSON-string metas such as the
 	 * campaign meta round-trip verbatim).
 	 *
 	 * @param int $post_id Post ID.
@@ -486,8 +529,9 @@ class Config_IO {
 			return $meta;
 		}
 
+		$secret = self::get_secret_meta_keys();
 		foreach ( $all as $key => $values ) {
-			if ( 0 !== strpos( (string) $key, '_suredonation_' ) ) {
+			if ( 0 !== strpos( (string) $key, '_suredonation_' ) || in_array( (string) $key, $secret, true ) ) {
 				continue;
 			}
 			$meta[ $key ] = is_array( $values ) && isset( $values[0] )

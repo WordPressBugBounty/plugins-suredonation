@@ -639,7 +639,13 @@ class Donations_API {
 		// donor's total, count and largest gift.
 		if ( 'completed' !== $old_status && 'completed' === $status ) {
 			if ( ! empty( $donation['donor_id'] ) ) {
-				Donors::record_donation_once( $donation['donor_id'], floatval( $donation['amount'] ), $donation_id );
+				// The row may be from either gateway; the helper credits what the
+				// donor was charged on both. That figure is in the donation's own
+				// currency, so the row's currency and stamped rate travel with it
+				// and record_donation() converts once, at the rate the gift was
+				// actually taken at.
+				$currency_val = $donation['currency'] ?? '';
+				Donors::record_donation_once( $donation['donor_id'], Donations::get_charged_amount( $donation ), $donation_id, is_string( $currency_val ) ? $currency_val : '', $donation['exchange_rate'] ?? null );
 			}
 		}
 
@@ -810,10 +816,17 @@ class Donations_API {
 			);
 		}
 
-		// Validate refund amount.
+		// Validate refund amount. The cap is what the gateway took, which on a
+		// gateway storing the base gift in `amount` is more than that column:
+		// a PayPal donor who covered fees was charged amount + fees_covered,
+		// and capping at `amount` left the fee permanently unrefundable here
+		// while PayPal itself offered the full capture back. The webhook that
+		// records a refund made inside PayPal already totals it this way
+		// (pay-pal-webhook-listener.php), so the two paths agreed on the status
+		// threshold but not on the limit.
 		$gateway         = $donation['gateway'] ?? 'stripe';
 		$currency        = $donation['currency'] ?? 'USD';
-		$total_amount    = $this->amount_to_stripe_format( floatval( $donation['amount'] ), $currency );
+		$total_amount    = $this->amount_to_stripe_format( Donations::get_charged_amount( $donation ), $currency );
 		$refunded_amount = $this->amount_to_stripe_format( floatval( $donation['refunded_amount'] ?? 0 ), $currency );
 		$refundable      = $total_amount - $refunded_amount;
 
@@ -1359,6 +1372,12 @@ class Donations_API {
 			'donor_phone'            => esc_html( Helper::get_string_value( $donation['donor_phone'] ?? '' ) ),
 			'amount'                 => Helper::get_float_value( $donation['amount'] ?? 0 ),
 			'fees_covered'           => Helper::get_float_value( $donation['fees_covered'] ?? 0 ),
+			// Derived rather than left to the client: `amount` alone is the
+			// charged total on some gateways and the base gift on others, and a
+			// refund dialog that worked that out for itself would need its own
+			// copy of GATEWAYS_STORING_BASE_AMOUNT to keep in step with the cap
+			// the REST refund route applies.
+			'charged_amount'         => Helper::get_float_value( Donations::get_charged_amount( $donation ) ),
 			'refunded_amount'        => Helper::get_float_value( $donation['refunded_amount'] ?? 0 ),
 			'currency'               => esc_html( Helper::get_string_value( $donation['currency'] ?? 'USD' ) ),
 			'donation_type'          => esc_html( Helper::get_string_value( $donation['donation_type'] ?? 'one-time' ) ),

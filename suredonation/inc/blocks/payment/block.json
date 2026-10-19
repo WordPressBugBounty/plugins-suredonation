@@ -113,6 +113,14 @@
 			"type": "string",
 			"default": "Make this a recurring donation"
 		},
+		"recurringOptionPlacement": {
+			"type": "string",
+			"default": "amount"
+		},
+		"recurringOptionLabel": {
+			"type": "string",
+			"default": "Donation Frequency"
+		},
 		"oneTimeAmountType": {
 			"type": "string",
 			"default": "fixed"

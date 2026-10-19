@@ -81,7 +81,7 @@ class Donor_Mapper {
 			$name      = trim( sanitize_text_field( $row_first ) . ' ' . sanitize_text_field( $row_last ) );
 		}
 
-		$wp_user_id = $this->resolve_wp_user_id( $donor_row, $email );
+		$wp_user_id = $this->resolve_wp_user_id( $donor_row );
 
 		// Address/phone: snapshot first; usermeta donor_* fallback for
 		// registered users (Charitable's two storage locations).
@@ -253,14 +253,17 @@ class Donor_Mapper {
 	/**
 	 * Link to an existing WordPress user only — never create one.
 	 *
-	 * Tries the charitable_donors.user_id column first, then an email match.
+	 * Uses the charitable_donors.user_id column only. No email fallback: a
+	 * bare email match against an existing WP account is not proof that
+	 * account controls that mailbox (GIT-132), and the donor dashboard's
+	 * verified link flow is the path back for a donor who registers later
+	 * under this address.
 	 *
 	 * @param  array<string, mixed> $donor_row Charitable donors-table row (may be empty).
-	 * @param  string               $email     Donor email.
 	 * @return int WP user ID or 0.
 	 * @since  1.5.1
 	 */
-	private function resolve_wp_user_id( $donor_row, $email ) {
+	private function resolve_wp_user_id( $donor_row ) {
 		$row_user_id = isset( $donor_row['user_id'] ) && is_numeric( $donor_row['user_id'] ) ? absint( $donor_row['user_id'] ) : 0;
 		if ( $row_user_id > 0 ) {
 			$user = get_userdata( $row_user_id );
@@ -269,7 +272,6 @@ class Donor_Mapper {
 			}
 		}
 
-		$user = get_user_by( 'email', $email );
-		return $user instanceof \WP_User ? (int) $user->ID : 0;
+		return 0;
 	}
 }

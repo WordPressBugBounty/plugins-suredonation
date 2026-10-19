@@ -302,7 +302,14 @@ class Stripe_Settings {
 			$global_settings = Payment_Helper::get_all_payment_settings();
 
 			if ( isset( $settings['currency'] ) ) {
-				$global_settings['currency'] = sanitize_text_field( $settings['currency'] );
+				// Same allow-list as the general settings endpoint (inc/api/settings-api.php).
+				// The stored code selects the display symbol and decimal places for every
+				// amount the site prints, so an unknown value renders money wrongly
+				// everywhere; the two writers of one setting must agree on what it accepts.
+				$currency = strtoupper( sanitize_text_field( $settings['currency'] ) );
+				if ( in_array( $currency, array_keys( Payment_Helper::get_all_currencies_data() ), true ) ) {
+					$global_settings['currency'] = $currency;
+				}
 				unset( $settings['currency'] );
 			}
 

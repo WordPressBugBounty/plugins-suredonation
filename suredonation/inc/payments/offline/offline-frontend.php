@@ -124,7 +124,7 @@ class Offline_Frontend {
 		}
 
 		// Validate field values + amount against block config (skip Stripe minimum for offline).
-		$currency          = Payment_Helper::get_currency();
+		$currency          = Payment_Helper::get_submitted_currency();
 		$validation_result = Payment_Helper::validate_submission( Payment_Helper::get_submitted_fields(), $amount, $currency, $form_id, $block_id, 'offline', 'one-time' );
 		if ( ! $validation_result['valid'] ) {
 			wp_send_json_error(

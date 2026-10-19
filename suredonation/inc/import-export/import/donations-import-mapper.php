@@ -20,6 +20,7 @@ use SureDonation\Inc\Database\Tables\Donors;
 use SureDonation\Inc\Helper;
 use SureDonation\Inc\Import_Export\Csv_Exporter;
 use SureDonation\Inc\Import\Givewp\Email_Suppressor;
+use SureDonation\Inc\Payments\Payment_Helper;
 use SureDonation\Inc\Post_Types\Donation_Form;
 use SureDonation\Inc\Traits\Get_Instance;
 
@@ -36,6 +37,20 @@ if ( ! defined( 'ABSPATH' ) ) {
  * @since 1.3.0
  */
 class Donations_Import_Mapper {
+	/**
+	 * Smallest exchange rate an imported row may carry.
+	 *
+	 * @since 1.7.0
+	 */
+	private const MIN_IMPORT_RATE = 0.0000000001;
+
+	/**
+	 * Largest exchange rate an imported row may carry.
+	 *
+	 * @since 1.7.0
+	 */
+	private const MAX_IMPORT_RATE = 1000000000;
+
 
 	use Get_Instance;
 
@@ -179,12 +194,38 @@ class Donations_Import_Mapper {
 			$donation = $filtered;
 		}
 
+		// A rate the file carries is the valuation the donation was recorded
+		// with, and it wins over the one stamp_base_currency() would resolve
+		// today. Only honoured as a pair: a rate without the base it was
+		// relative to cannot be interpreted.
+		$imported_rate = Helper::get_string_value( $data['exchange_rate'] ?? '' );
+		$imported_base = strtoupper( sanitize_text_field( Helper::get_string_value( $data['base_currency'] ?? '' ) ) );
+
+		// Bounded, not merely positive. A rate of 0.0000000001 on a single row
+		// would divide that donation into ten billion base units and inflate
+		// every campaign total, donor total and dashboard figure that reads it.
+		// Stored fixed-point so nothing reaches the DECIMAL column in exponent
+		// form, and the base is checked against the known set rather than
+		// accepted as any string.
+		$known_currencies = array_keys( Payment_Helper::get_all_currencies_data() );
+
+		if ( is_numeric( $imported_rate )
+			&& (float) $imported_rate >= self::MIN_IMPORT_RATE
+			&& (float) $imported_rate <= self::MAX_IMPORT_RATE
+			&& in_array( $imported_base, $known_currencies, true ) ) {
+			$donation['exchange_rate'] = number_format( (float) $imported_rate, 10, '.', '' );
+			$donation['base_currency'] = $imported_base;
+		}
+
 		$donation_id = Donations::add( $donation );
 
 		if ( $donation_id ) {
 			$donation_id = (int) $donation_id;
 			++$result['imported'];
-			$this->update_donor_aggregates( $donor_id, $amount, $status, $date );
+			$aggregate_currency = isset( $donation['currency'] ) && is_string( $donation['currency'] ) ? $donation['currency'] : '';
+			$aggregate_rate     = isset( $donation['exchange_rate'] ) && is_numeric( $donation['exchange_rate'] ) ? (string) $donation['exchange_rate'] : null;
+
+			$this->update_donor_aggregates( $donor_id, $amount, $status, $date, $aggregate_currency, $aggregate_rate );
 			Import_Runner::track_created( $progress, 'donations', $donation_id );
 			Import_Runner::track_id_map( $progress, $source_id, $donation_id );
 
@@ -202,8 +243,17 @@ class Donations_Import_Mapper {
 			// Preserve per-form custom fields (columns beyond the standard
 			// export set) under donation_data['fields'] so the round-trip is
 			// lossless.
+			// The form is passed so a column whose label matches one of its
+			// fields can be keyed by that field's slug - the same key a real
+			// submission would have used. resolve_form() returns 0 unless the
+			// CSV's Form column holds an id that resolves to a local donation
+			// form, so for most foreign files the exporter's own "Field Slugs"
+			// column is what carries the slug. Note a foreign id CAN collide
+			// with a local form, in which case that form's labels are used -
+			// the slug column takes precedence precisely so a real export never
+			// depends on that guess.
 			$headers = is_array( $options['headers'] ?? null ) ? $options['headers'] : [];
-			$custom  = Column_Map::extract_custom_fields( $headers, $row );
+			$custom  = Column_Map::extract_custom_fields( $headers, $row, absint( Helper::get_string_value( $donation['form_id'] ?? 0 ) ) );
 			if ( ! empty( $custom ) ) {
 				Donations::set_submitted_fields( $donation_id, $custom );
 			}
@@ -271,8 +321,11 @@ class Donations_Import_Mapper {
 			$name = trim( Helper::get_string_value( $data['first_name'] ?? '' ) . ' ' . Helper::get_string_value( $data['last_name'] ?? '' ) );
 		}
 
-		$user = get_user_by( 'email', $email );
-
+		// No source-system user id travels with this CSV, and a bare email
+		// match against an existing WP account is not proof that account
+		// controls that mailbox (GIT-132) -- leave the row unbound. The donor
+		// dashboard's verified link flow is the path back for a donor who
+		// registers later under this address.
 		$id = Donors::add(
 			[
 				'email'            => $email,
@@ -281,7 +334,11 @@ class Donations_Import_Mapper {
 				'company'          => sanitize_text_field( Helper::get_string_value( $data['company'] ?? '' ) ),
 				'address'          => sanitize_textarea_field( Helper::get_string_value( $data['address'] ?? '' ) ),
 				'donor_status'     => 'active',
-				'user_id'          => $user instanceof \WP_User ? (int) $user->ID : null,
+				// 0, not null: Base::prepare_data() treats an explicit null as
+				// unset via isset() and substitutes the schema default anyway
+				// (also 0), so this is the value that actually lands in the
+				// column either way.
+				'user_id'          => 0,
 				'import_source'    => 'suredonation',
 				'import_source_id' => 0,
 			]
@@ -349,14 +406,16 @@ class Donations_Import_Mapper {
 	/**
 	 * Update a donor's rolling aggregates from an imported donation, date-aware.
 	 *
-	 * @param int    $donor_id Donor id.
-	 * @param string $amount   Normalized amount.
-	 * @param string $status   Payment status.
-	 * @param string $date     Donation date (mysql), or '' for now.
+	 * @param int               $donor_id Donor id.
+	 * @param string            $amount   Normalized amount.
+	 * @param string            $status   Payment status.
+	 * @param string            $date     Donation date (mysql), or '' for now.
+	 * @param string            $currency Currency of $amount; empty treats it as base currency.
+	 * @param float|string|null $exchange_rate Rate the row was stamped with, when the file supplied one.
 	 * @return void
 	 * @since 1.3.0
 	 */
-	private function update_donor_aggregates( $donor_id, $amount, $status, $date ) {
+	private function update_donor_aggregates( $donor_id, $amount, $status, $date, $currency = '', $exchange_rate = null ) {
 		if ( $donor_id <= 0 ) {
 			return;
 		}
@@ -378,7 +437,22 @@ class Donations_Import_Mapper {
 		}
 
 		if ( in_array( $status, self::REVENUE_STATUSES, true ) ) {
-			$amount_f                 = (float) $amount;
+			// Converted before banking: total_donated and largest_donation are
+			// single-currency columns, and this importer writes them directly
+			// rather than through Donors::record_donation(). The two migration
+			// importers were given the same treatment; this one is the third.
+			// Prefers the rate the file carried, then a live lookup, and only
+			// then face value, which is the behaviour that predates conversion.
+			$amount_f = (float) $amount;
+			$stamped  = is_numeric( $exchange_rate ) ? (float) $exchange_rate : 0.0;
+
+			if ( $stamped > 0 ) {
+				$amount_f = $amount_f / $stamped;
+			} elseif ( '' !== $currency ) {
+				$converted = Payment_Helper::convert_to_base( $amount_f, $currency );
+				$amount_f  = null === $converted ? $amount_f : $converted;
+			}
+
 			$update['total_donated']  = number_format( (float) ( $donor['total_donated'] ?? 0 ) + $amount_f, 8, '.', '' );
 			$update['donation_count'] = (int) ( $donor['donation_count'] ?? 0 ) + 1;
 			if ( $amount_f > (float) ( $donor['largest_donation'] ?? 0 ) ) {
@@ -404,14 +478,28 @@ class Donations_Import_Mapper {
 	}
 
 	/**
-	 * Normalize the payment mode to 'live' or 'test' (default test).
+	 * Normalize the payment mode to 'live' or 'test' (default live).
+	 *
+	 * The column is optional, and an import with no mode column is a history
+	 * transfer: the rows are money the organisation actually received. Since
+	 * every donation figure is scoped to the store's mode, defaulting these
+	 * to 'test' would make an imported history invisible on a live site, with
+	 * nothing on screen to distinguish scoping from data loss. Only an
+	 * explicit test marker produces a test row, matching GiveWP's importer.
 	 *
 	 * @param mixed $value Raw mode.
 	 * @return string 'live' or 'test'.
 	 * @since 1.3.0
+	 * @since 1.7.0 An absent or unrecognised value is 'live', not 'test'.
 	 */
 	private function normalize_mode( $value ) {
-		return 'live' === strtolower( trim( Helper::get_string_value( $value ) ) ) ? 'live' : 'test';
+		$mode = strtolower( trim( Helper::get_string_value( $value ) ) );
+
+		// A "Test Mode" column holds a spreadsheet boolean, so reuse the one
+		// reader of that grammar this class already has rather than keeping a
+		// second token list beside it: they had drifted by 'y', which would have
+		// landed a rehearsal on the public campaign page as live money.
+		return ( 'test' === $mode || 1 === $this->to_bool( $mode ) ) ? 'test' : 'live';
 	}
 
 	/**

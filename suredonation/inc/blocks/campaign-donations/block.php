@@ -87,9 +87,13 @@ class Block extends Base {
 				<ul class="suredonation-campaign-donations__list">
 					<?php foreach ( $donations as $donation ) : ?>
 						<?php
-						$is_anon    = ! empty( $donation['is_anonymous'] );
-						$name       = $is_anon ? __( 'Anonymous', 'suredonation' ) : ( $donation['donor_name'] ?? __( 'Anonymous', 'suredonation' ) );
-						$amount     = Payment_Helper::format_amount( $donation['amount'] ?? 0 );
+						$is_anon = ! empty( $donation['is_anonymous'] );
+						$name    = $is_anon ? __( 'Anonymous', 'suredonation' ) : ( $donation['donor_name'] ?? __( 'Anonymous', 'suredonation' ) );
+						// These rows are individual gifts, not a total, so they are shown in
+						// the currency the donor actually gave in. Without the second
+						// argument format_amount() falls back to the site's currency and
+						// renders a foreign amount under the base symbol.
+						$amount     = Payment_Helper::format_amount( $donation['amount'] ?? 0, is_string( $donation['currency'] ?? null ) ? $donation['currency'] : '' );
 						$time       = ! empty( $donation['created_at'] ) ? strtotime( (string) $donation['created_at'] ) : false;
 						$avatar_url = Campaign_Page::donor_avatar_url( $donation['donor_email'] ?? '', $is_anon );
 						?>

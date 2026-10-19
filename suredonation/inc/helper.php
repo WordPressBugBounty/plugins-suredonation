@@ -353,14 +353,28 @@ class Helper {
 	 * Recursively processes all blocks and generates slugs for those that
 	 * don't have one set. Ensures all slugs are unique within the form.
 	 *
-	 * @param array<mixed>  $blocks  The blocks to process.
-	 * @param array<string> $slugs   Array of existing slugs (keyed by block_id).
-	 * @param bool          $updated Whether any blocks were updated.
-	 * @param string        $prefix  Optional prefix for nested blocks.
+	 * @param array<mixed>       $blocks   The blocks to process.
+	 * @param array<string>      $slugs    Array of existing slugs (keyed by block_id).
+	 * @param bool               $updated  Whether any blocks were updated.
+	 * @param string             $prefix   Optional prefix for nested blocks.
+	 * @param array<string>|null $reserved Every slug already present anywhere in the
+	 *                                     tree, collected once on the outermost call.
+	 *                                     Internal; callers pass null.
 	 * @return array{0: array<mixed>, 1: array<string>, 2: bool} Processed blocks, slugs, and updated flag.
 	 * @since 0.0.1
 	 */
-	public static function process_blocks( $blocks, $slugs = [], $updated = false, $prefix = '' ) {
+	public static function process_blocks( $blocks, $slugs = [], $updated = false, $prefix = '', $reserved = null ) {
+		// Uniqueness is checked against $slugs, which only accumulates blocks
+		// walked SO FAR — so a new block inserted ABOVE an existing one could
+		// mint a slug the later block already owns. Both then post under one
+		// key in donation_data['fields'] and one silently overwrites the other.
+		// Collecting the whole tree up front closes that; the walk below still
+		// adds each slug as it goes, so blocks minted in this pass are covered
+		// by $slugs while pre-existing ones are covered here.
+		if ( null === $reserved ) {
+			$reserved = self::collect_existing_slugs( $blocks );
+		}
+
 		if ( ! is_array( $blocks ) ) {
 			return [ [], $slugs, $updated ];
 		}
@@ -372,7 +386,7 @@ class Helper {
 			if ( ! isset( $block['blockName'] ) || ! is_string( $block['blockName'] ) || strpos( $block['blockName'], 'suredonation/' ) !== 0 ) {
 				// Process inner blocks if any.
 				if ( ! empty( $block['innerBlocks'] ) && is_array( $block['innerBlocks'] ) ) {
-					[ $blocks[ $index ]['innerBlocks'], $slugs, $updated ] = self::process_blocks( $block['innerBlocks'], $slugs, $updated, $prefix );
+					[ $blocks[ $index ]['innerBlocks'], $slugs, $updated ] = self::process_blocks( $block['innerBlocks'], $slugs, $updated, $prefix, $reserved );
 				}
 				continue;
 			}
@@ -389,14 +403,14 @@ class Helper {
 			) {
 				// Process inner blocks if any.
 				if ( ! empty( $block['innerBlocks'] ) && is_array( $block['innerBlocks'] ) ) {
-					[ $blocks[ $index ]['innerBlocks'], $slugs, $updated ] = self::process_blocks( $block['innerBlocks'], $slugs, $updated, $prefix );
+					[ $blocks[ $index ]['innerBlocks'], $slugs, $updated ] = self::process_blocks( $block['innerBlocks'], $slugs, $updated, $prefix, $reserved );
 				}
 				continue;
 			}
 
 			// Generate slug if empty.
 			if ( empty( $block['attrs']['slug'] ) ) {
-				$blocks[ $index ]['attrs']['slug'] = self::generate_unique_block_slug( $block, $slugs, $prefix );
+				$blocks[ $index ]['attrs']['slug'] = self::generate_unique_block_slug( $block, array_merge( $slugs, $reserved ), $prefix );
 				$updated                           = true;
 			}
 
@@ -411,12 +425,48 @@ class Helper {
 					$block['innerBlocks'],
 					$slugs,
 					$updated,
-					$blocks[ $index ]['attrs']['slug']
+					$blocks[ $index ]['attrs']['slug'],
+					$reserved
 				);
 			}
 		}
 
 		return [ $blocks, $slugs, $updated ];
+	}
+
+	/**
+	 * Collect every slug already present in a block tree.
+	 *
+	 * Walks inner blocks too, and deliberately ignores block_id: the result is
+	 * consumed only as a list of taken slug values by generate_unique_slug(),
+	 * so a block carrying a slug but no block_id still reserves its name.
+	 *
+	 * @param array<mixed> $blocks The blocks to scan.
+	 * @return array<string> Slugs already in use, as a flat list.
+	 * @since 1.7.0
+	 */
+	private static function collect_existing_slugs( $blocks ) {
+		if ( ! is_array( $blocks ) ) {
+			return [];
+		}
+
+		$found = [];
+
+		foreach ( $blocks as $block ) {
+			if ( ! is_array( $block ) ) {
+				continue;
+			}
+
+			if ( isset( $block['attrs']['slug'] ) && is_string( $block['attrs']['slug'] ) && '' !== $block['attrs']['slug'] ) {
+				$found[] = $block['attrs']['slug'];
+			}
+
+			if ( ! empty( $block['innerBlocks'] ) && is_array( $block['innerBlocks'] ) ) {
+				$found = array_merge( $found, self::collect_existing_slugs( $block['innerBlocks'] ) );
+			}
+		}
+
+		return $found;
 	}
 
 	/**
@@ -429,11 +479,21 @@ class Helper {
 	 * @since 0.0.1
 	 */
 	public static function generate_unique_block_slug( $block, $slugs, $prefix = '' ) {
-		$slug = is_string( $block['blockName'] ?? '' ) ? str_replace( 'suredonation/', '', $block['blockName'] ) : '';
+		$from_block_name = is_string( $block['blockName'] ?? '' ) ? str_replace( 'suredonation/', '', $block['blockName'] ) : '';
+		$slug            = $from_block_name;
 
 		// Use label if available.
 		if ( ! empty( $block['attrs']['label'] ) && is_string( $block['attrs']['label'] ) ) {
 			$slug = sanitize_title( $block['attrs']['label'] );
+
+			// A non-Latin label (Japanese, Chinese, Cyrillic) percent-encodes
+			// through sanitize_title() into something like "%e6%8d%90%e8%b5%a0",
+			// which is unreadable as a {field_<slug>} smart tag and awkward as a
+			// CSV column header. Fall back to the block name for a stable ASCII
+			// slug. Matches how SureForms handles the same case.
+			if ( false !== strpos( $slug, '%' ) ) {
+				$slug = $from_block_name;
+			}
 		}
 
 		// Add prefix for nested blocks.
@@ -627,6 +687,13 @@ class Helper {
 			'data-min-selection'                      => true,
 			'data-max-selection'                      => true,
 			'data-placeholder'                        => true,
+			// Currency switcher: the hook free fires inside the amount block is
+			// echoed into markup this allowlist then filters, so an extension's
+			// attributes have to be named here or the control renders inert.
+			'data-sd-currency-switcher'               => true,
+			'data-sd-currency-select'                 => true,
+			'data-currencies'                         => true,
+			'data-base-currency'                      => true,
 			// Phone (intl-tel-input) field.
 			'data-default-country'                    => true,
 			'data-auto-country'                       => true,
@@ -974,6 +1041,14 @@ class Helper {
 			'reenterCardMessage'     => __( 'Please re-enter your card details to continue.', 'suredonation' ),
 			// Currency symbol placement for client-side amount/fee formatting.
 			'currencySignPosition'   => Payment_Helper::get_currency_sign_position(),
+			// Whether the browser should report donation failures. A hint only:
+			// this is localized into HTML a page cache can hold for a full TTL,
+			// so the endpoint re-checks the setting itself and this flag exists
+			// only to keep a site that switched logging off from making the
+			// request at all. wp_localize_script() stringifies booleans, so this
+			// arrives as "1" or "" and must be read for truthiness, never
+			// compared against true.
+			'loggingEnabled'         => Debug_Log::is_enabled(),
 		];
 	}
 
@@ -1586,6 +1661,10 @@ class Helper {
 			// neither, and the tag map already renders a missing value as empty.
 			'subscription_id'       => $donation['subscription_id'] ?? '',
 			'subscription_interval' => $stored['subscription_interval'] ?? '',
+			// Submitted form fields, so {field_<slug>} resolves on the thank-you
+			// screen as well as in emails. Lifted from the same decoded JSON
+			// column as the interval above.
+			'fields'                => isset( $stored['fields'] ) && is_array( $stored['fields'] ) ? $stored['fields'] : [],
 		];
 
 		$campaign = $campaign_id ? get_post( $campaign_id ) : null;

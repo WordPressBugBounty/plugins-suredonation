@@ -11,6 +11,7 @@
 namespace SureDonation\Inc\Payments\PayPal;
 
 use SureDonation\Inc\Database\Tables\Donations;
+use SureDonation\Inc\Debug_Log;
 use SureDonation\Inc\Emails\Email_Handler;
 use SureDonation\Inc\Traits\Get_Instance;
 use WP_REST_Request;
@@ -490,6 +491,66 @@ class PayPal_Webhook_Listener {
 	private const MAX_LOGGED_VALUE_LENGTH = 200;
 
 	/**
+	 * What a rejection code says about the sender's signature.
+	 *
+	 * This is the whole difference between "PayPal could not reach us" and
+	 * "somebody posted to a public URL". Debug_Log::is_fault() counts only a
+	 * delivery that verified ('present') or one that could only have come from
+	 * the real relay ('invalid'); everything else is written to the file and
+	 * raises nothing on the dashboard. Getting this map wrong in either
+	 * direction is expensive, so each code is placed deliberately:
+	 *
+	 * The line is drawn at the tracking-id hash_equals() inside
+	 * validate_relay_signature(): the id is a generated secret kept in the
+	 * options table that is never sent to a browser, so anything reached only
+	 * after it came from the real relay, and anything a stranger can reach did
+	 * not. In order, that check is third, before the timestamp window and
+	 * before the HMAC.
+	 *
+	 * - 'invalid' is for the two codes past that gate. relay_signature_invalid
+	 *   is the relay with a secret that no longer matches. relay_timestamp_stale
+	 *   is this site's clock drifting outside the replay window - which also
+	 *   drops every genuine event, and is a real failure a stranger cannot
+	 *   manufacture. Classing it 'malformed' because the word sounds
+	 *   envelope-shaped was wrong: a stranger is turned away one check earlier,
+	 *   on relay_tracking_mismatch.
+	 * - 'missing' is nothing to check against: no headers, or no connection,
+	 *   binding or webhook id configured on our side.
+	 * - 'malformed' is an envelope that was never addressed to this site: the
+	 *   wrong binding, or a certificate URL off PayPal's domain.
+	 * - 'unverified' is a signature we could not confirm - PayPal answering the
+	 *   verify call with anything but SUCCESS, or that call not completing.
+	 *   Unlike the relay path nothing gates these behind a shared secret, so one
+	 *   POST of junk reaches them and they must not count.
+	 *
+	 * Unknown codes fall to 'unverified' so a reason added later is logged and
+	 * not counted, rather than counted because nobody updated this list.
+	 *
+	 * @param string $code Error code from the verification path.
+	 * @since 1.7.0
+	 * @return string One of the signature values Debug_Log::sanitize_entry() allows.
+	 */
+	private static function describe_rejection( $code ) {
+		$verdicts = [
+			'relay_signature_invalid'   => 'invalid',
+			'relay_timestamp_stale'     => 'invalid',
+			// Verified - the nonce check runs after the HMAC. It is kept out of
+			// the fault count by its entry type ('message'), not by this value;
+			// writing it as 'webhook' would make it one.
+			'relay_replayed'            => 'present',
+			'relay_headers_missing'     => 'missing',
+			'relay_not_connected'       => 'missing',
+			'relay_not_bound'           => 'missing',
+			'missing_signature_headers' => 'missing',
+			'no_webhook_id'             => 'missing',
+			'relay_tracking_mismatch'   => 'malformed',
+			'invalid_cert_url'          => 'malformed',
+		];
+
+		return $verdicts[ $code ] ?? 'unverified';
+	}
+
+	/**
 	 * Record a webhook that was rejected before it could be processed.
 	 *
 	 * Attaches the reason to the donation the event refers to, so it shows up in
@@ -507,6 +568,55 @@ class PayPal_Webhook_Listener {
 	 * @since 1.4.0
 	 */
 	private function log_rejected_webhook( $error, $event_type, $event_resource, $event_id, $mode ) {
+		// Written before the donation lookup below, which is allowed to fail. A
+		// rejected webhook for an event we hold no row for is not a lesser problem
+		// than one we do - it is the harder one, because the activity log has
+		// nowhere to put it and the evidence disappears.
+		//
+		// Two rejections reach here and only one of them is about this site.
+		//
+		// A merchant mismatch is an event for somebody else's PayPal account that
+		// the relay routed here. Refusing it is the check working; nothing of ours
+		// failed, and recording it as a payment we could not record would put a
+		// warning on the dashboard about money that was never destined for this
+		// site at all.
+		//
+		// A merchant mismatch is an event for somebody else's PayPal account
+		// that the relay routed here. Refusing it is the check working, nothing
+		// of ours failed, and there is nothing for an owner to diagnose - so it
+		// is the one rejection that is not written down at all.
+		//
+		// A replayed delivery is written down but is not a failure. The nonce
+		// check runs only after the signature has verified, so reaching it means
+		// the relay really did send the same event twice and the first copy was
+		// handled. It goes in as 'message', which is_fault() never counts, so a
+		// relay retrying without a fresh nonce is still diagnosable from the
+		// file while raising nothing on the dashboard.
+		//
+		// A signature rejection is recorded, because that is what a stale relay
+		// secret looks like from here and it means every real event is being
+		// dropped. The route is public, though, so it is recorded once an hour
+		// rather than once per request, and without the caller's event id: that id
+		// is part of what makes two entries the same failure, so leaving it in
+		// would let anyone defeat the collapsing with a fresh id each time and
+		// spend the file's whole 1 MB.
+		$code = (string) $error->get_error_code();
+
+		if ( 'relay_merchant_mismatch' !== $code && Debug_Log::throttle( 'paypal:webhook:' . $mode . ':' . $code ) ) {
+			Debug_Log::append(
+				[
+					'type'      => 'relay_replayed' === $code ? 'message' : 'webhook',
+					'gateway'   => 'paypal',
+					'mode'      => $mode,
+					'source'    => 'paypal:webhook',
+					'message'   => $error->get_error_message(),
+					'code'      => $code,
+					'signature' => self::describe_rejection( $code ),
+				],
+				'payment'
+			);
+		}
+
 		$donation = $this->find_donation_for_event( $event_type, $event_resource, $mode );
 
 		if ( ! is_array( $donation ) || ! isset( $donation['id'] ) || ! is_numeric( $donation['id'] ) ) {
@@ -514,7 +624,6 @@ class PayPal_Webhook_Listener {
 		}
 
 		$donation_id = absint( $donation['id'] );
-		$code        = $error->get_error_code();
 
 		// One entry per donation per reason per minute. A repeated delivery of
 		// the same broken event is the common case and does not need recording

@@ -7,6 +7,8 @@
 
 namespace SureDonation\Inc\API;
 
+use SureDonation\Inc\Admin\Admin;
+use SureDonation\Inc\Debug_Log;
 use SureDonation\Inc\Emails\Email_Reports;
 use SureDonation\Inc\Helper;
 use SureDonation\Inc\Payments\Payment_Helper;
@@ -132,8 +134,14 @@ class Settings_API {
 					'callback'            => [ $this, 'update_misc_settings' ],
 					'permission_callback' => [ $this, 'check_permissions' ],
 					'args'                => [
+						// validate_callback is not optional here. register_rest_route()
+						// adds no default one, and rest_sanitize_boolean() maps only
+						// 'false' and '0' to false - every other non-empty string,
+						// including 'no' and 'off', casts to TRUE. Without validation
+						// `usage_tracking=no` would opt the site in rather than out.
 						'usage_tracking' => [
 							'type'              => 'boolean',
+							'validate_callback' => 'rest_validate_request_arg',
 							'sanitize_callback' => 'rest_sanitize_boolean',
 						],
 					],
@@ -215,7 +223,171 @@ class Settings_API {
 				'callback'            => [ $this, 'send_test_email_report' ],
 				'permission_callback' => [ $this, 'check_permissions' ],
 			],
+
+			// Debug log state and the on/off switch. The log file itself is not
+			// served here: it is downloaded over admin-ajax, which can send a
+			// file body, and deleted through the endpoint below.
+			'/settings/logs'               => [
+				[
+					'methods'             => WP_REST_Server::READABLE,
+					'callback'            => [ $this, 'get_log_settings' ],
+					'permission_callback' => [ $this, 'check_permissions' ],
+				],
+				[
+					'methods'             => WP_REST_Server::EDITABLE,
+					'callback'            => [ $this, 'update_log_settings' ],
+					'permission_callback' => [ $this, 'check_permissions' ],
+					'args'                => [
+						'enabled' => [
+							'type'              => 'boolean',
+							'sanitize_callback' => 'rest_sanitize_boolean',
+						],
+					],
+				],
+			],
+
+			// Delete the log file.
+			'/settings/logs/clear'         => [
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => [ $this, 'clear_log' ],
+				'permission_callback' => [ $this, 'check_permissions' ],
+			],
+
+			// The support report. Its own endpoint, fetched only when someone
+			// asks for it, because the log excerpt inside it is partly written
+			// by anonymous callers and has no business being localized onto
+			// every admin page as part of the bootstrap payload.
+			'/settings/logs/report'        => [
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => [ $this, 'get_log_report' ],
+				'permission_callback' => [ $this, 'check_permissions' ],
+				'args'                => [
+					// Naming a category also returns the pre-addressed support
+					// email for it, which is the dashboard card's Contact Support
+					// button. Same reason as the report itself: it embeds the
+					// excerpt, so it is built when it is asked for.
+					'category' => [
+						'type'              => 'string',
+						'required'          => false,
+						'enum'              => Debug_Log::CATEGORIES,
+						'validate_callback' => static function ( $value ) {
+							return in_array( $value, Debug_Log::CATEGORIES, true );
+						},
+					],
+				],
+			],
 		];
+	}
+
+	/**
+	 * Build the support report for the current site.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response
+	 * @since 1.7.0
+	 */
+	public function get_log_report( $request ) {
+		$category = Helper::get_string_value( $request->get_param( 'category' ) );
+
+		$response = [
+			'success' => true,
+			'report'  => Debug_Log::get_support_report(),
+		];
+
+		if ( in_array( $category, Debug_Log::CATEGORIES, true ) ) {
+			$response['mailto'] = Admin::get_instance()->get_support_contact_url( $category );
+		}
+
+		return new WP_REST_Response( $response, 200 );
+	}
+
+	/**
+	 * Get the debug log state.
+	 *
+	 * Returns what the Logs screen needs to render without downloading the file:
+	 * whether logging is on, whether there is anything to download, how large it
+	 * is and whether it has stopped accepting writes.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response
+	 * @since 1.7.0
+	 */
+	public function get_log_settings( $request ) {
+		unset( $request ); // Unused parameter.
+
+		// Read paths expire a stale file too. Otherwise a site whose donations
+		// stopped failing keeps the log past its retention window for as long as
+		// nothing writes to it, which is precisely the case retention exists for.
+		Debug_Log::maybe_expire();
+
+		$size = Debug_Log::get_file_size();
+
+		return new WP_REST_Response(
+			[
+				'success'  => true,
+				'settings' => [
+					'enabled'        => Debug_Log::is_enabled(),
+					'has_log'        => $size > 0,
+					'size'           => $size,
+					'max_size'       => Debug_Log::MAX_FILE_SIZE,
+					'is_full'        => Debug_Log::is_full(),
+					'browser_paused' => Debug_Log::is_browser_paused(),
+					'retention_days' => Debug_Log::RETENTION_DAYS,
+				],
+			],
+			200
+		);
+	}
+
+	/**
+	 * Turn debug logging on or off.
+	 *
+	 * Switching off deliberately leaves the file in place. The two actions read
+	 * differently to a site owner - "stop recording" is not "delete what you
+	 * already recorded" - and someone who has just been asked for the log by
+	 * support would lose it by turning logging off first.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response
+	 * @since 1.7.0
+	 */
+	public function update_log_settings( $request ) {
+		$enabled = $request->get_param( 'enabled' );
+
+		if ( null !== $enabled ) {
+			Helper::update_suredonation_option( Debug_Log::SETTING_KEY, (bool) $enabled );
+		}
+
+		return new WP_REST_Response(
+			[
+				'success' => true,
+				'message' => __( 'Settings saved', 'suredonation' ),
+			],
+			200
+		);
+	}
+
+	/**
+	 * Delete the debug log file.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response
+	 * @since 1.7.0
+	 */
+	public function clear_log( $request ) {
+		unset( $request ); // Unused parameter.
+
+		$cleared = Debug_Log::clear();
+
+		return new WP_REST_Response(
+			[
+				'success' => $cleared,
+				'message' => $cleared
+					? __( 'Log cleared.', 'suredonation' )
+					: __( 'The log file could not be deleted. Check the permissions on your uploads folder.', 'suredonation' ),
+			],
+			$cleared ? 200 : 500
+		);
 	}
 
 	/**

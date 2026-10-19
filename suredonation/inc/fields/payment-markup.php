@@ -466,8 +466,12 @@ class Payment_Markup extends Base {
 					echo wp_kses( $this->render_amount_display(), Helper::get_allowed_form_html() );
 				}
 
-				// Test mode notice.
-				if ( 'test' === $this->payment_mode && $has_stripe ) {
+				// Test mode notice. Keyed on the store's payment mode alone: the
+				// notice reports that no money will reach the cause, which is true
+				// of every gateway, not just Stripe. Gating it on $has_stripe left
+				// an admin previewing a PayPal-only form with no indication that
+				// the donations it takes are rehearsals.
+				if ( 'test' === $this->payment_mode ) {
 					echo wp_kses_post( $this->get_test_mode_notice() );
 				}
 
@@ -680,17 +684,24 @@ class Payment_Markup extends Base {
 	}
 
 	/**
-	 * Render the "make it recurring" toggle, shown only in 'both' mode.
+	 * Render the "make it recurring" toggle, shown only in 'both' mode — and only
+	 * when the donation-amount block is not hosting the chooser instead.
 	 *
 	 * The block always initialises as one-time; ticking this checkbox opts the donor
 	 * into the recurring choice (the JS reveals the subscription amount panel and
-	 * re-points the block at that config). A single opt-in checkbox is friendlier than
-	 * a two-button chooser for a form that is one-time by default.
+	 * re-points the block at that config).
 	 *
 	 * @return string Chooser markup.
 	 * @since 1.5.1
 	 */
 	private function render_payment_type_chooser() {
+		// The donation-amount block may be hosting the chooser instead, above the
+		// preset amounts. Exactly one control must exist, and both blocks decide
+		// from the same stored config, so this cannot leave the form with none.
+		if ( null !== Payment_Helper::get_recurring_chooser_host( (int) $this->form_id ) ) {
+			return '';
+		}
+
 		$checkbox_id        = 'sd-payment-recurring-' . $this->block_id;
 		$one_time_panel     = 'sd-payment-amount-' . $this->block_id . '-one-time';
 		$subscription_panel = 'sd-payment-amount-' . $this->block_id . '-subscription';
@@ -876,13 +887,31 @@ class Payment_Markup extends Base {
 					</span>
 				</div>
 				<?php if ( $minimum_amount > 0 ) { ?>
-					<span class="sd-help">
+					<?php
+					/*
+					 * The minimum is authored in the site's currency, so it has
+					 * to be restated when a donor switches. The amount and the
+					 * already-translated sentence ride along as data so the
+					 * browser can rebuild it without a second localised string,
+					 * mirroring how .sd-payment-value carries its own format.
+					 */
+					$minimum_template = sprintf(
+						/* translators: %s: Minimum amount with currency */
+						__( 'Minimum amount: %s', 'suredonation' ),
+						'{amount}'
+					);
+					?>
+					<span
+						class="sd-help"
+						data-minimum-amount="<?php echo esc_attr( (string) $minimum_amount ); ?>"
+						data-message-format="<?php echo esc_attr( $minimum_template ); ?>"
+					>
 						<?php
 						echo esc_html(
-							sprintf(
-								/* translators: %s: Minimum amount with currency */
-								__( 'Minimum amount: %s', 'suredonation' ),
-								$this->format_currency( $minimum_amount, $this->currency )
+							str_replace(
+								'{amount}',
+								$this->format_currency( $minimum_amount, $this->currency ),
+								$minimum_template
 							)
 						);
 						?>

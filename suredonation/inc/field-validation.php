@@ -252,6 +252,7 @@ class Field_Validation {
 	 * - minimum_amount: The minimum allowed amount for variable amounts
 	 * - variable_amount_field: The slug of the field providing the variable amount
 	 * - one_time / subscription: per-choice amount configs, 'both' mode only
+	 * - recurring_option_placement: where the donor's choice control renders, 'both' mode only
 	 * - subscription_interval / subscription_billing_cycles: billing cadence, when a
 	 *   subscription path exists
 	 *
@@ -280,6 +281,23 @@ class Field_Validation {
 		if ( 'both' === $payment_config['payment_type'] ) {
 			$payment_config['one_time']     = self::build_amount_config( $attrs, $blocks, 'oneTime' );
 			$payment_config['subscription'] = self::build_amount_config( $attrs, $blocks, 'subscription' );
+
+			// Where the donor's choice renders. Stored unconditionally with a PHP
+			// default: block.json defaults this to 'amount', so Gutenberg omits it
+			// whenever the admin accepts that default.
+			$placement = isset( $attrs['recurringOptionPlacement'] ) && is_string( $attrs['recurringOptionPlacement'] )
+				? sanitize_text_field( $attrs['recurringOptionPlacement'] )
+				: 'amount';
+
+			$payment_config['recurring_option_placement'] = in_array( $placement, [ 'amount', 'payment' ], true ) ? $placement : 'amount';
+
+			// Stored only when the admin set one. Gutenberg omits an attribute equal
+			// to its default, so defaulting here would persist a translated string
+			// frozen in the saving admin's locale. Absent means "use the default";
+			// an empty string means the admin cleared it.
+			if ( isset( $attrs['recurringOptionLabel'] ) && is_string( $attrs['recurringOptionLabel'] ) ) {
+				$payment_config['recurring_option_label'] = sanitize_text_field( $attrs['recurringOptionLabel'] );
+			}
 		}
 
 		// Persist the billing cadence for any form with a subscription path. The admin
@@ -682,10 +700,25 @@ class Field_Validation {
 			return [];
 		}
 
-		$labels = [];
-		self::collect_field_labels( parse_blocks( $post->post_content ), $labels );
+		// Memoised per request. The CSV importer calls this once per row while
+		// resolving custom-field columns, and parse_blocks() is not cached by
+		// WordPress, so a large import would otherwise re-parse the same form
+		// for every donation in the file. get_post() above is left uncached
+		// because WordPress already serves it from the object cache, and it
+		// supplies the modified timestamp the key needs: a form saved during
+		// this request (update_field_slugs() writes one on save_post) must not
+		// keep serving the labels from before the save.
+		static $cache = [];
 
-		return $labels;
+		$cache_key = $form_id . '|' . $post->post_modified_gmt;
+
+		if ( ! isset( $cache[ $cache_key ] ) ) {
+			$labels = [];
+			self::collect_field_labels( parse_blocks( $post->post_content ), $labels );
+			$cache[ $cache_key ] = $labels;
+		}
+
+		return $cache[ $cache_key ];
 	}
 
 	/**
@@ -1144,6 +1177,43 @@ class Field_Validation {
 
 		$validatable = self::get_validatable_blocks();
 
+		// Fields that carry a payment block's amount are bounded by the payment
+		// path instead, which compares in the site's base currency. Their own
+		// min/max are authored in base too, so checking a donor's converted
+		// figure against them rejects a legitimate amount in any currency
+		// trading away from 1.
+		$amount_field_slugs = [];
+
+		// Gated on amount_type, not merely on the pointer being set.
+		// build_amount_config() stores variable_amount_field unconditionally, so
+		// a block switched back to a fixed amount keeps a stale pointer - and
+		// validate_payment_amount() takes its fixed branch and never re-checks
+		// that field. Standing aside for it there would leave its bounds
+		// enforced nowhere.
+		$collect = static function ( $config ) use ( &$amount_field_slugs ) {
+			if ( ! is_array( $config ) || 'variable' !== ( $config['amount_type'] ?? '' ) ) {
+				return;
+			}
+
+			$slug = $config['variable_amount_field'] ?? '';
+
+			if ( is_string( $slug ) && '' !== $slug ) {
+				$amount_field_slugs[ $slug ] = true;
+			}
+		};
+
+		foreach ( $block_config as $maybe_payment ) {
+			if ( ! is_array( $maybe_payment ) || 'suredonation/payment' !== ( $maybe_payment['block_name'] ?? '' ) ) {
+				continue;
+			}
+
+			$collect( $maybe_payment );
+
+			foreach ( [ 'one_time', 'subscription' ] as $mode ) {
+				$collect( $maybe_payment[ $mode ] ?? null );
+			}
+		}
+
 		foreach ( $block_config as $config ) {
 			if ( ! is_array( $config ) ) {
 				continue;
@@ -1159,7 +1229,7 @@ class Field_Validation {
 			$raw_value = array_key_exists( $slug, $fields ) ? $fields[ $slug ] : '';
 			$value     = is_scalar( $raw_value ) ? trim( (string) $raw_value ) : '';
 
-			$error = self::validate_field_value( $block_name, $config, $value );
+			$error = self::validate_field_value( $block_name, $config, $value, isset( $amount_field_slugs[ $slug ] ) );
 
 			/**
 			 * Filter the validation error for a single donation form field.
@@ -1290,10 +1360,11 @@ class Field_Validation {
 	 * @param string               $block_name Block name.
 	 * @param array<string, mixed> $config     Stored block configuration for the field.
 	 * @param string               $value      Submitted, trimmed field value.
+	 * @param bool                 $is_amount_field Whether this field supplies a payment block's amount.
 	 * @return string Error message, or '' when the value passes.
 	 * @since 1.1.0
 	 */
-	private static function validate_field_value( $block_name, $config, $value ) {
+	private static function validate_field_value( $block_name, $config, $value, $is_amount_field = false ) {
 		// Required check applies to every field type.
 		if ( ! empty( $config['required'] ) && '' === $value ) {
 			return self::resolve_required_message( $block_name, $config );
@@ -1362,6 +1433,12 @@ class Field_Validation {
 				}
 
 				$number = (float) $value;
+
+				// Payment_Helper::validate_number_field_amount() owns the bounds
+				// for an amount field and applies them in base currency.
+				if ( $is_amount_field ) {
+					break;
+				}
 
 				if ( isset( $config['validation_min'] ) && is_numeric( $config['validation_min'] ) && $number < (float) $config['validation_min'] ) {
 					return str_replace( '%s', self::format_number( (float) $config['validation_min'] ), self::get_validation_message( 'suredonation_input_min_value' ) );

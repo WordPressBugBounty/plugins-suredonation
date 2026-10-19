@@ -19,6 +19,7 @@ namespace SureDonation\Inc\Import\Givewp;
 
 use SureDonation\Inc\Database\Tables\Donations;
 use SureDonation\Inc\Database\Tables\Donors;
+use SureDonation\Inc\Payments\Payment_Helper;
 use SureDonation\Inc\Traits\Get_Instance;
 
 // Exit if accessed directly.
@@ -252,7 +253,7 @@ class Donation_Mapper {
 		// using the actual payment date — Donors::record_donation() uses
 		// current_time() for last_donation_date, which would falsely stamp
 		// every imported donor with the import timestamp.
-		$this->update_donor_aggregates( $donor_id, $amount, (string) $data['created_at'], $payment_status );
+		$this->update_donor_aggregates( $donor_id, $amount, (string) $data['created_at'], $payment_status, $currency );
 
 		++$progress['results']['donations']['imported'];
 	}
@@ -271,10 +272,11 @@ class Donation_Mapper {
 	 * @param  float  $amount          Donation amount.
 	 * @param  string $donation_date   ISO/MySQL datetime of the donation (GMT).
 	 * @param  string $payment_status  SureDonation payment status enum value.
+	 * @param string $currency       Currency of $amount; empty treats it as base currency.
 	 * @return void
 	 * @since  1.0.0
 	 */
-	private function update_donor_aggregates( $donor_id, $amount, $donation_date, $payment_status ) {
+	private function update_donor_aggregates( $donor_id, $amount, $donation_date, $payment_status, $currency = '' ) {
 		$donor = Donors::get( (int) $donor_id );
 		if ( ! is_array( $donor ) ) {
 			return;
@@ -305,10 +307,21 @@ class Donation_Mapper {
 			$current_count   = isset( $donor['donation_count'] ) && is_numeric( $donor['donation_count'] ) ? (int) $donor['donation_count'] : 0;
 			$current_largest = isset( $donor['largest_donation'] ) && is_numeric( $donor['largest_donation'] ) ? (float) $donor['largest_donation'] : 0.0;
 
-			$updates['total_donated']  = $current_total + (float) $amount;
+			// These columns are single-currency. Donors::record_donation()
+			// converts before banking, and this path bypasses it, so a 10,000
+			// JPY import would otherwise outrank every real donor. Falls back
+			// to the raw figure when nothing can price the currency, which is
+			// the behaviour that predates the conversion rather than a silent
+			// drop in the middle of an import.
+			$converted = '' !== $currency
+				? Payment_Helper::convert_to_base( (float) $amount, $currency )
+				: (float) $amount;
+			$banked    = null === $converted ? (float) $amount : $converted;
+
+			$updates['total_donated']  = $current_total + $banked;
 			$updates['donation_count'] = $current_count + 1;
-			if ( (float) $amount > $current_largest ) {
-				$updates['largest_donation'] = (float) $amount;
+			if ( $banked > $current_largest ) {
+				$updates['largest_donation'] = $banked;
 			}
 		}
 

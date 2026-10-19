@@ -8,10 +8,12 @@
 namespace SureDonation\Inc\Emails;
 
 use SureDonation\Inc\Database\Tables\Donations;
+use SureDonation\Inc\Debug_Log;
 use SureDonation\Inc\FormEditor\Assets;
 use SureDonation\Inc\Helper;
 use SureDonation\Inc\Payments\Offline\Offline_Helper;
 use SureDonation\Inc\Payments\Payment_Helper;
+use WP_Error;
 
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
@@ -125,6 +127,12 @@ class Email_Handler {
 			return;
 		}
 
+		// Counted across the whole run, not per recipient. Clearing the warning
+		// the moment any one email sends would hide a donor receipt that is
+		// still failing behind an admin copy that is not.
+		$attempted = 0;
+		$failed    = 0;
+
 		foreach ( $notifications as $notification ) {
 			if ( empty( $notification['status'] ) ) {
 				continue;
@@ -154,8 +162,19 @@ class Email_Handler {
 			}
 
 			foreach ( $recipients as $recipient ) {
-				self::send_email( $recipient, $notification, $donation_data, $campaign, $donation_id, $event );
+				++$attempted;
+
+				if ( ! self::send_email( $recipient, $notification, $donation_data, $campaign, $donation_id, $event ) ) {
+					++$failed;
+				}
 			}
+		}
+
+		// A site that has recovered stops being warned. Without this the notice
+		// stays up until someone dismisses it, and a warning that outlives the
+		// problem is the fastest way to teach people to ignore warnings.
+		if ( $attempted > 0 && 0 === $failed ) {
+			Debug_Log::clear_category( 'notification' );
 		}
 	}
 
@@ -784,7 +803,19 @@ class Email_Handler {
 		$from_name  = self::process_smart_tags( is_string( $from_name ) ? $from_name : '', $donation_data, $campaign );
 		$from_email = self::process_smart_tags( is_string( $from_email ) ? $from_email : '', $donation_data, $campaign );
 		$reply_to   = self::process_smart_tags( is_string( $reply_to ) ? $reply_to : '', $donation_data, $campaign );
-		$subject    = str_replace( [ "\r", "\n" ], '', $subject );
+
+		// Subject and From Name are plain text, not HTML, so the HTML escaping
+		// every tag carries has to come back off here or a donor called
+		// "Ben & Jerry's" arrives as "Ben &amp; Jerry&#039;s" in the inbox.
+		// Decoding cannot reintroduce a header separator: a donor who literally
+		// types "&#13;" has the ampersand escaped to "&amp;#13;" on the way in,
+		// so one decode yields the harmless text "&#13;" rather than a carriage
+		// return — and the CRLF strip below runs after this regardless.
+		// SureForms does not escape its subject at all for the same reason.
+		$subject   = html_entity_decode( $subject, ENT_QUOTES, 'UTF-8' );
+		$from_name = html_entity_decode( $from_name, ENT_QUOTES, 'UTF-8' );
+
+		$subject = str_replace( [ "\r", "\n" ], '', $subject );
 
 		// Sanitize header values: strip CRLF to prevent header injection, validate emails.
 		$from_name   = str_replace( [ "\r", "\n" ], '', $from_name );
@@ -892,7 +923,45 @@ class Email_Handler {
 		$attachments = $named_attachments;
 
 		// Send email.
+		//
+		// wp_mail_failed carries PHPMailer's own account of what went wrong -
+		// "SMTP connect() failed", "Could not instantiate mail function" - which
+		// is the difference between an entry that names the problem and one that
+		// only says there was one. Hooked around this call rather than registered
+		// once, so a failure raised by anything else sending mail in the same
+		// request cannot be read as ours.
+		$failure = null;
+		$capture = static function ( $error ) use ( &$failure ) {
+			$failure = $error;
+		};
+
+		add_action( 'wp_mail_failed', $capture );
+
 		$sent = wp_mail( $to_email, $subject, $email_body, $headers, $attachments );
+
+		remove_action( 'wp_mail_failed', $capture );
+
+		if ( ! $sent ) {
+			// A donor who paid and heard nothing is a support ticket on a site
+			// that looks healthy from every other angle: the donation is
+			// recorded, the money arrived, and the only thing missing is the
+			// one artifact the donor can see.
+			//
+			// The recipient address is not recorded. It is the donor's email and
+			// the notification name already says who it was for. The reason may
+			// quote one - PHPMailer names the address it could not deliver to -
+			// and Debug_Log::scrub_text() replaces it with [email] on the way in.
+			Debug_Log::append(
+				[
+					'type'        => 'email',
+					'source'      => 'email:' . ( isset( $notification['name'] ) && is_string( $notification['name'] ) ? $notification['name'] : 'donation' ),
+					'message'     => 'Donation email could not be sent. ' . self::get_mail_failure_reason( $failure ),
+					'donation_id' => $donation_id,
+					'code'        => Helper::get_string_value( $event ),
+				],
+				'notification'
+			);
+		}
 
 		// Log email send attempt.
 		// 4th param is display name (not machine ID). Pre-release plugin (v0.0.1) with no
@@ -901,6 +970,77 @@ class Email_Handler {
 		do_action( 'suredonation_email_sent', $donation_id, $to_email, $sent, $notification_name );
 
 		return $sent;
+	}
+
+	/**
+	 * Why wp_mail() refused the message.
+	 *
+	 * The entry is close to useless without it. "Donation email could not be
+	 * sent" is equally true of a missing SMTP plugin, a rejected password and a
+	 * mailbox that is full, and there is nothing in common to do about the
+	 * three.
+	 *
+	 * Names the most likely cause rather than saying nothing when PHPMailer
+	 * raised no error of its own: a site with no SMTP plugin is handing the
+	 * message to PHP's mail(), which on most shared hosting is disabled, or
+	 * accepted and then dropped for failing SPF. That is both the usual answer
+	 * and the one a site owner can act on without us.
+	 *
+	 * @param WP_Error|null $error Error raised through wp_mail_failed, if any.
+	 * @since 1.7.0
+	 * @return string Plain-text reason. Never empty.
+	 */
+	private static function get_mail_failure_reason( $error ) {
+		$reason = $error instanceof WP_Error ? Helper::get_string_value( $error->get_error_message() ) : '';
+
+		if ( '' !== $reason ) {
+			return $reason;
+		}
+
+		if ( ! self::is_any_smtp_plugin_active() ) {
+			return 'No SMTP plugin is active, so the message was handed to PHP mail().';
+		}
+
+		return 'Email sending failed for an unknown reason.';
+	}
+
+	/**
+	 * Whether a plugin that takes delivery over from PHP mail() is active.
+	 *
+	 * The same list and the same multisite merge SureForms detects with, so the
+	 * two plugins agree on what counts as an SMTP plugin and a site owner is not
+	 * told different things by each. It answers one question - whether a missing
+	 * SMTP plugin is worth naming as the likely cause - and is deliberately not
+	 * consulted anywhere else.
+	 *
+	 * @since 1.7.0
+	 * @return bool
+	 */
+	private static function is_any_smtp_plugin_active() {
+		$smtp_plugins = [
+			'wp-mail-smtp/wp_mail_smtp.php',
+			'post-smtp/postman-smtp.php',
+			'easy-wp-smtp/easy-wp-smtp.php',
+			'wp-smtp/wp-smtp.php',
+			'newsletter/plugin.php',
+			'fluent-smtp/fluent-smtp.php',
+			'pepipost-smtp/pepipost-smtp.php',
+			'mail-bank/wp-mail-bank.php',
+			'smtp-mailer/smtp-mailer.php',
+			'suremails/suremails.php',
+			'site-mailer/site-mailer.php',
+		];
+
+		$active_plugins = (array) get_option( 'active_plugins', [] );
+
+		// Network-activated plugins are not in active_plugins on a subsite, and an
+		// SMTP plugin is exactly the kind a network administrator activates once
+		// for every site on it.
+		if ( is_multisite() ) {
+			$active_plugins = array_merge( $active_plugins, array_keys( (array) get_site_option( 'active_sitewide_plugins', [] ) ) );
+		}
+
+		return (bool) array_intersect( $smtp_plugins, $active_plugins );
 	}
 
 	/**
@@ -917,12 +1057,15 @@ class Email_Handler {
 		$currency       = isset( $donation_data['currency'] ) && is_string( $donation_data['currency'] ) ? $donation_data['currency'] : 'USD';
 		$campaign_title = ( $campaign instanceof \WP_Post ) ? $campaign->post_title : '';
 
-		// Calculate total amount (base + fees) - ensure numeric types.
-		$amount_value       = $donation_data['amount'] ?? 0;
+		// What the donor was charged. Summing the two columns double-counted the
+		// fee on Stripe, whose `amount` already includes it. {donation_amount}
+		// wants the gift on its own, so it comes back off the charged total
+		// rather than off the column, which means the same thing on neither
+		// gateway.
 		$fees_covered_value = $donation_data['fees_covered'] ?? 0;
-		$base_amount        = is_numeric( $amount_value ) ? (float) $amount_value : 0.0;
 		$fees_covered       = is_numeric( $fees_covered_value ) ? (float) $fees_covered_value : 0.0;
-		$total_amount       = $base_amount + $fees_covered;
+		$total_amount       = Donations::get_charged_amount( $donation_data );
+		$base_amount        = $total_amount - $fees_covered;
 
 		// Format amounts with currency symbol.
 		$formatted_amount = Payment_Helper::format_amount( $total_amount, $currency );
@@ -962,6 +1105,21 @@ class Email_Handler {
 		$offline_instructions = '';
 		if ( 'offline' === $gateway ) {
 			$offline_instructions = Offline_Helper::get_offline_instructions();
+		}
+
+		// send_donation_emails() lifts the submitted fields to the top level
+		// before it gets here, but it is not the only caller: SureDonation Pro's
+		// PDF receipt renderer passes a raw donation row, where the same data
+		// sits a level down under donation_data. Without this, {form_fields} and
+		// {field_<slug>} resolve to nothing on every receipt PDF.
+		//
+		// Normalises `fields` only — a raw row is not made generally safe here,
+		// and e.g. {subscription_interval} stays nested and empty for one.
+		if ( ! isset( $donation_data['fields'] ) ) {
+			$stored_fields = self::extract_stored_fields( $donation_data );
+			if ( ! empty( $stored_fields ) ) {
+				$donation_data['fields'] = $stored_fields;
+			}
 		}
 
 		$tags = [
@@ -1024,8 +1182,86 @@ class Email_Handler {
 			$tags[ $tag_key ] = esc_html( (string) $tag_value );
 		}
 
-		// Replace smart tags.
-		return str_replace( array_keys( $tags ), array_values( $tags ), $content );
+		// Substitute every tag in ONE pass over the original template.
+		//
+		// This used to be a str_replace() over the whole tag map, which re-scans
+		// its own output: each replacement was exposed to the search terms of
+		// every later key. Donor-submitted values are only sanitize_text_field()'d
+		// and esc_html() does not escape braces, so a donor who typed
+		// "{admin_email}" into any field whose tag the template used had the
+		// site's administrator address substituted into it — on the public
+		// thank-you page as well as in email. The same held for a donor whose
+		// NAME was "{admin_email}", via the long-standing {donor_name} tag.
+		//
+		// preg_replace_callback() never re-scans what it inserts, so no resolved
+		// value — core or donor — can contain a tag that later resolves. That
+		// closes the class rather than reordering around it, and it keeps any
+		// tag a third party registers on the filter above equally safe.
+		return self::substitute_smart_tags( $content, $tags, $donation_data );
+	}
+
+	/**
+	 * Replace every smart tag in one non-re-scanning pass.
+	 *
+	 * Resolution order for a matched `{token}`:
+	 *   1. `field_<slug>` against the donation's submitted fields.
+	 *   2. the core/filtered tag map.
+	 *   3. anything else is left exactly as written.
+	 *
+	 * Steps 2 and 3 preserve what the previous str_replace() did — an unknown
+	 * `{token}` stays visible, because templates legitimately contain braces the
+	 * plugin does not own. Step 1 deliberately differs: an unmatched field tag
+	 * resolves to an empty string rather than staying visible, since it most
+	 * often means the field was deleted from the form after the template was
+	 * written, and a donor should not read `{field_gift-aid}` in their receipt.
+	 *
+	 * @param string               $content       Template content.
+	 * @param array<string,string> $tags          Tag map keyed with braces, already escaped.
+	 * @param array<string, mixed> $donation_data Donation data.
+	 * @return string Content with every tag resolved.
+	 * @since 1.7.0
+	 */
+	private static function substitute_smart_tags( $content, $tags, $donation_data ) {
+		if ( ! is_string( $content ) || '' === $content ) {
+			return is_string( $content ) ? $content : '';
+		}
+
+		$fields = isset( $donation_data['fields'] ) && is_array( $donation_data['fields'] )
+			? $donation_data['fields']
+			: [];
+
+		// The token class is deliberately "anything but a brace" rather than
+		// [a-z0-9_]: a field slug can carry characters a tag name never would.
+		// The settings-driven privacy field is the literal
+		// 'suredonation_privacy_consent', and a slug absent from the saved form
+		// is submitter-controlled and only sanitize_text_field()-capped. The
+		// captured text is only ever used as an array lookup key.
+		return (string) preg_replace_callback(
+			'/\{([^{}]+)\}/',
+			static function ( $matches ) use ( $tags, $fields ) {
+				$token = $matches[1];
+
+				if ( 0 === strpos( $token, 'field_' ) ) {
+					$slug = substr( $token, strlen( 'field_' ) );
+
+					if ( ! isset( $fields[ $slug ] ) ) {
+						return '';
+					}
+
+					$entry = $fields[ $slug ];
+					$value = is_array( $entry ) ? ( $entry['value'] ?? '' ) : $entry;
+
+					// Checkboxes persist the canonical untranslated Yes/No
+					// tokens so the stored column stays comparable across
+					// locales; every display layer translates on read, as
+					// render_submitted_fields() does for {form_fields}.
+					return esc_html( Helper::format_checkbox_field_value( $value ) );
+				}
+
+				return $tags[ $matches[0] ] ?? $matches[0];
+			},
+			$content
+		);
 	}
 
 	/**

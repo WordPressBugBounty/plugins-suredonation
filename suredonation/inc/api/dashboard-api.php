@@ -112,11 +112,15 @@ class Dashboard_API {
 	 * @param WP_REST_Request $request Request object.
 	 * @return WP_REST_Response Response object.
 	 * @since 0.0.1
+	 * @since 1.7.0 Scoped to the store's current payment mode.
 	 */
 	public function get_stats( $request ) {
 		unset( $request ); // Unused parameter.
 
-		$stats    = Donations::get_dashboard_stats();
+		// Scoped to the store's payment mode so the dashboard cannot report a
+		// rehearsal as income. Deliberately unscoped by currency - see
+		// Donations::scope_fragment(); there is no currency selector on this screen.
+		$stats    = Donations::get_dashboard_stats( '', Payment_Helper::get_payment_mode() );
 		$currency = Payment_Helper::get_currency();
 
 		// Count active (published) campaigns.
@@ -134,6 +138,9 @@ class Dashboard_API {
 					'largest_donation' => (float) $stats['largest_donation'],
 					'active_campaigns' => $active_count,
 					'currency'         => $currency,
+					// Named because these figures are a slice: in test mode they drop to
+					// the rehearsals, and nothing else in the response says so.
+					'payment_mode'     => Payment_Helper::get_payment_mode(),
 				],
 			],
 			200
@@ -146,10 +153,11 @@ class Dashboard_API {
 	 * @param WP_REST_Request $request Request object.
 	 * @return WP_REST_Response Response object.
 	 * @since 0.0.1
+	 * @since 1.7.0 Scoped to the store's current payment mode.
 	 */
 	public function get_recent_donations( $request ) {
 		$limit     = $request->get_param( 'limit' );
-		$donations = Donations::get_recent_donations_global( $limit );
+		$donations = Donations::get_recent_donations_global( $limit, '', Payment_Helper::get_payment_mode() );
 		$currency  = Payment_Helper::get_currency();
 
 		$formatted = [];
@@ -177,8 +185,9 @@ class Dashboard_API {
 
 		return new WP_REST_Response(
 			[
-				'success'   => true,
-				'donations' => $formatted,
+				'success'      => true,
+				'donations'    => $formatted,
+				'payment_mode' => Payment_Helper::get_payment_mode(),
 			],
 			200
 		);
@@ -190,10 +199,11 @@ class Dashboard_API {
 	 * @param WP_REST_Request $request Request object.
 	 * @return WP_REST_Response Response object.
 	 * @since 0.0.1
+	 * @since 1.7.0 Scoped to the store's current payment mode.
 	 */
 	public function get_top_campaigns( $request ) {
 		$limit     = $request->get_param( 'limit' );
-		$campaigns = Donations::get_top_campaigns( $limit );
+		$campaigns = Donations::get_top_campaigns( $limit, '', Payment_Helper::get_payment_mode() );
 		$currency  = Payment_Helper::get_currency();
 
 		$formatted = [];
@@ -222,8 +232,9 @@ class Dashboard_API {
 
 		return new WP_REST_Response(
 			[
-				'success'   => true,
-				'campaigns' => $formatted,
+				'success'      => true,
+				'campaigns'    => $formatted,
+				'payment_mode' => Payment_Helper::get_payment_mode(),
 			],
 			200
 		);
@@ -235,10 +246,11 @@ class Dashboard_API {
 	 * @param WP_REST_Request $request Request object.
 	 * @return WP_REST_Response Response object.
 	 * @since 0.0.1
+	 * @since 1.7.0 Scoped to the store's current payment mode.
 	 */
 	public function get_top_donors( $request ) {
 		$limit    = $request->get_param( 'limit' );
-		$donors   = Donors::get_top_donors( $limit );
+		$donors   = Donors::get_top_donors( $limit, Payment_Helper::get_payment_mode() );
 		$currency = Payment_Helper::get_currency();
 
 		$formatted = [];
@@ -259,8 +271,9 @@ class Dashboard_API {
 
 		return new WP_REST_Response(
 			[
-				'success' => true,
-				'donors'  => $formatted,
+				'success'      => true,
+				'donors'       => $formatted,
+				'payment_mode' => Payment_Helper::get_payment_mode(),
 			],
 			200
 		);
@@ -272,12 +285,13 @@ class Dashboard_API {
 	 * @param WP_REST_Request $request Request object.
 	 * @return WP_REST_Response Response object.
 	 * @since 0.0.1
+	 * @since 1.7.0 Scoped to the store's current payment mode.
 	 */
 	public function get_trends( $request ) {
 		$after    = $request->get_param( 'after' );
 		$before   = $request->get_param( 'before' );
 		$group    = $request->get_param( 'group' );
-		$trends   = Donations::get_donation_trends( $after, $before, $group );
+		$trends   = Donations::get_donation_trends( $after, $before, $group, '', 0, Payment_Helper::get_payment_mode() );
 		$currency = Payment_Helper::get_currency();
 
 		$formatted = [];
@@ -291,9 +305,10 @@ class Dashboard_API {
 
 		return new WP_REST_Response(
 			[
-				'success'  => true,
-				'trends'   => $formatted,
-				'currency' => $currency,
+				'success'      => true,
+				'trends'       => $formatted,
+				'currency'     => $currency,
+				'payment_mode' => Payment_Helper::get_payment_mode(),
 			],
 			200
 		);

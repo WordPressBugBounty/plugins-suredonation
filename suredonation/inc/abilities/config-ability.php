@@ -1241,7 +1241,11 @@ class Config_Ability {
 						],
 						'sort_by'     => [
 							'type'        => 'string',
-							'enum'        => [ 'id', 'created_at', 'updated_at', 'name', 'email', 'total_donated', 'donation_count', 'last_donation_date' ],
+							// The two money columns are absent on purpose: the figures returned are
+							// computed per payment mode from donation rows, while the list can only
+							// order by the stored columns, so offering them would rank by a number
+							// the caller never sees. Donors::$valid_order_columns is the same list.
+							'enum'        => [ 'id', 'created_at', 'updated_at', 'name', 'email', 'last_donation_date' ],
 							'default'     => 'created_at',
 							'description' => __( 'Column to sort by.', 'suredonation' ),
 						],
@@ -1798,28 +1802,28 @@ class Config_Ability {
 				'input_schema'        => [
 					'type'       => 'object',
 					'properties' => [
-						'after'       => [
+						'after'        => [
 							'type'        => 'string',
 							'default'     => '',
 							'description' => __( 'Start date (YYYY-MM-DD). Empty defaults to 30 days ago.', 'suredonation' ),
 						],
-						'before'      => [
+						'before'       => [
 							'type'        => 'string',
 							'default'     => '',
 							'description' => __( 'End date (YYYY-MM-DD). Empty defaults to today.', 'suredonation' ),
 						],
-						'group'       => [
+						'group'        => [
 							'type'        => 'string',
 							'enum'        => [ 'day', 'week', 'month' ],
 							'default'     => 'day',
 							'description' => __( 'Group results by time period.', 'suredonation' ),
 						],
-						'currency'    => [
+						'currency'     => [
 							'type'        => 'string',
 							'default'     => '',
 							'description' => __( 'Three-letter currency code to report on. Defaults to the store currency. Amounts across currencies are never summed together.', 'suredonation' ),
 						],
-						'campaign_id' => [
+						'campaign_id'  => [
 							'type'        => 'integer',
 							'default'     => 0,
 							'description' => __( 'Limit to one campaign (0 for all campaigns).', 'suredonation' ),
@@ -1835,7 +1839,7 @@ class Config_Ability {
 				'output_schema'       => [
 					'type'       => 'object',
 					'properties' => [
-						'trends'   => [
+						'trends'       => [
 							'type'  => 'array',
 							'items' => [
 								'type'       => 'object',
@@ -1846,12 +1850,12 @@ class Config_Ability {
 								],
 							],
 						],
-						'currency' => [ 'type' => 'string' ],
-						'after'    => [
+						'currency'     => [ 'type' => 'string' ],
+						'after'        => [
 							'type'        => 'string',
 							'description' => __( 'Start of the window actually queried.', 'suredonation' ),
 						],
-						'before'   => [
+						'before'       => [
 							'type'        => 'string',
 							'description' => __( 'End of the window actually queried.', 'suredonation' ),
 						],
@@ -1888,14 +1892,14 @@ class Config_Ability {
 				'output_schema'       => [
 					'type'       => 'object',
 					'properties' => [
-						'total_donations'  => [ 'type' => 'integer' ],
-						'total_raised'     => [ 'type' => 'number' ],
-						'unique_donors'    => [ 'type' => 'integer' ],
-						'average_donation' => [ 'type' => 'number' ],
-						'largest_donation' => [ 'type' => 'number' ],
+						'total_donations'     => [ 'type' => 'integer' ],
+						'total_raised'        => [ 'type' => 'number' ],
+						'unique_donors'       => [ 'type' => 'integer' ],
+						'average_donation'    => [ 'type' => 'number' ],
+						'largest_donation'    => [ 'type' => 'number' ],
 						'published_campaigns' => [ 'type' => 'integer' ],
-						'currency'         => [ 'type' => 'string' ],
-						'payment_mode'     => [ 'type' => 'string' ],
+						'currency'            => [ 'type' => 'string' ],
+						'payment_mode'        => [ 'type' => 'string' ],
 					],
 				],
 				'execute_callback'    => static function ( $input ) use ( $runtime ) {
@@ -1912,7 +1916,7 @@ class Config_Ability {
 				'input_schema'        => [
 					'type'       => 'object',
 					'properties' => [
-						'limit' => [
+						'limit'        => [
 							'type'        => 'integer',
 							'default'     => 5,
 							'description' => __( 'How many donations to return (max 100).', 'suredonation' ),
@@ -1933,7 +1937,7 @@ class Config_Ability {
 				'output_schema'       => [
 					'type'       => 'object',
 					'properties' => [
-						'donations' => [
+						'donations'    => [
 							'type'  => 'array',
 							'items' => [
 								'type'                 => 'object',
@@ -1951,7 +1955,7 @@ class Config_Ability {
 								'additionalProperties' => false,
 							],
 						],
-						'currency'  => [ 'type' => 'string' ],
+						'currency'     => [ 'type' => 'string' ],
 						'payment_mode' => [ 'type' => 'string' ],
 					],
 				],
@@ -1969,7 +1973,7 @@ class Config_Ability {
 				'input_schema'        => [
 					'type'       => 'object',
 					'properties' => [
-						'limit' => [
+						'limit'        => [
 							'type'        => 'integer',
 							'default'     => 5,
 							'description' => __( 'How many campaigns to return (max 100).', 'suredonation' ),
@@ -1990,7 +1994,7 @@ class Config_Ability {
 				'output_schema'       => [
 					'type'       => 'object',
 					'properties' => [
-						'campaigns' => [
+						'campaigns'    => [
 							'type'  => 'array',
 							'items' => [
 								'type'       => 'object',
@@ -2002,7 +2006,7 @@ class Config_Ability {
 								],
 							],
 						],
-						'currency'  => [ 'type' => 'string' ],
+						'currency'     => [ 'type' => 'string' ],
 						'payment_mode' => [ 'type' => 'string' ],
 					],
 				],

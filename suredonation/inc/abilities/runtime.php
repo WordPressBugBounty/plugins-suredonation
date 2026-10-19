@@ -89,7 +89,7 @@ class Runtime {
 	/**
 	 * Register a dedicated SureDonation MCP server with the MCP adapter.
 	 *
-	 * Creates endpoint: {site_url}/wp-json/suredonation/v1/mcp
+	 * Creates the endpoint at rest_url( 'suredonation/v1/mcp' ).
 	 *
 	 * @param \WP\MCP\Adapter\Adapter $adapter The MCP adapter instance.
 	 * @return void
@@ -484,7 +484,7 @@ class Runtime {
 			);
 
 			$deleted_forms = [];
-			$kept_forms = [];
+			$kept_forms    = [];
 
 			foreach ( $child_forms as $form ) {
 				// The campaign-level guard above counts donations recorded against
@@ -786,10 +786,21 @@ class Runtime {
 			$results = Donors::get_admin_list( $search, $campaign_id, $status, $per_page, $offset, $sort_by, $order, $after, $before );
 			$total   = Donors::get_total_donors_filtered( $search, $campaign_id, $status, $after, $before );
 
+			// One query for the whole page rather than one per row.
+			$totals = Donations::get_totals_by_donor(
+				array_map(
+					static function ( $donor ) {
+						return is_array( $donor ) ? Helper::get_integer_value( $donor['id'] ?? 0 ) : 0;
+					},
+					is_array( $results ) ? $results : []
+				),
+				Payment_Helper::get_payment_mode()
+			);
+
 			$donors = [];
 			foreach ( $results as $donor ) {
 				if ( is_array( $donor ) ) {
-					$donors[] = $this->format_donor( $donor );
+					$donors[] = $this->format_donor( $donor, $totals[ Helper::get_integer_value( $donor['id'] ?? 0 ) ] ?? null );
 				}
 			}
 
@@ -815,7 +826,7 @@ class Runtime {
 			$this->init( $input, SUREDONATION_ABILITY_API_NAMESPACE . 'get-donor' );
 			$donor = $this->require_donor( $this->input_get( 'id' ) );
 
-			return $this->format_donor( $donor );
+			return $this->format_donor( $donor, $this->scoped_donor_totals( $donor ) );
 		} catch ( Exception $e ) {
 			return $this->error( $e );
 		}
@@ -842,7 +853,7 @@ class Runtime {
 				throw new Ability_Exception( 'donor_not_found', esc_html__( 'Donor not found.', 'suredonation' ) );
 			}
 
-			return $this->format_donor( $donor );
+			return $this->format_donor( $donor, $this->scoped_donor_totals( $donor ) );
 		} catch ( Exception $e ) {
 			return $this->error( $e );
 		}
@@ -859,7 +870,7 @@ class Runtime {
 			$this->init( $input, SUREDONATION_ABILITY_API_NAMESPACE . 'get-top-donors' );
 			$limit = $this->clamp_per_page( $this->input_get( 'limit' ) );
 
-			$results = Donors::get_top_donors( $limit );
+			$results = Donors::get_top_donors( $limit, Payment_Helper::get_payment_mode() );
 
 			$donors = [];
 			foreach ( $results as $donor ) {
@@ -929,7 +940,7 @@ class Runtime {
 
 			$formatted = [];
 			// One GROUP BY for the page instead of a COUNT/SUM per form.
-			$stats = Donations::get_form_stats_bulk( wp_list_pluck( $forms, 'ID' ) );
+			$stats = Donations::get_form_stats_bulk( wp_list_pluck( $forms, 'ID' ), Payment_Helper::get_payment_mode() );
 
 			foreach ( $forms as $form ) {
 				$formatted[] = $this->format_form( $form, $stats[ (int) $form->ID ] ?? null );
@@ -1058,8 +1069,13 @@ class Runtime {
 			$id       = Helper::get_integer_value( $this->input_get( 'id' ) );
 			$donation = $this->require_donation( $id );
 
-			$currency       = Helper::get_string_value( $donation['currency'] ?? 'USD' );
-			$total          = Helper::get_float_value( $donation['amount'] ?? 0 );
+			$currency = Helper::get_string_value( $donation['currency'] ?? 'USD' );
+			// What the gateway took, not the `amount` column: on PayPal that
+			// column is the base gift and the covered fee sits beside it, so a
+			// caller omitting the amount to "refund everything still
+			// refundable" would leave the fee behind. Matches the cap the REST
+			// route below applies.
+			$total          = Donations::get_charged_amount( $donation );
 			$already        = Helper::get_float_value( $donation['refunded_amount'] ?? 0 );
 			$transaction_id = Helper::get_string_value( $donation['transaction_id'] ?? '' );
 
@@ -1333,7 +1349,7 @@ class Runtime {
 			return [
 				'id'      => $id,
 				'updated' => array_keys( $update_data ),
-				'donor'   => is_array( $donor ) ? $this->format_donor( $donor ) : [],
+				'donor'   => is_array( $donor ) ? $this->format_donor( $donor, $this->scoped_donor_totals( $donor ) ) : [],
 				'message' => esc_html__( 'Donor updated successfully.', 'suredonation' ),
 			];
 		} catch ( Exception $e ) {
@@ -1558,10 +1574,17 @@ class Runtime {
 	/**
 	 * Resolve the currency and payment mode a reporting ability should report on.
 	 *
-	 * Every monetary aggregate must be scoped to one currency and one payment
-	 * mode, or the figure is a meaningless mixed sum. Defaults are the store
-	 * currency and the store's current mode, so a caller that supplies neither
-	 * still gets a coherent number, and both are echoed back in the payload.
+	 * Every monetary aggregate is scoped to one payment mode, because test money
+	 * is not money the site received. The default is the store's mode, matching
+	 * every screen.
+	 *
+	 * Currency is scoped here and deliberately NOT on the REST screens, which is
+	 * worth stating because it looks like an inconsistency. A screen has no
+	 * currency control, so filtering there would hide money with nothing on the
+	 * page to say so; an ability response carries the currency it used in its
+	 * own payload, so the caller can always see which slice it was handed, and
+	 * an agent that wants a different one asks. A mixed-currency sum is the
+	 * wrong answer to give a caller that can read the label.
 	 *
 	 * @return array{currency: string, payment_mode: string}
 	 * @since 1.5.0
@@ -1597,18 +1620,18 @@ class Runtime {
 
 			// wp_count_posts() is filterable and a filter may return a non-object,
 			// where a property read would be a fatal rather than a caught Exception.
-			$counts            = wp_count_posts( SUREDONATION_POST_TYPE );
-			$published_count   = is_object( $counts ) && isset( $counts->publish ) ? $counts->publish : 0;
+			$counts          = wp_count_posts( SUREDONATION_POST_TYPE );
+			$published_count = is_object( $counts ) && isset( $counts->publish ) ? $counts->publish : 0;
 
 			return [
-				'total_donations'  => Helper::get_integer_value( $stats['total_donations'] ?? 0 ),
-				'total_raised'     => Helper::get_float_value( $stats['total_raised'] ?? 0 ),
-				'unique_donors'    => Helper::get_integer_value( $stats['unique_donors'] ?? 0 ),
-				'average_donation' => Helper::get_float_value( $stats['average_donation'] ?? 0 ),
-				'largest_donation' => Helper::get_float_value( $stats['largest_donation'] ?? 0 ),
+				'total_donations'     => Helper::get_integer_value( $stats['total_donations'] ?? 0 ),
+				'total_raised'        => Helper::get_float_value( $stats['total_raised'] ?? 0 ),
+				'unique_donors'       => Helper::get_integer_value( $stats['unique_donors'] ?? 0 ),
+				'average_donation'    => Helper::get_float_value( $stats['average_donation'] ?? 0 ),
+				'largest_donation'    => Helper::get_float_value( $stats['largest_donation'] ?? 0 ),
 				'published_campaigns' => Helper::get_integer_value( $published_count ),
-				'currency'         => $scope['currency'],
-				'payment_mode'     => $scope['payment_mode'],
+				'currency'            => $scope['currency'],
+				'payment_mode'        => $scope['payment_mode'],
 			];
 		} catch ( Exception $e ) {
 			return $this->error( $e );
@@ -1841,8 +1864,8 @@ class Runtime {
 				'payment_mode' => $scope['payment_mode'],
 				// The query defaults to the last 30 days when a bound is empty,
 				// so echo the window back rather than leaving the caller to guess.
-				'after'    => '' !== $after ? $after : gmdate( 'Y-m-d', strtotime( '-30 days' ) ),
-				'before'   => '' !== $before ? $before : gmdate( 'Y-m-d' ),
+				'after'        => '' !== $after ? $after : gmdate( 'Y-m-d', strtotime( '-30 days' ) ),
+				'before'       => '' !== $before ? $before : gmdate( 'Y-m-d' ),
 			];
 		} catch ( Exception $e ) {
 			return $this->error( $e );
@@ -2437,7 +2460,7 @@ class Runtime {
 	/**
 	 * Format a donation form for ability output.
 	 *
-	 * @param \WP_Post $form Form post object.
+	 * @param \WP_Post                                 $form Form post object.
 	 * @param array{entries: int, revenue: float}|null $stats Pre-computed totals for this form, or null to query them.
 	 * @return array<string, mixed> Formatted form data.
 	 */
@@ -2469,17 +2492,42 @@ class Runtime {
 	}
 
 	/**
+	 * One donor's mode-scoped totals, for the single-donor abilities.
+	 *
+	 * @param array<string, mixed> $donor Donor row.
+	 * @return array{total_donated: float, donation_count: int, largest_donation: float}|null Scoped totals, or null when the row has no id.
+	 * @since 1.7.0
+	 */
+	protected function scoped_donor_totals( $donor ) {
+		$donor_id = is_array( $donor ) ? Helper::get_integer_value( $donor['id'] ?? 0 ) : 0;
+		if ( ! $donor_id ) {
+			return null;
+		}
+
+		$totals = Donations::get_totals_by_donor( [ $donor_id ], Payment_Helper::get_payment_mode() );
+
+		return $totals[ $donor_id ] ?? null;
+	}
+
+	/**
 	 * Format a donor record for ability output.
 	 *
-	 * @param array<string, mixed> $donor Raw donor data from database.
+	 * @param array<string, mixed>                                                           $donor  Raw donor data from database.
+	 * @param array{total_donated: float, donation_count: int, largest_donation: float}|null $totals Scoped totals, or null to use the stored columns.
 	 * @return array<string, mixed> Formatted donor data.
+	 * @since 1.7.0 Accepts scoped totals.
 	 */
-	protected function format_donor( $donor ) {
-		$id_val      = $donor['id'] ?? 0;
-		$user_val    = $donor['user_id'] ?? 0;
-		$donated_val = $donor['total_donated'] ?? 0;
-		$count_val   = $donor['donation_count'] ?? 0;
-		$largest_val = $donor['largest_donation'] ?? 0;
+	protected function format_donor( $donor, $totals = null ) {
+		$id_val   = $donor['id'] ?? 0;
+		$user_val = $donor['user_id'] ?? 0;
+
+		// The stored columns count every payment mode and are never reduced by a
+		// refund, so a caller that can supply scoped totals should: otherwise an
+		// agent reading a donor gets a different lifetime than the admin screen
+		// showing the same person.
+		$donated_val = is_array( $totals ) ? $totals['total_donated'] : ( $donor['total_donated'] ?? 0 );
+		$count_val   = is_array( $totals ) ? $totals['donation_count'] : ( $donor['donation_count'] ?? 0 );
+		$largest_val = is_array( $totals ) ? $totals['largest_donation'] : ( $donor['largest_donation'] ?? 0 );
 
 		return [
 			'id'                  => is_numeric( $id_val ) ? (int) $id_val : 0,

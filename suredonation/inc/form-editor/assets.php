@@ -11,6 +11,7 @@
 namespace SureDonation\Inc\FormEditor;
 
 use SureDonation\Inc\Helper;
+use SureDonation\Inc\Icons\Amount_Icons;
 use SureDonation\Inc\Payments\Payment_Helper;
 use SureDonation\Inc\Traits\Get_Instance;
 use SureDonation\Inc\Post_Types\Donation_Form;
@@ -104,6 +105,11 @@ class Assets {
 			'integrations'              => [
 				'sure_triggers' => Helper::get_ottokit_integration(),
 			],
+			// The Donation Amount block's per-option icons. Shipped from the server
+			// rather than bundled into the editor so the picker, the canvas preview
+			// and the rendered form all draw from one map and cannot drift — and so
+			// the suredonation_amount_icons filter reaches the editor too.
+			'amountIcons'               => Amount_Icons::get_icons(),
 		];
 
 		// Plugin install/activate nonces are a plugin-management capability;

@@ -45,6 +45,7 @@ if ( ! class_exists( 'BSF_UTM_Analytics' ) ) {
 			'power-coupons',
 			'presto-player',
 			'sigmize',
+			'spectra-blocks',
 			'surecart',
 			'surecontact',
 			'surecookie',

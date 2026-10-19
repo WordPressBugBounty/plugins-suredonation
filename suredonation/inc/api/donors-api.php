@@ -9,6 +9,7 @@ namespace SureDonation\Inc\API;
 
 use SureDonation\Inc\Database\Tables\Donations;
 use SureDonation\Inc\Database\Tables\Donors;
+use SureDonation\Inc\Payments\Payment_Helper;
 use SureDonation\Inc\Helper;
 use WP_Error;
 use WP_REST_Request;
@@ -262,10 +263,21 @@ class Donors_API {
 			sanitize_text_field( $before )
 		);
 
+		// One query for the whole page rather than one per row.
+		$totals = Donations::get_totals_by_donor(
+			array_map(
+				static function ( $donor ) {
+					return is_array( $donor ) ? Helper::get_integer_value( $donor['id'] ?? 0 ) : 0;
+				},
+				is_array( $results ) ? $results : []
+			),
+			Payment_Helper::get_payment_mode()
+		);
+
 		$donors = [];
 		foreach ( $results as $donor ) {
 			if ( is_array( $donor ) ) {
-				$donors[] = $this->format_donor( $donor );
+				$donors[] = $this->format_donor( $donor, $totals[ Helper::get_integer_value( $donor['id'] ?? 0 ) ] ?? null );
 			}
 		}
 
@@ -289,7 +301,7 @@ class Donors_API {
 	 * @since 1.0.0
 	 */
 	public function get_donor_stats() {
-		$stats = Donors::get_aggregate_stats();
+		$stats = Donors::get_aggregate_stats( Payment_Helper::get_payment_mode() );
 
 		return new WP_REST_Response(
 			[
@@ -322,7 +334,7 @@ class Donors_API {
 		return new WP_REST_Response(
 			[
 				'success' => true,
-				'donor'   => $this->format_donor( $donor ),
+				'donor'   => $this->format_donor( $donor, $this->scoped_totals_for( $donor ) ),
 			],
 			200
 		);
@@ -411,7 +423,7 @@ class Donors_API {
 			[
 				'success' => true,
 				'message' => __( 'Donor updated successfully.', 'suredonation' ),
-				'donor'   => is_array( $updated_donor ) ? $this->format_donor( $updated_donor ) : [],
+				'donor'   => is_array( $updated_donor ) ? $this->format_donor( $updated_donor, $this->scoped_totals_for( $updated_donor ) ) : [],
 			],
 			200
 		);
@@ -674,6 +686,13 @@ class Donors_API {
 				$this->sanitize_csv_value( $donor['company'] ?? '' ),
 				$this->sanitize_csv_value( $donor['address'] ?? '' ),
 				$this->sanitize_csv_value( $donor['donor_status'] ?? '' ),
+				// Stored values on purpose, not the mode-scoped ones the screen shows.
+				// This export round-trips: the importer matches these two headers by
+				// alias (Column_Map) and writes them straight back onto the donor row,
+				// so exporting a scoped figure would overwrite an all-mode running
+				// total with one mode's, and renaming the headers would stop the
+				// importer recognising the column at all. Same rule as the single-donor
+				// export: a record export carries stored state.
 				$donor['total_donated'] ?? 0,
 				$donor['donation_count'] ?? 0,
 				$donor['largest_donation'] ?? 0,
@@ -735,6 +754,11 @@ class Donors_API {
 			);
 		}
 
+		// Only the name is read out of this, for the filename below, so it does
+		// not pay for the scoped-totals query the on-screen responses need. The
+		// exported rows are the donor's whole history, in every mode, which is
+		// what a record export should be; the mode-scoped figures are the ones
+		// on screen.
 		$formatted = $this->format_donor( $donor );
 
 		// Get all donations for this donor.
@@ -869,13 +893,33 @@ class Donors_API {
 	}
 
 	/**
-	 * Format donor data for API response.
+	 * One donor's mode-scoped totals, for the single-donor responses.
 	 *
-	 * @param array<string, mixed> $donor Donor data from database.
+	 * @param array<string, mixed> $donor Donor row.
+	 * @return array{total_donated: float, donation_count: int, largest_donation: float}|null Scoped totals, or null when the row has no id.
+	 * @since 1.7.0
+	 */
+	private function scoped_totals_for( $donor ) {
+		$donor_id = is_array( $donor ) ? Helper::get_integer_value( $donor['id'] ?? 0 ) : 0;
+		if ( ! $donor_id ) {
+			return null;
+		}
+
+		$totals = Donations::get_totals_by_donor( [ $donor_id ], Payment_Helper::get_payment_mode() );
+
+		return $totals[ $donor_id ] ?? null;
+	}
+
+	/**
+	 * Format a donor row for a REST response.
+	 *
+	 * @param array<string, mixed>                                                           $donor  Donor data from database.
+	 * @param array{total_donated: float, donation_count: int, largest_donation: float}|null $totals Scoped totals, or null to use the stored columns.
 	 * @return array<string, mixed> Formatted donor data.
 	 * @since 1.0.0
+	 * @since 1.7.0 Accepts scoped totals.
 	 */
-	private function format_donor( $donor ) {
+	private function format_donor( $donor, $totals = null ) {
 		// Return raw (validated/sanitized at storage) strings in the JSON
 		// payload. React JSX renders text nodes with built-in escaping, so
 		// server-side esc_html() would double-escape — a donor named
@@ -890,9 +934,12 @@ class Donors_API {
 			'company'             => Helper::get_string_value( $donor['company'] ?? '' ),
 			'address'             => Helper::get_string_value( $donor['address'] ?? '' ),
 			'user_id'             => isset( $donor['user_id'] ) ? Helper::get_integer_value( $donor['user_id'] ) : 0,
-			'total_donated'       => Helper::get_float_value( $donor['total_donated'] ?? 0 ),
-			'donation_count'      => isset( $donor['donation_count'] ) ? Helper::get_integer_value( $donor['donation_count'] ) : 0,
-			'largest_donation'    => Helper::get_float_value( $donor['largest_donation'] ?? 0 ),
+			// The stored columns count every payment mode and are never decremented
+			// on refund, so a caller that can supply scoped totals should: otherwise
+			// this card contradicts the mode-scoped activity chart beside it.
+			'total_donated'       => is_array( $totals ) ? (float) $totals['total_donated'] : Helper::get_float_value( $donor['total_donated'] ?? 0 ),
+			'donation_count'      => is_array( $totals ) ? (int) $totals['donation_count'] : ( isset( $donor['donation_count'] ) ? Helper::get_integer_value( $donor['donation_count'] ) : 0 ),
+			'largest_donation'    => is_array( $totals ) ? (float) $totals['largest_donation'] : Helper::get_float_value( $donor['largest_donation'] ?? 0 ),
 			'first_donation_date' => Helper::get_string_value( $donor['first_donation_date'] ?? '' ),
 			'last_donation_date'  => Helper::get_string_value( $donor['last_donation_date'] ?? '' ),
 			'donor_tags'          => is_array( $donor['donor_tags'] ?? null ) ? array_values( array_filter( array_map( [ Helper::class, 'get_string_value' ], $donor['donor_tags'] ) ) ) : [],

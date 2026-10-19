@@ -5,8 +5,8 @@
  * Imports donor profiles from a SureDonation-exported CSV (a "pure donor"
  * import — profiles only, no donation history). Matches by unique email:
  * existing donors are updated with the non-empty fields provided, new donors
- * are created via Donors::add() (an existing WP user is linked by email; none
- * is created).
+ * are created via Donors::add() unbound -- no WP user is linked or created,
+ * since a bare email match is not proof of account ownership. See GIT-132.
  *
  * @package SureDonation
  * @since 1.3.0
@@ -108,8 +108,17 @@ class Donors_Import_Mapper {
 			return;
 		}
 
-		$user              = get_user_by( 'email', $email );
-		$fields['user_id'] = $user instanceof \WP_User ? (int) $user->ID : null;
+		// No source-system user id travels with a "pure donor" CSV row, and a
+		// bare email match against an existing WP account is not proof that
+		// account controls that mailbox (GIT-132) -- leave the row unbound.
+		// The donor dashboard's verified link flow is the path back for a
+		// donor who registers later under this address.
+		// 0, not null: Base::prepare_data() treats an explicit null as unset
+		// via isset() and substitutes the schema default anyway (also 0), so
+		// this is the value that actually lands in the column either way --
+		// writing it directly matches what resolve_wp_user_id() elsewhere
+		// returns for the same "no bind" case.
+		$fields['user_id'] = 0;
 		$donor_id          = Donors::add( $fields );
 		if ( $donor_id ) {
 			Import_Runner::track_created( $progress, 'donors', (int) $donor_id );

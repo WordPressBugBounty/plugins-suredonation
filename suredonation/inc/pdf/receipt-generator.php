@@ -396,10 +396,13 @@ class Receipt_Generator {
 		$payment_method      = esc_html( ucfirst( Helper::get_string_value( $donation['gateway'] ?? '' ) ) );
 		$transaction_id      = esc_html( Helper::get_string_value( $donation['transaction_id'] ?? '' ) );
 		$currency            = Helper::get_string_value( $donation['currency'] ?? 'USD' );
-		$total               = Helper::get_float_value( $donation['amount'] ?? 0 );
-		$fees_covered        = Helper::get_float_value( $donation['fees_covered'] ?? 0 );
-		$amount              = $total - $fees_covered;
-		$date                = Helper::get_string_value( $donation['created_at'] ?? '' );
+		// `amount` is the charged total on one gateway and the base gift on
+		// another, so the base has to be derived from the charged figure rather
+		// than from the column, or PayPal's receipt reads a fee too low.
+		$total        = Donations::get_charged_amount( $donation );
+		$fees_covered = Helper::get_float_value( $donation['fees_covered'] ?? 0 );
+		$amount       = $total - $fees_covered;
+		$date         = Helper::get_string_value( $donation['created_at'] ?? '' );
 
 		if ( ! empty( $date ) ) {
 			$date_format    = Helper::get_string_value( get_option( 'date_format' ) );
