@@ -320,6 +320,10 @@ class Stripe_Webhook {
 				 *                         to Stripe so retries stop. Use this for
 				 *                         malformed event data the callback will
 				 *                         never be able to process.
+				 *   - WP_Error with code 'donation_not_found'
+				 *                       : The event belongs to no SureDonation record
+				 *                         (another product on a shared account) and
+				 *                         is acked too. Since 1.7.1.
 				 *   - Any other WP_Error: Transient failure — returned as-is so
 				 *                         Stripe retries on its standard schedule.
 				 *
@@ -346,9 +350,12 @@ class Stripe_Webhook {
 					if ( is_wp_error( $result ) ) {
 						// Drop permanent-failure errors so Stripe stops retrying events
 						// the pro callback will never be able to process (e.g. malformed
-						// event data). Transient errors fall through and are returned
-						// as-is so Stripe retries on its standard schedule.
-						if ( in_array( $result->get_error_code(), [ 'permanent_failure', 'invalid_event' ], true ) ) {
+						// event data), and not-found errors for events that belong to
+						// another product on a shared account - acked here as well so a
+						// Pro build that still reports them does not answer 500.
+						// Transient errors fall through and are returned as-is so Stripe
+						// retries on its standard schedule.
+						if ( in_array( $result->get_error_code(), [ 'permanent_failure', 'invalid_event', 'donation_not_found' ], true ) ) {
 							return true;
 						}
 
@@ -399,7 +406,7 @@ class Stripe_Webhook {
 		if ( is_wp_error( $amount_verification ) ) {
 			// Find donation and mark as suspicious for manual review.
 			$donation = self::resolve_donation_for_intent( $payment_intent_id, $charge_id );
-			if ( $donation && isset( $donation['id'] ) && is_numeric( $donation['id'] ) ) {
+			if ( is_array( $donation ) && isset( $donation['id'] ) && is_numeric( $donation['id'] ) ) {
 				$donation_id = absint( $donation['id'] );
 				$error_data  = $amount_verification->get_error_data();
 				Donations::update_status( $donation_id, 'suspicious' );
@@ -425,21 +432,20 @@ class Stripe_Webhook {
 		// Find donation by transaction ID.
 		$donation = self::resolve_donation_for_intent( $payment_intent_id, $charge_id );
 
-		if ( ! $donation || ! isset( $donation['id'] ) || ! is_numeric( $donation['id'] ) ) {
-			// An unmatched event is treated as ours until it proves otherwise,
-			// because the row may simply not have been inserted yet and Stripe's
-			// retry is what recovers that. The one case we can rule out is an
-			// intent another install created: Stripe delivers every event on a
-			// connected account to every endpoint registered against it, so a
-			// shared account means a site receives the other's payments. Acked
-			// silently, because retrying and logging a failure for a payment that
-			// was never ours is what filled the donation-failure log with other
-			// sites' successful payments.
-			if ( self::intent_belongs_to_another_site( $data ) ) {
-				return true;
-			}
+		if ( is_wp_error( $donation ) ) {
+			return $donation;
+		}
 
-			return new \WP_Error( 'donation_not_found', 'Donation record not found for transaction: ' . $payment_intent_id );
+		if ( ! $donation || ! isset( $donation['id'] ) || ! is_numeric( $donation['id'] ) ) {
+			// Not ours. Stripe delivers every event on a connected account to every
+			// endpoint registered against it, so a shared account sends this site
+			// other products' payments (WooCommerce, SureCart, another install).
+			// None of ours can arrive unmatched: the pending row is inserted before
+			// the client secret reaches the browser, and a subscription payment that
+			// races its charge id is only ever acked below. Answering an error made
+			// Stripe retry for days, warn that the endpoint was failing, and fill
+			// the donation-failure log with payments that were never donations.
+			return true;
 		}
 
 		// Pro owns a subscription row: it completes one under a lock and credits
@@ -532,10 +538,15 @@ class Stripe_Webhook {
 		}
 
 		// Find donation by transaction ID.
-		$donation = Donations::get_by_transaction_id( $payment_intent_id );
+		$donation = self::find_donation( [ $payment_intent_id ] );
 
+		if ( is_wp_error( $donation ) ) {
+			return $donation;
+		}
+
+		// Not ours (another product on a shared account); see handle_payment_succeeded().
 		if ( ! $donation || ! isset( $donation['id'] ) || ! is_numeric( $donation['id'] ) ) {
-			return new \WP_Error( 'donation_not_found', 'Donation record not found' );
+			return true;
 		}
 
 		$donation_id = absint( $donation['id'] );
@@ -598,20 +609,16 @@ class Stripe_Webhook {
 		$payment_intent_id = isset( $refund['payment_intent'] ) && is_string( $refund['payment_intent'] ) ? $refund['payment_intent'] : '';
 		$charge_id         = isset( $refund['charge'] ) && is_string( $refund['charge'] ) ? $refund['charge'] : '';
 
-		$donation = null;
+		// Try the payment intent first, then the charge ID as a fallback.
+		$donation = self::find_donation( [ $payment_intent_id, $charge_id ] );
 
-		// Method 1: Try to find donation by payment_intent.
-		if ( ! empty( $payment_intent_id ) ) {
-			$donation = Donations::get_by_transaction_id( $payment_intent_id );
+		if ( is_wp_error( $donation ) ) {
+			return $donation;
 		}
 
-		// Method 2: Try to find by charge ID as fallback.
-		if ( ! $donation && ! empty( $charge_id ) ) {
-			$donation = Donations::get_by_transaction_id( $charge_id );
-		}
-
+		// Not ours (another product on a shared account); see handle_payment_succeeded().
 		if ( ! $donation || ! isset( $donation['id'] ) || ! is_numeric( $donation['id'] ) ) {
-			return new \WP_Error( 'donation_not_found', 'Donation record not found for refund' );
+			return true;
 		}
 
 		$donation_id = absint( $donation['id'] );
@@ -824,10 +831,15 @@ class Stripe_Webhook {
 		}
 
 		// Find donation by transaction ID.
-		$donation = Donations::get_by_transaction_id( $payment_intent_id );
+		$donation = self::find_donation( [ $payment_intent_id ] );
 
+		if ( is_wp_error( $donation ) ) {
+			return $donation;
+		}
+
+		// Not ours (another product on a shared account); see handle_payment_succeeded().
 		if ( ! $donation || ! isset( $donation['id'] ) || ! is_numeric( $donation['id'] ) ) {
-			return new \WP_Error( 'donation_not_found', 'Donation record not found' );
+			return true;
 		}
 
 		$donation_id = absint( $donation['id'] );
@@ -866,18 +878,20 @@ class Stripe_Webhook {
 	 * @param array<string, mixed> $data       Account object from the event.
 	 * @param string               $mode       Payment mode.
 	 * @param string               $account_id Connected account whose secret verified the event.
-	 * @return bool|\WP_Error True on success, WP_Error when unrecoverable.
+	 * @return bool True once recorded, or when there is nothing to record it against.
 	 * @since 1.5.1
 	 */
 	private function handle_account_updated( $data, $mode, $account_id = '' ) {
 		if ( ! is_string( $account_id ) || '' === $account_id ) {
 			// Nothing to attribute the state to. Permanent: a retry produces the
-			// same event with the same missing context, so ack it and stop.
-			return new \WP_Error( 'invalid_event', 'No connected account resolved for account.updated' );
+			// same event with the same missing context, so ack it and stop. An
+			// error here answered 500: only the extension filter's errors are
+			// screened for permanent codes, so this one was retried for days.
+			return true;
 		}
 
 		if ( ! is_array( $data ) || empty( $data ) ) {
-			return new \WP_Error( 'invalid_event', 'account.updated carried no account object' );
+			return true;
 		}
 
 		$updated = Stripe_Helper::update_account_fields(
@@ -889,7 +903,7 @@ class Stripe_Webhook {
 			// The account is no longer stored (disconnected between the event
 			// being sent and processed). Nothing to record, and retrying will
 			// not bring it back.
-			return new \WP_Error( 'invalid_event', 'Connected account not found for account.updated' );
+			return true;
 		}
 
 		return true;
@@ -907,43 +921,53 @@ class Stripe_Webhook {
 	 * @param string $payment_intent_id Stripe payment intent id.
 	 * @param string $charge_id         The intent's latest charge id, when the event carried one.
 	 *
-	 * @return array<string, mixed>|null The donation row, or null when none matches.
+	 * @return array<string, mixed>|null|\WP_Error The donation row, null when none
+	 *                                             matches, or WP_Error when a lookup
+	 *                                             failed (see find_donation()).
 	 *
 	 * @since 1.7.0
 	 */
 	private static function resolve_donation_for_intent( $payment_intent_id, $charge_id = '' ) {
-		$donation = Donations::get_by_transaction_id( $payment_intent_id );
-
-		if ( ! $donation && '' !== (string) $charge_id ) {
-			$donation = Donations::get_by_transaction_id( $charge_id );
-		}
-
-		return is_array( $donation ) ? $donation : null;
+		return self::find_donation( [ $payment_intent_id, $charge_id ] );
 	}
 
 	/**
-	 * Whether a payment intent was created by a different install.
+	 * Find the donation recorded under the first of these Stripe ids that matches.
 	 *
-	 * Only answers true when the intent carries a `site_url` that is not this
-	 * site's. An intent with no `site_url` predates that metadata, or was not
-	 * created by SureDonation at all, and is left to the caller's normal
-	 * not-found handling rather than being silently discarded.
+	 * A failed query is returned as an error, never read as "no row". An event
+	 * that matches nothing is acked as another product's, so a lookup lost to a
+	 * lock timeout or a dropped connection would otherwise drop one of ours for
+	 * good. The error answers 500 and Stripe's retry finds the row.
 	 *
-	 * @param array<string, mixed> $data Payment intent object from the event.
+	 * @param array<int, string> $transaction_ids Ids to try, in order. Empty ones are skipped.
 	 *
-	 * @return bool
+	 * @return array<string, mixed>|null|\WP_Error The donation row, null when none matches,
+	 *                                             or WP_Error when a lookup failed.
 	 *
-	 * @since 1.7.0
+	 * @since 1.7.1
 	 */
-	private static function intent_belongs_to_another_site( array $data ) {
-		$metadata = isset( $data['metadata'] ) && is_array( $data['metadata'] ) ? $data['metadata'] : [];
-		$site_url = isset( $metadata['site_url'] ) && is_string( $metadata['site_url'] ) ? $metadata['site_url'] : '';
+	private static function find_donation( array $transaction_ids ) {
+		global $wpdb;
 
-		if ( '' === $site_url ) {
-			return false;
+		foreach ( $transaction_ids as $transaction_id ) {
+			// get_by_transaction_id() runs no query for these, so last_error below would be another query's.
+			if ( empty( $transaction_id ) ) {
+				continue;
+			}
+
+			$donation = Donations::get_by_transaction_id( $transaction_id );
+
+			if ( is_array( $donation ) ) {
+				return $donation;
+			}
+
+			// wpdb clears last_error at the start of every query, so this is the lookup's own.
+			if ( '' !== $wpdb->last_error ) {
+				return new \WP_Error( 'donation_lookup_failed', 'Donation lookup failed with a database error' );
+			}
 		}
 
-		return untrailingslashit( $site_url ) !== untrailingslashit( home_url() );
+		return null;
 	}
 
 	/**

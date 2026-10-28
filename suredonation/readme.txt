@@ -4,7 +4,7 @@ Donate link: https://www.paypal.me/BrainstormForce
 Tags: donation, donation form, fundraising, nonprofit, recurring donations
 Requires at least: 6.4
 Tested up to: 7.1.2
-Stable tag: 1.7.0
+Stable tag: 1.7.1
 Requires PHP: 8.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -229,6 +229,10 @@ This plugin connects to external services only when the related feature or payme
 
 == Changelog ==
 
+= 1.7.1 - 28th October 2026 =
+* Fix: Dropdown and Phone Number fields now load their assets reliably.
+* Fix: Stripe webhook events from other plugins on the same Stripe account are now handled correctly instead of showing as failed.
+
 = 1.7.0 - 19th October 2026 =
 * New: Added per-option icons and images to the Donation Amount field.
 * New: Added an optional description under each donation amount option.
@@ -244,9 +248,5 @@ This plugin connects to external services only when the related feature or payme
 = 1.6.1 - 25th September 2026 =
 * New: Added a weekly Email Reports digest that emails a summary of your donation activity.
 * Improvement: Minor code improvements and bug fixes.
-
-= 1.6.0 - 15th September 2026 =
-* New: Added a Donor Comments field so supporters can leave a note with their donation.
-* New: Added support for the Polish Złoty (PLN) currency.
 
 The full changelog is available [here](https://suredonation.com/whats-new/?utm_source=wordpress.org&utm_medium=whats_new).

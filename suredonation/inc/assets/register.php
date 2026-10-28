@@ -115,7 +115,7 @@ class Register {
 		// Enqueued conditionally by the input block render only when a field uses an input pattern.
 		wp_register_script(
 			'suredonation-inputmask',
-			SUREDONATION_URL . 'assets/js/vendor/inputmask.min.js',
+			SUREDONATION_URL . 'assets/js/deps/inputmask.min.js',
 			[],
 			SUREDONATION_VER,
 			true
@@ -125,14 +125,14 @@ class Register {
 		// Enqueued conditionally by the dropdown block render only when present.
 		wp_register_style(
 			'suredonation-tom-select',
-			SUREDONATION_URL . 'assets/css/vendor/tom-select.css',
+			SUREDONATION_URL . 'assets/css/deps/tom-select.css',
 			[],
 			SUREDONATION_VER
 		);
 
 		wp_register_script(
 			'suredonation-tom-select',
-			SUREDONATION_URL . 'assets/js/vendor/tom-select.min.js',
+			SUREDONATION_URL . 'assets/js/deps/tom-select.min.js',
 			[],
 			SUREDONATION_VER,
 			true
@@ -160,14 +160,14 @@ class Register {
 		// Enqueued conditionally by the phone block render only when present.
 		wp_register_style(
 			'suredonation-intl-tel-input',
-			SUREDONATION_URL . 'assets/css/vendor/intl/intlTelInput.min.css',
+			SUREDONATION_URL . 'assets/css/deps/intl/intlTelInput.min.css',
 			[],
 			SUREDONATION_VER
 		);
 
 		wp_register_script(
 			'suredonation-intl-tel-input',
-			SUREDONATION_URL . 'assets/js/vendor/intl/intTelInputWithUtils.min.js',
+			SUREDONATION_URL . 'assets/js/deps/intl/intTelInputWithUtils.min.js',
 			[],
 			SUREDONATION_VER,
 			true

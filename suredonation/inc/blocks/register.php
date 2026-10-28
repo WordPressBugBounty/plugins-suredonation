@@ -517,13 +517,13 @@ class Register {
 		);
 		$this->append_iframe_style(
 			$settings,
-			$this->read_iframe_css( SUREDONATION_DIR . 'assets/css/vendor/tom-select.css' )
+			$this->read_iframe_css( SUREDONATION_DIR . 'assets/css/deps/tom-select.css' )
 		);
 		$this->append_iframe_style(
 			$settings,
 			$this->read_iframe_css(
-				SUREDONATION_DIR . 'assets/css/vendor/intl/intlTelInput.min.css',
-				[ '../intl/img/' => SUREDONATION_URL . 'assets/css/vendor/intl/img/' ]
+				SUREDONATION_DIR . 'assets/css/deps/intl/intlTelInput.min.css',
+				[ '../intl/img/' => SUREDONATION_URL . 'assets/css/deps/intl/img/' ]
 			)
 		);
 
@@ -554,8 +554,8 @@ class Register {
 		$this->append_iframe_style(
 			$settings,
 			$this->read_iframe_css(
-				SUREDONATION_DIR . 'assets/css/vendor/intl/intlTelInput.min.css',
-				[ '../intl/img/' => SUREDONATION_URL . 'assets/css/vendor/intl/img/' ]
+				SUREDONATION_DIR . 'assets/css/deps/intl/intlTelInput.min.css',
+				[ '../intl/img/' => SUREDONATION_URL . 'assets/css/deps/intl/img/' ]
 			)
 		);
 

@@ -176,11 +176,11 @@ class Stripe_Frontend {
 				'fees_covered'    => $fees_covered_cents,
 				'cover_fees'      => $cover_fees ? 'yes' : 'no',
 				// Which install created this intent. Stripe delivers every event on
-				// a connected account to every endpoint registered against it, so a
-				// site sharing an account with another install receives the other's
-				// payments and cannot otherwise tell them from one of its own whose
-				// row has gone missing. Without it the webhook has to assume every
-				// unmatched event might be ours, retry it, and log a failure.
+				// a connected account to every endpoint registered against it, so an
+				// account shared with another install or product sends each site the
+				// others' payments. The webhook ignores those by finding no matching
+				// row; this tells support, reading the Stripe dashboard, which site a
+				// payment came from.
 				'site_url'        => home_url(),
 			],
 		];
